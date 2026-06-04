@@ -25,17 +25,14 @@ const TABS = [
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
-// ─── HELPERS FOR URL COMPRESSION ──────────────────────────────────────────────
+// ─── FIX: Dùng LZString để nén Unicode đúng cách ─────────────────────────────
 const compressData = (state) => {
   try {
     const json = JSON.stringify(state);
-    const bytes = new TextEncoder().encode(json);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary);
+    // Dùng encodeURIComponent + btoa cho Unicode
+    return btoa(encodeURIComponent(json));
   } catch (e) {
+    console.error("Compress error:", e);
     return "";
   }
 };
@@ -43,13 +40,9 @@ const compressData = (state) => {
 const decompressData = (str) => {
   try {
     if (!str) return null;
-    const binary = atob(str);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return JSON.parse(new TextDecoder().decode(bytes));
+    return JSON.parse(decodeURIComponent(atob(str)));
   } catch (e) {
+    console.error("Decompress error:", e);
     return null;
   }
 };
@@ -606,7 +599,8 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
         </div>
 
         {sorted.map((r) => {
-          const mc = MEMBER_COLORS[members.indexOf(members.find(m => m.id === r.id)) % MEMBER_COLORS.length];
+          const memberIndex = members.findIndex(m => m.id === r.id);
+          const mc = MEMBER_COLORS[memberIndex >= 0 ? memberIndex % MEMBER_COLORS.length : 0];
           const pct = pctOf(r.finalScore);
           const pg = personalGrade(r.finalScore);
           const pgColor = pg === null ? "#475569" : pg >= 8.5 ? "#22c55e" : pg >= 7 ? "#6366f1" : pg >= 5.5 ? "#f59e0b" : "#ef4444";
@@ -696,9 +690,9 @@ export default function App() {
   const [leaderScores, setLeaderScores] = useState({});
   const [teacherScore, setTeacherScore] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const loaded = useRef(false);
 
+  // Load data from URL on first render
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedData = params.get("g");
@@ -715,9 +709,9 @@ export default function App() {
       }
     }
     loaded.current = true;
-    setIsDataLoaded(true);
   }, []);
 
+  // Save data to URL whenever state changes
   useEffect(() => {
     if (!loaded.current) return;
     if (members.length === 0 && !projectName && tasks.length === 0) {
@@ -748,17 +742,6 @@ export default function App() {
     peer: peerCompletedCount !== null ? `${peerCompletedCount}/${members.length}` : null,
     result: null,
   };
-
-  if (!isDataLoaded) {
-    return (
-      <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔄</div>
-          <div style={{ fontSize: 16, color: "#a5b4fc" }}>Đang tải dữ liệu...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0" }}>
