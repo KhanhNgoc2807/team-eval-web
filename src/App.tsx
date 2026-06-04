@@ -24,6 +24,196 @@ const TABS = [
 const uid = () => Math.random().toString(36).substring(2, 9);
 const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
+// ─── DEADLINE REMINDER COMPONENT ──────────────────────────────────────────────
+function DeadlineReminder({ tasks, members }) {
+  const [showReminder, setShowReminder] = useState(false);
+  const [lastChecked, setLastChecked] = useState(null);
+
+  useEffect(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const upcomingTasks = tasks.filter(t => {
+      if (!t.deadline || t.status === "done") return false;
+      const dl = new Date(t.deadline + "T00:00:00");
+      const diffDays = Math.ceil((dl - today) / (1000 * 60 * 60 * 24));
+      return diffDays <= 2 && diffDays >= 0;
+    });
+    
+    const overdueTasks = tasks.filter(t => {
+      if (!t.deadline || t.status === "done") return false;
+      const dl = new Date(t.deadline + "T00:00:00");
+      return dl < today;
+    });
+    
+    const totalUrgent = upcomingTasks.length + overdueTasks.length;
+    const currentCheck = JSON.stringify({ upcoming: upcomingTasks.length, overdue: overdueTasks.length });
+    if (lastChecked !== currentCheck && totalUrgent > 0) {
+      setShowReminder(true);
+      setLastChecked(currentCheck);
+    }
+  }, [tasks, lastChecked]);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const upcomingTasks = tasks.filter(t => {
+    if (!t.deadline || t.status === "done") return false;
+    const dl = new Date(t.deadline + "T00:00:00");
+    const diffDays = Math.ceil((dl - today) / (1000 * 60 * 60 * 24));
+    return diffDays <= 2 && diffDays >= 0;
+  });
+  
+  const overdueTasks = tasks.filter(t => {
+    if (!t.deadline || t.status === "done") return false;
+    const dl = new Date(t.deadline + "T00:00:00");
+    return dl < today;
+  });
+  
+  const urgentCount = upcomingTasks.length + overdueTasks.length;
+  
+  if (urgentCount === 0) return null;
+  
+  const tasksByMember = {};
+  [...upcomingTasks, ...overdueTasks].forEach(t => {
+    const member = members.find(m => m.id === t.assignee);
+    const name = member ? member.name : "Unknown";
+    if (!tasksByMember[name]) tasksByMember[name] = [];
+    tasksByMember[name].push({ ...t, isOverdue: overdueTasks.includes(t) });
+  });
+
+  return (
+    <>
+      <div 
+        onClick={() => setShowReminder(true)}
+        style={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          background: overdueTasks.length > 0 ? "#ef4444" : "#f59e0b",
+          color: "#fff",
+          borderRadius: 40,
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
+          cursor: "pointer",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+          zIndex: 1000,
+          fontFamily: "'DM Sans', sans-serif",
+          transition: "transform 0.2s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
+        onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+      >
+        <span style={{ fontSize: 20 }}>⏰</span>
+        <span style={{ fontWeight: 700 }}>{urgentCount} task sắp đến hạn!</span>
+        <span style={{ fontSize: 16 }}>▶</span>
+      </div>
+
+      {showReminder && (
+        <div 
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2000,
+            backdropFilter: "blur(4px)",
+          }}
+          onClick={() => setShowReminder(false)}
+        >
+          <div 
+            style={{
+              background: "#1a1a2e",
+              borderRadius: 24,
+              maxWidth: 500,
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+              padding: 24,
+              border: "1px solid #312e81",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, color: "#fcd34d", display: "flex", alignItems: "center", gap: 10 }}>
+                <span>⚠️</span> NHẮC NHỞ DEADLINE
+              </h3>
+              <button 
+                onClick={() => setShowReminder(false)}
+                style={{ background: "none", border: "none", color: "#64748b", fontSize: 24, cursor: "pointer" }}
+              >×</button>
+            </div>
+            
+            {overdueTasks.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ color: "#ef4444", fontWeight: 700, marginBottom: 12 }}>🔴 QUÁ HẠN ({overdueTasks.length})</div>
+                {Object.entries(tasksByMember).map(([memberName, memberTasks]) => {
+                  const overdueMemberTasks = memberTasks.filter(t => t.isOverdue);
+                  if (overdueMemberTasks.length === 0) return null;
+                  return (
+                    <div key={memberName} style={{ marginBottom: 12, background: "#0f0f23", borderRadius: 12, padding: 12 }}>
+                      <div style={{ color: "#a5b4fc", fontWeight: 600, marginBottom: 8 }}>👤 {memberName}</div>
+                      {overdueMemberTasks.map(t => (
+                        <div key={t.id} style={{ color: "#f87171", fontSize: 13, marginLeft: 12, marginBottom: 4 }}>• {t.name} (hết hạn)</div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {upcomingTasks.length > 0 && (
+              <div>
+                <div style={{ color: "#f59e0b", fontWeight: 700, marginBottom: 12 }}>🟡 SẮP ĐẾN HẠN ({upcomingTasks.length})</div>
+                {Object.entries(tasksByMember).map(([memberName, memberTasks]) => {
+                  const upcomingMemberTasks = memberTasks.filter(t => !t.isOverdue);
+                  if (upcomingMemberTasks.length === 0) return null;
+                  return (
+                    <div key={memberName} style={{ marginBottom: 12, background: "#0f0f23", borderRadius: 12, padding: 12 }}>
+                      <div style={{ color: "#a5b4fc", fontWeight: 600, marginBottom: 8 }}>👤 {memberName}</div>
+                      {upcomingMemberTasks.map(t => {
+                        const dl = new Date(t.deadline + "T00:00:00");
+                        const diffDays = Math.ceil((dl - today) / (1000 * 60 * 60 * 24));
+                        return (
+                          <div key={t.id} style={{ color: "#fcd34d", fontSize: 13, marginLeft: 12, marginBottom: 4 }}>• {t.name} (còn {diffDays} ngày)</div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            <button 
+              onClick={() => setShowReminder(false)}
+              style={{
+                marginTop: 20,
+                width: "100%",
+                padding: "12px",
+                background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+                border: "none",
+                borderRadius: 12,
+                color: "#fff",
+                fontWeight: 700,
+                cursor: "pointer"
+              }}
+            >
+              Đã hiểu, tôi sẽ làm
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── SUB COMPONENTS ───────────────────────────────────────────────────────────
 function Tag({ color, children, style = {} }) {
   return <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 700, ...style }}>{children}</span>;
@@ -72,6 +262,7 @@ function ProgressBar({ value, max, color = "#6366f1" }) {
   </div>;
 }
 
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
 const filterBtn = { padding: "6px 14px", borderRadius: 20, border: "1px solid #1e2235", background: "transparent", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" };
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
@@ -435,13 +626,11 @@ export default function App() {
   const [isCopied, setIsCopied] = useState(false);
   const [isReady, setIsReady] = useState(false);
   
-  // Lấy groupId từ URL hoặc tạo mới
   const [groupId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("id") || uid();
   });
 
-  // Load dữ liệu từ localStorage khi mở trang
   useEffect(() => {
     const saved = localStorage.getItem(`team_${groupId}`);
     if (saved) {
@@ -459,7 +648,6 @@ export default function App() {
     setIsReady(true);
   }, [groupId]);
 
-  // Lắng nghe sự kiện từ tab khác (QUAN TRỌNG: giúp đồng bộ realtime)
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === `team_${groupId}` && e.newValue) {
@@ -479,7 +667,6 @@ export default function App() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [groupId]);
 
-  // Lưu dữ liệu vào localStorage mỗi khi state thay đổi
   useEffect(() => {
     if (!isReady) return;
     const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore };
@@ -549,6 +736,9 @@ export default function App() {
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} />}
         {tab === "result" && <ResultTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} />}
       </div>
+      
+      {/* Deadline reminder - hiển thị ở góc phải màn hình */}
+      <DeadlineReminder tasks={tasks} members={members} />
     </div>
   );
 }
