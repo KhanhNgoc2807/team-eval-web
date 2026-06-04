@@ -481,16 +481,4 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
 // ─── RESULT TAB ───────────────────────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore }) {
   const results = useMemo(() => {
-    if (members.length === 0) return [];
-    
-    return members.map(m => {
-      const myTasks = tasks.filter(t => t.assignee === m.id);
-      const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
-      const earned = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100 * STATUS[t.status].pct, 0);
-      const taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : null;
-
-      const receivedScores = [];
-      members.forEach(reviewer => {
-        if (reviewer.id === m.id) return;
-        PEER_CRITERIA.forEach(c => {
-          const s = peerScores?.[reviewer.id]
+    if (members
