@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
@@ -14,7 +14,6 @@ const RATING_OPTIONS = [
   { value: 10, label: "10 – Xuất sắc" },
 ];
 const MEMBER_COLORS = ["#6366f1","#ec4899","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ef4444","#14b8a6","#f97316","#84cc16","#06b6d4","#a855f7","#e11d48","#0ea5e9","#22c55e","#eab308"];
-
 const TABS = [
   { id: "setup", icon: "⚙️", label: "Thiết lập" },
   { id: "tasks", icon: "📋", label: "Task Log" },
@@ -22,31 +21,7 @@ const TABS = [
   { id: "leader", icon: "👑", label: "Leader" },
   { id: "result", icon: "🏆", label: "Kết quả" },
 ];
-
 const uid = () => Math.random().toString(36).substring(2, 9);
-
-// ─── FIX: Dùng LZString để nén Unicode đúng cách ─────────────────────────────
-const compressData = (state) => {
-  try {
-    const json = JSON.stringify(state);
-    // Dùng encodeURIComponent + btoa cho Unicode
-    return btoa(encodeURIComponent(json));
-  } catch (e) {
-    console.error("Compress error:", e);
-    return "";
-  }
-};
-
-const decompressData = (str) => {
-  try {
-    if (!str) return null;
-    return JSON.parse(decodeURIComponent(atob(str)));
-  } catch (e) {
-    console.error("Decompress error:", e);
-    return null;
-  }
-};
-
 const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
 // ─── SUB COMPONENTS ───────────────────────────────────────────────────────────
@@ -97,7 +72,6 @@ function ProgressBar({ value, max, color = "#6366f1" }) {
   </div>;
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
 const filterBtn = { padding: "6px 14px", borderRadius: 20, border: "1px solid #1e2235", background: "transparent", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" };
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
@@ -113,26 +87,15 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
     setName(""); setMssv("");
   };
 
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") add();
-  };
+  const handleKeyDown = (e) => { if (e.key === "Enter") add(); };
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
       <Card>
         <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THÔNG TIN DỰ ÁN</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={lbl}>Tên dự án / môn học</label>
-            <Input value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing Semester 2" />
-          </div>
-          <div>
-            <label style={lbl}>Nhóm trưởng</label>
-            <Select value={leader} onChange={setLeader}>
-              <option value="">Chọn nhóm trưởng...</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </Select>
-          </div>
+          <div><label style={lbl}>Tên dự án / môn học</label><Input value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing Semester 2" /></div>
+          <div><label style={lbl}>Nhóm trưởng</label><Select value={leader} onChange={setLeader}><option value="">Chọn nhóm trưởng...</option>{members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
         </div>
         <div style={{ marginTop: 20, padding: 16, background: "#0a0a10", borderRadius: 12, fontSize: 13, color: "#475569", lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 Công thức tính điểm</div>
@@ -199,9 +162,7 @@ function TaskTab({ members, tasks, setTasks }) {
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button onClick={() => setFilter("all")} style={{ ...filterBtn, ...(filter === "all" ? filterActive : {}) }}>
-            Tất cả ({tasks.length})
-          </button>
+          <button onClick={() => setFilter("all")} style={{ ...filterBtn, ...(filter === "all" ? filterActive : {}) }}>Tất cả ({tasks.length})</button>
           {members.filter(m => tasks.some(t => t.assignee === m.id)).map(m => (
             <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)}
               style={{ ...filterBtn, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "18" } : {}) }}>
@@ -216,46 +177,17 @@ function TaskTab({ members, tasks, setTasks }) {
       {showForm && (
         <Card style={{ marginBottom: 20, borderColor: "#312e81" }}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
-            <div>
-              <label style={lbl}>Tên công việc *</label>
-              <Input value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." />
-            </div>
-            <div>
-              <label style={lbl}>Giao cho *</label>
-              <Select value={form.assignee} onChange={v => setForm(f => ({ ...f, assignee: v }))}>
-                <option value="">Chọn thành viên...</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </Select>
-            </div>
-            <div>
-              <label style={lbl}>Deadline</label>
-              <Input type="date" value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} />
-            </div>
-            <div style={{ paddingBottom: 0 }}>
-              <label style={lbl}>Độ khó</label>
-              <div style={{ display: "flex", gap: 6 }}>
-                {[1, 2, 3].map(v => (
-                  <button key={v} onClick={() => setForm(f => ({ ...f, complexity: v }))}
-                    style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v].color : "#1e2235"}`, background: form.complexity === v ? COMPLEXITY[v].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v].color : "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-                    LV{v}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <div><label style={lbl}>Tên công việc *</label><Input value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." /></div>
+            <div><label style={lbl}>Giao cho *</label><Select value={form.assignee} onChange={v => setForm(f => ({ ...f, assignee: v }))}><option value="">Chọn thành viên...</option>{members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
+            <div><label style={lbl}>Deadline</label><Input type="date" value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} /></div>
+            <div style={{ paddingBottom: 0 }}><label style={lbl}>Độ khó</label><div style={{ display: "flex", gap: 6 }}>{[1,2,3].map(v => (<button key={v} onClick={() => setForm(f => ({ ...f, complexity: v }))} style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v].color : "#1e2235"}`, background: form.complexity === v ? COMPLEXITY[v].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v].color : "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>LV{v}</button>))}</div></div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-            <Btn onClick={() => setShowForm(false)} variant="ghost">Huỷ</Btn>
-            <Btn onClick={addTask}>✓ Thêm Task</Btn>
-          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Btn onClick={() => setShowForm(false)} variant="ghost">Huỷ</Btn><Btn onClick={addTask}>✓ Thêm Task</Btn></div>
         </Card>
       )}
 
       {filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
-          <div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có task nào</div>
-          <div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm Task" để bắt đầu phân công</div>
-        </div>
+        <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có task nào</div><div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm Task" để bắt đầu phân công</div></div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
           {filtered.map(t => {
@@ -269,22 +201,11 @@ function TaskTab({ members, tasks, setTasks }) {
                 onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,.5)"; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-                  <span style={{ background: mc + "22", color: mc, border: `1px solid ${mc}44`, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>
-                    {member ? member.name.split(" ").pop() : "?"}
-                  </span>
-                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <Tag color={COMPLEXITY[t.complexity].color}>LV{t.complexity} {COMPLEXITY[t.complexity].label}</Tag>
-                    <button onClick={() => setTasks(ts => ts.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 18 }}>×</button>
-                  </div>
+                  <span style={{ background: mc + "22", color: mc, border: `1px solid ${mc}44`, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>{member ? member.name.split(" ").pop() : "?"}</span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}><Tag color={COMPLEXITY[t.complexity].color}>LV{t.complexity} {COMPLEXITY[t.complexity].label}</Tag><button onClick={() => setTasks(ts => ts.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 18 }}>×</button></div>
                 </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : "#e2e8f0", textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10, lineHeight: 1.4 }}>
-                  {t.name}
-                </div>
-                {t.deadline && (
-                  <div style={{ fontSize: 12, color: od ? "#f87171" : "#475569", marginBottom: 12 }}>
-                    {od ? "⚠️ Quá hạn: " : "📅 "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}
-                  </div>
-                )}
+                <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : "#e2e8f0", textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10, lineHeight: 1.4 }}>{t.name}</div>
+                {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : "#475569", marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "background .15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = sc.color + "30"}
                   onMouseLeave={e => e.currentTarget.style.background = sc.color + "18"}>
@@ -314,88 +235,48 @@ function PeerTab({ members, peerScores, setPeerScores }) {
   };
 
   const getScore = (reviewee, criterion) => peerScores?.[reviewer]?.[reviewee]?.[criterion] ?? 0;
-
   const reviewees = members.filter(m => m.id !== reviewer);
   const reviewerMember = members.find(m => m.id === reviewer);
-
   const completedCount = members.length < 2 ? 0 : members.filter(m => {
     if (!peerScores[m.id]) return false;
-    return members.filter(x => x.id !== m.id).every(reviewee =>
-      PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)
-    );
+    return members.filter(x => x.id !== m.id).every(reviewee => PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0));
   }).length;
 
-  if (members.length < 2) {
-    return (
-      <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
-        <div style={{ fontSize: 16 }}>Cần ít nhất 2 thành viên để thực hiện đánh giá peer.</div>
-      </div>
-    );
-  }
+  if (members.length < 2) return <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}><div style={{ fontSize: 48, marginBottom: 12 }}>👥</div><div style={{ fontSize: 16 }}>Cần ít nhất 2 thành viên để thực hiện đánh giá peer.</div></div>;
 
   return (
     <div>
       <Card style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600, flexShrink: 0 }}>Bạn là:</div>
-          <div style={{ flex: 1, maxWidth: 360 }}>
-            <Select value={reviewer} onChange={setReviewer}>
-              <option value="">Chọn tên của bạn...</option>
-              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </Select>
-          </div>
-          {members.length >= 2 && (
-            <div style={{ fontSize: 13, color: "#475569" }}>
-              ✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length} thành viên
-            </div>
-          )}
+          <div style={{ flex: 1, maxWidth: 360 }}><Select value={reviewer} onChange={setReviewer}><option value="">Chọn tên của bạn...</option>{members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
+          {members.length >= 2 && <div style={{ fontSize: 13, color: "#475569" }}>✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length} thành viên</div>}
         </div>
-        {reviewer && (
-          <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>
-            Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại theo thang điểm bên dưới.
-          </div>
-        )}
+        {reviewer && <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại theo thang điểm bên dưới.</div>}
       </Card>
 
       {!reviewer ? (
-        <div style={{ textAlign: "center", padding: "60px 0", color: "#334155" }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>👆</div>
-          <div style={{ fontSize: 16 }}>Chọn tên của bạn để bắt đầu đánh giá</div>
-        </div>
+        <div style={{ textAlign: "center", padding: "60px 0", color: "#334155" }}><div style={{ fontSize: 48, marginBottom: 12 }}>👆</div><div style={{ fontSize: 16 }}>Chọn tên của bạn để bắt đầu đánh giá</div></div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {reviewees.map((reviewee) => {
             const mc = MEMBER_COLORS[members.indexOf(reviewee) % MEMBER_COLORS.length];
             const scores = PEER_CRITERIA.map(c => getScore(reviewee.id, c));
-            const filledScores = scores.filter(s => s > 0);
-            const rowAvg = filledScores.length > 0 ? avg(filledScores) : 0;
+            const rowAvg = avg(scores.filter(s => s > 0));
             return (
               <Card key={reviewee.id} style={{ borderColor: "#1e2235" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc, flexShrink: 0 }}>
-                    {reviewee.name.split(" ").pop().charAt(0)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>{reviewee.name}</div>
-                    {reviewee.mssv && <div style={{ fontSize: 12, color: "#475569" }}>{reviewee.mssv}</div>}
-                  </div>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc, flexShrink: 0 }}>{reviewee.name.split(" ").pop().charAt(0)}</div>
+                  <div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>{reviewee.name}</div>{reviewee.mssv && <div style={{ fontSize: 12, color: "#475569" }}>{reviewee.mssv}</div>}</div>
                   {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {rowAvg.toFixed(1)}</Tag>}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-                  {PEER_CRITERIA.map(c => (
-                    <div key={c}>
-                      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>{c}</div>
-                      <RatingSelect value={getScore(reviewee.id, c)} onChange={v => setScore(reviewee.id, c, v)} />
-                    </div>
-                  ))}
+                  {PEER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>{c}</div><RatingSelect value={getScore(reviewee.id, c)} onChange={v => setScore(reviewee.id, c, v)} /></div>))}
                 </div>
               </Card>
             );
           })}
-          <div style={{ textAlign: "center", paddingTop: 8 }}>
-            <Btn onClick={() => setReviewer("")} variant="success">✓ Đã đánh giá xong — Thoát</Btn>
-          </div>
+          <div style={{ textAlign: "center", paddingTop: 8 }}><Btn onClick={() => setReviewer("")} variant="success">✓ Đã đánh giá xong — Thoát</Btn></div>
         </div>
       )}
     </div>
@@ -405,63 +286,33 @@ function PeerTab({ members, peerScores, setPeerScores }) {
 // ─── LEADER TAB ───────────────────────────────────────────────────────────────
 function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
   const leaderMember = members.find(m => m.id === leader);
-
-  const setScore = (memberId, criterion, val) => {
-    setLeaderScores(ls => ({ ...ls, [memberId]: { ...(ls[memberId] || {}), [criterion]: val } }));
-  };
-
+  const setScore = (memberId, criterion, val) => { setLeaderScores(ls => ({ ...ls, [memberId]: { ...(ls[memberId] || {}), [criterion]: val } })); };
   const getScore = (memberId, criterion) => leaderScores?.[memberId]?.[criterion] ?? 0;
 
-  if (!leader) return (
-    <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
-      <div style={{ fontSize: 48, marginBottom: 12 }}>👑</div>
-      <div style={{ fontSize: 16 }}>Chưa chọn nhóm trưởng. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div>
-    </div>
-  );
+  if (!leader) return <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}><div style={{ fontSize: 48, marginBottom: 12 }}>👑</div><div style={{ fontSize: 16 }}>Chưa chọn nhóm trưởng. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div></div>;
 
   const others = members.filter(m => m.id !== leader);
-
-  if (others.length === 0) return (
-    <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
-      <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
-      <div style={{ fontSize: 16 }}>Nhóm chỉ có nhóm trưởng, chưa có thành viên để đánh giá.</div>
-    </div>
-  );
+  if (others.length === 0) return <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}><div style={{ fontSize: 48, marginBottom: 12 }}>👥</div><div style={{ fontSize: 16 }}>Nhóm chỉ có nhóm trưởng, chưa có thành viên để đánh giá.</div></div>;
 
   return (
     <div>
       <Card style={{ marginBottom: 20, borderColor: "#451a03" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 28 }}>👑</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Nhóm trưởng: {leaderMember?.name}</div>
-            <div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí.</div>
-          </div>
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ fontSize: 28 }}>👑</div><div><div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Nhóm trưởng: {leaderMember?.name}</div><div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí.</div></div></div>
       </Card>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {others.map(m => {
           const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
           const scores = LEADER_CRITERIA.map(c => getScore(m.id, c));
-          const filledScores = scores.filter(s => s > 0);
-          const mAvg = filledScores.length > 0 ? avg(filledScores) : 0;
+          const mAvg = avg(scores.filter(s => s > 0));
           return (
             <Card key={m.id}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc, flexShrink: 0 }}>
-                  {m.name.split(" ").pop().charAt(0)}
-                </div>
+                <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc, flexShrink: 0 }}>{m.name.split(" ").pop().charAt(0)}</div>
                 <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{m.name}</div>
                 {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm TB: {mAvg.toFixed(1)}</Tag>}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-                {LEADER_CRITERIA.map(c => (
-                  <div key={c}>
-                    <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>{c}</div>
-                    <RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} />
-                  </div>
-                ))}
+                {LEADER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>{c}</div><RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} /></div>))}
               </div>
             </Card>
           );
@@ -475,99 +326,44 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore }) {
   const results = useMemo(() => {
     if (members.length === 0) return [];
-    
     return members.map(m => {
       const myTasks = tasks.filter(t => t.assignee === m.id);
-      const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
-      const earned = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100 * STATUS[t.status].pct, 0);
-      const taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : null;
-
-      const receivedScores = [];
-      members.forEach(reviewer => {
-        if (reviewer.id === m.id) return;
-        PEER_CRITERIA.forEach(c => {
-          const s = peerScores?.[reviewer.id]?.[m.id]?.[c] ?? 0;
-          if (s > 0) receivedScores.push(s);
-        });
-      });
-      const peerScore = receivedScores.length > 0 ? avg(receivedScores) * 10 : null;
-
-      const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter(s => s > 0);
-      const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : null;
-
-      const isLeader = m.id === leader;
-
-      let finalScore;
-      if (isLeader) {
-        const parts = [];
-        if (taskScore !== null) parts.push({ v: taskScore, w: 0.4 });
-        if (peerScore !== null) parts.push({ v: peerScore, w: 0.6 });
-        const totalW = parts.reduce((s, p) => s + p.w, 0);
-        finalScore = totalW > 0 ? parts.reduce((s, p) => s + p.v * (p.w / totalW), 0) : 0;
-      } else {
-        const parts = [];
-        if (taskScore !== null) parts.push({ v: taskScore, w: 0.4 });
-        if (peerScore !== null) parts.push({ v: peerScore, w: 0.4 });
-        if (leaderScore !== null) parts.push({ v: leaderScore, w: 0.2 });
-        const totalW = parts.reduce((s, p) => s + p.w, 0);
-        finalScore = totalW > 0 ? parts.reduce((s, p) => s + p.v * (p.w / totalW), 0) : 0;
+      let taskScore = 100;
+      if (myTasks.length > 0) {
+        const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
+        const earned = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100 * STATUS[t.status].pct, 0);
+        taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : 100;
       }
-
-      return {
-        ...m,
-        taskScore: taskScore ?? 0,
-        peerScore: peerScore ?? 0,
-        leaderScore: leaderScore ?? 0,
-        taskHasData: taskScore !== null,
-        peerHasData: peerScore !== null,
-        leaderHasData: leaderScore !== null,
-        finalScore,
-        isLeader,
-        myTasks: myTasks.length,
-        doneTasks: myTasks.filter(t => t.status === "done").length,
-      };
+      const receivedScores = []; members.forEach(r => { if (r.id === m.id) return; PEER_CRITERIA.forEach(c => { const s = peerScores?.[r.id]?.[m.id]?.[c] ?? 0; if (s > 0) receivedScores.push(s); }); });
+      const peerScore = receivedScores.length > 0 ? avg(receivedScores) * 10 : 100;
+      const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter(s => s > 0);
+      const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 100;
+      const isLeader = m.id === leader;
+      const finalScore = isLeader ? taskScore * 0.4 + peerScore * 0.6 : taskScore * 0.4 + peerScore * 0.4 + leaderScore * 0.2;
+      return { ...m, taskScore, peerScore, leaderScore, finalScore, isLeader, myTasks: myTasks.length, doneTasks: myTasks.filter(t => t.status === "done").length };
     });
   }, [members, tasks, peerScores, leaderScores, leader]);
 
   const totalScore = results.reduce((s, r) => s + r.finalScore, 0);
   const sorted = [...results].sort((a, b) => b.finalScore - a.finalScore);
   const maxFinal = Math.max(...results.map(r => r.finalScore), 1);
-  const teamAvg = results.length > 0 ? avg(results.map(r => r.finalScore)) : 0;
+  const teamAvg = avg(results.map(r => r.finalScore));
   const ts = parseFloat(teacherScore);
   const hasTeacherScore = !isNaN(ts) && ts >= 0 && ts <= 10;
-
-  const pctOf = (score) => totalScore > 0 ? (score / totalScore) * 100 : (results.length > 0 ? 100 / results.length : 0);
-  const personalGrade = (score) => {
-    if (!hasTeacherScore || results.length === 0) return null;
-    if (totalScore === 0) return ts / results.length;
-    return ts * (score / totalScore) * results.length;
-  };
+  const pctOf = (score) => totalScore > 0 ? (score / totalScore) * 100 : (100 / (members.length || 1));
+  const personalGrade = (score) => hasTeacherScore ? ts * (pctOf(score) / 100) * members.length : null;
 
   return (
     <div>
       <Card style={{ marginBottom: 24, borderColor: "#1e3a5f", background: "linear-gradient(135deg,#0c1929,#13131a)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ fontSize: 36 }}>🎓</div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "#93c5fd", marginBottom: 4 }}>Điểm thầy/cô cho nhóm</div>
-            <div style={{ fontSize: 13, color: "#475569" }}>Nhập điểm thầy chấm (thang 10) → app tự tính điểm cá nhân theo % đóng góp</div>
-          </div>
+          <div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 800, color: "#93c5fd", marginBottom: 4 }}>Điểm thầy/cô cho nhóm</div><div style={{ fontSize: 13, color: "#475569" }}>Nhập điểm thầy chấm (thang 10) → app tự tính điểm cá nhân theo % đóng góp</div></div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <input
-              type="number" min="0" max="10" step="0.1"
-              value={teacherScore}
-              onChange={e => setTeacherScore(e.target.value)}
-              placeholder="VD: 9"
-              style={{ width: 100, background: "#0a0a10", border: "2px solid #1e3a5f", borderRadius: 12, padding: "12px 16px", color: "#93c5fd", fontSize: 22, fontWeight: 800, outline: "none", fontFamily: "'Space Mono',monospace", textAlign: "center", colorScheme: "dark" }}
-            />
+            <input type="number" min="0" max="10" step="0.1" value={teacherScore} onChange={e => setTeacherScore(e.target.value)} placeholder="VD: 9" style={{ width: 100, background: "#0a0a10", border: "2px solid #1e3a5f", borderRadius: 12, padding: "12px 16px", color: "#93c5fd", fontSize: 22, fontWeight: 800, textAlign: "center" }} />
             <div style={{ fontSize: 13, color: "#334155" }}>/ 10</div>
           </div>
-          {hasTeacherScore && (
-            <div style={{ background: "#0c2a1a", border: "1px solid #166534", borderRadius: 12, padding: "12px 20px", fontSize: 13, color: "#86efac", lineHeight: 1.8 }}>
-              <div style={{ fontWeight: 700, marginBottom: 4 }}>📐 Công thức:</div>
-              <div>Điểm cá nhân = {ts} × (% đóng góp / 100) × {members.length} thành viên</div>
-            </div>
-          )}
+          {hasTeacherScore && <div style={{ background: "#0c2a1a", border: "1px solid #166534", borderRadius: 12, padding: "12px 20px", fontSize: 13, color: "#86efac" }}><div style={{ fontWeight: 700 }}>📐 Công thức:</div><div>Điểm cá nhân = {ts} × (% đóng góp / 100) × {members.length} thành viên</div></div>}
         </div>
       </Card>
 
@@ -589,15 +385,8 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
 
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "14px 24px", background: "#0a0a10", borderBottom: "1px solid #1e2235", display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", fontSize: 11, fontWeight: 700, letterSpacing: 1, color: "#475569", textTransform: "uppercase", gap: 8, alignItems: "center" }}>
-          <span>Thành viên</span>
-          <span style={{ textAlign: "center" }}>Task</span>
-          <span style={{ textAlign: "center" }}>Peer</span>
-          <span style={{ textAlign: "center" }}>Leader</span>
-          <span style={{ textAlign: "center" }}>Tổng (100)</span>
-          <span style={{ textAlign: "center" }}>% Đóng góp</span>
-          <span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực" : "Chờ điểm"}</span>
+          <span>Thành viên</span><span style={{ textAlign: "center" }}>Task</span><span style={{ textAlign: "center" }}>Peer</span><span style={{ textAlign: "center" }}>Leader</span><span style={{ textAlign: "center" }}>Tổng (100)</span><span style={{ textAlign: "center" }}>% Đóng góp</span><span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực" : "Chờ điểm"}</span>
         </div>
-
         {sorted.map((r) => {
           const memberIndex = members.findIndex(m => m.id === r.id);
           const mc = MEMBER_COLORS[memberIndex >= 0 ? memberIndex % MEMBER_COLORS.length : 0];
@@ -605,74 +394,28 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
           const pg = personalGrade(r.finalScore);
           const pgColor = pg === null ? "#475569" : pg >= 8.5 ? "#22c55e" : pg >= 7 ? "#6366f1" : pg >= 5.5 ? "#f59e0b" : "#ef4444";
           return (
-            <div key={r.id} style={{ display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", padding: "14px 24px", borderBottom: "1px solid #0f111a", alignItems: "center", gap: 8, transition: "background .15s" }}
-              onMouseEnter={e => e.currentTarget.style.background = "#1a1a24"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-
+            <div key={r.id} style={{ display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", padding: "14px 24px", borderBottom: "1px solid #0f111a", alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc, flexShrink: 0 }}>
-                  {r.name.split(" ").pop().charAt(0)}
-                </div>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{r.name}</div>
-                  <div style={{ fontSize: 11, color: "#334155" }}>
-                    {r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} task xong` : "Chưa có task"}
-                  </div>
-                </div>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc }}>{r.name.split(" ").pop().charAt(0)}</div>
+                <div><div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{r.name}</div><div style={{ fontSize: 11, color: "#334155" }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} task xong` : "Chưa có task"}</div></div>
               </div>
-
-              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: r.taskHasData ? (r.taskScore >= 70 ? "#22c55e" : "#64748b") : "#1e2235" }}>
-                {r.taskHasData ? r.taskScore.toFixed(0) : "—"}
-              </div>
-              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: r.peerHasData ? (r.peerScore >= 70 ? "#22c55e" : "#64748b") : "#1e2235" }}>
-                {r.peerHasData ? r.peerScore.toFixed(0) : "—"}
-              </div>
-              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: r.isLeader ? "#334155" : r.leaderHasData ? (r.leaderScore >= 70 ? "#22c55e" : "#64748b") : "#1e2235" }}>
-                {r.isLeader ? "–" : r.leaderHasData ? r.leaderScore.toFixed(0) : "—"}
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: "#a5b4fc", marginBottom: 4 }}>{r.finalScore.toFixed(1)}</div>
-                <ProgressBar value={r.finalScore} max={maxFinal} color={mc} />
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                <div style={{ background: mc + "18", border: `1px solid ${mc}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 80 }}>
-                  <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: mc }}>{pct.toFixed(1)}%</div>
-                  <div style={{ fontSize: 10, color: mc + "99" }}>đóng góp</div>
-                </div>
-              </div>
-
-              <div style={{ textAlign: "center" }}>
-                {pg !== null ? (
-                  <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}>
-                    <div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div>
-                    <div style={{ fontSize: 10, color: pgColor + "99" }}>/ 10</div>
-                  </div>
-                ) : (
-                  <span style={{ color: "#1e2235", fontSize: 20 }}>—</span>
-                )}
-              </div>
+              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.taskScore.toFixed(0)}</div>
+              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.peerScore.toFixed(0)}</div>
+              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.isLeader ? "–" : r.leaderScore.toFixed(0)}</div>
+              <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: "#a5b4fc", marginBottom: 4 }}>{r.finalScore.toFixed(1)}</div><ProgressBar value={r.finalScore} max={maxFinal} color={mc} /></div>
+              <div style={{ textAlign: "center" }}><div style={{ background: mc + "18", border: `1px solid ${mc}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 80 }}><div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: mc }}>{pct.toFixed(1)}%</div><div style={{ fontSize: 10, color: mc + "99" }}>đóng góp</div></div></div>
+              <div style={{ textAlign: "center" }}>{pg !== null ? <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}><div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div><div style={{ fontSize: 10, color: pgColor + "99" }}>/ 10</div></div> : <span style={{ color: "#1e2235", fontSize: 20 }}>—</span>}</div>
             </div>
           );
         })}
-
         <div style={{ display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", padding: "14px 24px", background: "#0a0a10", alignItems: "center", gap: 8, borderTop: "2px solid #1e2235" }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1" }}>Trung bình nhóm</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>
-            {results.some(r => r.taskHasData) ? avg(results.filter(r => r.taskHasData).map(r => r.taskScore)).toFixed(1) : "—"}
-          </div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>
-            {results.some(r => r.peerHasData) ? avg(results.filter(r => r.peerHasData).map(r => r.peerScore)).toFixed(1) : "—"}
-          </div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>
-            {results.some(r => !r.isLeader && r.leaderHasData) ? avg(results.filter(r => !r.isLeader && r.leaderHasData).map(r => r.leaderScore)).toFixed(1) : "—"}
-          </div>
+          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map(r => r.taskScore)).toFixed(1)}</div>
+          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map(r => r.peerScore)).toFixed(1)}</div>
+          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.filter(r => !r.isLeader).map(r => r.leaderScore)).toFixed(1)}</div>
           <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: "#a5b4fc" }}>{teamAvg.toFixed(1)}</div>
           <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 13, color: "#6366f1" }}>100%</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: hasTeacherScore ? "#93c5fd" : "#334155" }}>
-            {hasTeacherScore ? ts.toFixed(1) : "—"}
-          </div>
+          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: hasTeacherScore ? "#93c5fd" : "#334155" }}>{hasTeacherScore ? ts.toFixed(1) : "—"}</div>
         </div>
       </Card>
     </div>
@@ -690,15 +433,20 @@ export default function App() {
   const [leaderScores, setLeaderScores] = useState({});
   const [teacherScore, setTeacherScore] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-  const loaded = useRef(false);
-
-  // Load data from URL on first render
-  useEffect(() => {
+  const [isReady, setIsReady] = useState(false);
+  
+  // Lấy groupId từ URL hoặc tạo mới
+  const [groupId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    const encodedData = params.get("g");
-    if (encodedData) {
-      const data = decompressData(encodedData);
-      if (data) {
+    return params.get("id") || uid();
+  });
+
+  // Load dữ liệu từ localStorage khi mở trang
+  useEffect(() => {
+    const saved = localStorage.getItem(`team_${groupId}`);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
         if (data.projectName) setProjectName(data.projectName);
         if (data.leader) setLeader(data.leader);
         if (data.members) setMembers(data.members);
@@ -706,28 +454,41 @@ export default function App() {
         if (data.peerScores) setPeerScores(data.peerScores);
         if (data.leaderScores) setLeaderScores(data.leaderScores);
         if (data.teacherScore) setTeacherScore(data.teacherScore);
-      }
+      } catch (e) {}
     }
-    loaded.current = true;
-  }, []);
+    setIsReady(true);
+  }, [groupId]);
 
-  // Save data to URL whenever state changes
+  // Lắng nghe sự kiện từ tab khác (QUAN TRỌNG: giúp đồng bộ realtime)
   useEffect(() => {
-    if (!loaded.current) return;
-    if (members.length === 0 && !projectName && tasks.length === 0) {
-      window.history.replaceState(null, "", window.location.pathname);
-      return;
-    }
-    const currentState = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore };
-    const compressed = compressData(currentState);
-    if (compressed) {
-      const newUrl = `${window.location.origin}${window.location.pathname}?g=${compressed}`;
-      window.history.replaceState(null, "", newUrl);
-    }
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore]);
+    const handleStorageChange = (e) => {
+      if (e.key === `team_${groupId}` && e.newValue) {
+        try {
+          const data = JSON.parse(e.newValue);
+          if (data.projectName) setProjectName(data.projectName);
+          if (data.leader) setLeader(data.leader);
+          if (data.members) setMembers(data.members);
+          if (data.tasks) setTasks(data.tasks);
+          if (data.peerScores) setPeerScores(data.peerScores);
+          if (data.leaderScores) setLeaderScores(data.leaderScores);
+          if (data.teacherScore) setTeacherScore(data.teacherScore);
+        } catch (e) {}
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [groupId]);
+
+  // Lưu dữ liệu vào localStorage mỗi khi state thay đổi
+  useEffect(() => {
+    if (!isReady) return;
+    const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore };
+    localStorage.setItem(`team_${groupId}`, JSON.stringify(data));
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, groupId, isReady]);
 
   const generateShareLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const url = `${window.location.origin}${window.location.pathname}?id=${groupId}`;
+    navigator.clipboard.writeText(url);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
@@ -742,6 +503,10 @@ export default function App() {
     peer: peerCompletedCount !== null ? `${peerCompletedCount}/${members.length}` : null,
     result: null,
   };
+
+  if (!isReady) {
+    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a10", color: "#a5b4fc" }}>Đang tải...</div>;
+  }
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0" }}>
