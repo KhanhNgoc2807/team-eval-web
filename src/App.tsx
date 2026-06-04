@@ -625,30 +625,39 @@ export default function App() {
   const [teacherScore, setTeacherScore] = useState("");
   const [isCopied, setIsCopied] = useState(false);
   const [isReady, setIsReady] = useState(false);
-  
-  const [groupId] = useState(() => {
+  const [groupId, setGroupId] = useState(null);
+  const [hasGroup, setHasGroup] = useState(false);
+
+  // Load data từ URL khi mở trang
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get("id") || uid();
-  });
-
-  useEffect(() => {
-    const saved = localStorage.getItem(`team_${groupId}`);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.projectName) setProjectName(data.projectName);
-        if (data.leader) setLeader(data.leader);
-        if (data.members) setMembers(data.members);
-        if (data.tasks) setTasks(data.tasks);
-        if (data.peerScores) setPeerScores(data.peerScores);
-        if (data.leaderScores) setLeaderScores(data.leaderScores);
-        if (data.teacherScore) setTeacherScore(data.teacherScore);
-      } catch (e) {}
+    const idFromUrl = params.get("id");
+    
+    if (idFromUrl) {
+      // Có ID trên URL → vào nhóm có sẵn
+      setGroupId(idFromUrl);
+      setHasGroup(true);
+      const saved = localStorage.getItem(`team_${idFromUrl}`);
+      if (saved) {
+        try {
+          const data = JSON.parse(saved);
+          if (data.projectName) setProjectName(data.projectName);
+          if (data.leader) setLeader(data.leader);
+          if (data.members) setMembers(data.members);
+          if (data.tasks) setTasks(data.tasks);
+          if (data.peerScores) setPeerScores(data.peerScores);
+          if (data.leaderScores) setLeaderScores(data.leaderScores);
+          if (data.teacherScore) setTeacherScore(data.teacherScore);
+        } catch (e) {}
+      }
     }
+    // Không có ID trên URL → giữ trang trống, chưa có nhóm
     setIsReady(true);
-  }, [groupId]);
+  }, []);
 
+  // Lắng nghe sự kiện từ tab khác (sync realtime)
   useEffect(() => {
+    if (!groupId) return;
     const handleStorageChange = (e) => {
       if (e.key === `team_${groupId}` && e.newValue) {
         try {
@@ -667,13 +676,34 @@ export default function App() {
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [groupId]);
 
+  // Lưu dữ liệu vào localStorage khi state thay đổi
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !groupId) return;
     const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore };
     localStorage.setItem(`team_${groupId}`, JSON.stringify(data));
   }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, groupId, isReady]);
 
+  // Tạo nhóm mới
+  const createNewGroup = () => {
+    const newId = uid();
+    setGroupId(newId);
+    setHasGroup(true);
+    // Reset dữ liệu
+    setProjectName("");
+    setLeader("");
+    setMembers([]);
+    setTasks([]);
+    setPeerScores({});
+    setLeaderScores({});
+    setTeacherScore("");
+    // Cập nhật URL
+    const newUrl = `${window.location.origin}${window.location.pathname}?id=${newId}`;
+    window.history.pushState(null, "", newUrl);
+  };
+
+  // Copy link nhóm
   const generateShareLink = () => {
+    if (!groupId) return;
     const url = `${window.location.origin}${window.location.pathname}?id=${groupId}`;
     navigator.clipboard.writeText(url);
     setIsCopied(true);
@@ -695,6 +725,25 @@ export default function App() {
     return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a10", color: "#a5b4fc" }}>Đang tải...</div>;
   }
 
+  // Nếu chưa có nhóm (link gốc) → hiển thị trang chào mừng + nút tạo nhóm
+  if (!hasGroup) {
+    return (
+      <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Card style={{ textAlign: "center", maxWidth: 500, width: "90%" }}>
+          <div style={{ fontSize: 64, marginBottom: 20 }}>🚀</div>
+          <h2 style={{ color: "#a5b4fc", marginBottom: 12 }}>TEAM EVAL</h2>
+          <p style={{ color: "#64748b", marginBottom: 24, lineHeight: 1.6 }}>
+            Công cụ đánh giá nhóm học tập<br/>
+            Tạo nhóm mới để bắt đầu
+          </p>
+          <Btn onClick={createNewGroup} variant="primary" style={{ padding: "12px 24px", fontSize: 16 }}>
+            ➕ Tạo nhóm mới
+          </Btn>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -705,7 +754,7 @@ export default function App() {
             <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✦</div>
             <div>
               <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
-              <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "BỘ CÔNG CỤ ĐÁNH GIÁ NHÓM"}</div>
+              <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div>
             </div>
           </div>
 
@@ -737,7 +786,6 @@ export default function App() {
         {tab === "result" && <ResultTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} />}
       </div>
       
-      {/* Deadline reminder - hiển thị ở góc phải màn hình */}
       <DeadlineReminder tasks={tasks} members={members} />
     </div>
   );
