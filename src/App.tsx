@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
@@ -25,7 +25,7 @@ const TABS = [
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
-// ─── MODERN & SAFE URL COMPRESSION (UTF-8 SAFE) ──────────────────────────────
+// ─── URL COMPRESSION ──────────────────────────────────────────────────────────
 const compressData = (state) => {
   try {
     const str = JSON.stringify(state);
@@ -106,7 +106,7 @@ function ProgressBar({ value, max, color = "#6366f1" }) {
   </div>;
 }
 
-// ─── STYLES (định nghĩa sau components để tránh lỗi thứ tự) ─────────────────────
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
 const filterBtn = { padding: "6px 14px", borderRadius: 20, border: "1px solid #1e2235", background: "transparent", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" };
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
@@ -144,9 +144,9 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
           </div>
         </div>
         <div style={{ marginTop: 20, padding: 16, background: "#0a0a10", borderRadius: 12, fontSize: 13, color: "#475569", lineHeight: 1.8 }}>
-          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 Công thức tính điểm hệ thống (Thang 100)</div>
-          <div>• Thành viên: <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 40%</b> + <b style={{ color: "#f59e0b" }}>Leader × 20%</b></div>
-          <div>• Nhóm trưởng: <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 60%</b></div>
+          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 Công thức tính điểm</div>
+          <div>Thành viên = <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 40%</b> + <b style={{ color: "#f59e0b" }}>Leader × 20%</b></div>
+          <div>Nhóm trưởng = <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 60%</b></div>
         </div>
       </Card>
 
@@ -428,13 +428,6 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
     </div>
   );
 
-  if (members.length === 0) return (
-    <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
-      <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
-      <div style={{ fontSize: 16 }}>Chưa có thành viên nào trong nhóm.</div>
-    </div>
-  );
-
   return (
     <div>
       <Card style={{ marginBottom: 20, borderColor: "#451a03" }}>
@@ -442,7 +435,7 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
           <div style={{ fontSize: 28 }}>👑</div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Nhóm trưởng: {leaderMember?.name}</div>
-            <div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá năng lực trách nhiệm và chấm điểm cho các thành viên.</div>
+            <div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá năng lực và chấm điểm cho các thành viên.</div>
           </div>
         </div>
       </Card>
@@ -460,7 +453,7 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
                   {m.name.split(" ").pop().charAt(0)}
                 </div>
                 <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>
-                  {m.name} {isLeader && <span style={{ color: "#f59e0b", fontSize: 12 }}>(Trưởng nhóm)</span>}
+                  {m.name} {isLeader && <span style={{ color: "#f59e0b", fontSize: 12 }}>(Trưởng nhóm - tự đánh giá)</span>}
                 </div>
                 {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm TB: {mAvg.toFixed(1)}</Tag>}
               </div>
@@ -486,9 +479,15 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
     if (members.length === 0) return [];
     
     return members.map(m => {
-      // 1. Task Score
       const myTasks = tasks.filter(t => t.assignee === m.id);
       let taskScore = 100;
       if (myTasks.length > 0) {
         const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
-        const earned = myTasks.reduce
+        const earned = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100 * STATUS[t.status].pct, 0);
+        taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : 100;
+      }
+
+      const receivedScores = [];
+      members.forEach(reviewer => {
+        if (reviewer.id === m.id) return;
+        PEER_CRITERIA.forEach(c => {
