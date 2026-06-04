@@ -1,3 +1,4 @@
+import React, { useState, useMemo, useEffect } from 'react'
 import { useState, useMemo, useEffect } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -790,3 +791,4 @@ export default function App() {
     </div>
   );
 }
+export default App
