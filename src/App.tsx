@@ -1,172 +1,336 @@
+import { useState, useMemo, useEffect, useRef } from "react";
+
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
+const STATUS = { todo: { label: "Chưa làm", pct: 0, color: "#64748b" }, doing: { label: "Đang làm", pct: 0.5, color: "#f59e0b" }, done: { label: "Hoàn thành", pct: 1, color: "#22c55e" } };
+const PEER_CRITERIA = ["Chất lượng công việc", "Chủ động & Đúng tiến độ", "Tinh thần hợp tác"];
+const LEADER_CRITERIA = ["Chủ động & Trách nhiệm", "Chất lượng Output", "Phối hợp Nhóm"];
+const RATING_OPTIONS = [
+  { value: 0, label: "—" },
+  { value: 2, label: "2 – Chưa đạt" },
+  { value: 6, label: "6 – Trung bình" },
+  { value: 8, label: "8 – Tốt" },
+  { value: 9, label: "9 – Rất tốt" },
+  { value: 10, label: "10 – Xuất sắc" },
+];
+const MEMBER_COLORS = ["#6366f1","#ec4899","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ef4444","#14b8a6","#f97316","#84cc16","#06b6d4","#a855f7","#e11d48","#0ea5e9","#22c55e","#eab308"];
+
+const TABS = [
+  { id: "setup", icon: "⚙️", label: "Thiết lập" },
+  { id: "tasks", icon: "📋", label: "Task Log" },
+  { id: "peer", icon: "👥", label: "Peer Review" },
+  { id: "leader", icon: "👑", label: "Leader" },
+  { id: "result", icon: "🏆", label: "Kết quả" },
+];
 
 const uid = () => Math.random().toString(36).substring(2, 9);
 
-// ─── MODERN & SAFE URL COMPRESSION (UTF-8 SAFE) ──────────────────────────────
 // ─── HELPERS FOR URL COMPRESSION ──────────────────────────────────────────────
-// FIX: dùng TextEncoder thay vì escape/unescape đã deprecated
 const compressData = (state) => {
-try {
-    const str = JSON.stringify(state);
-    const bytes = new TextEncoder().encode(str);
-    let binString = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binString += String.fromCharCode(bytes[i]);
+  try {
+    const json = JSON.stringify(state);
+    const bytes = new TextEncoder().encode(json);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
     }
-    return btoa(binString).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-    return btoa(encodeURIComponent(JSON.stringify(state)));
-} catch (e) {
-return "";
-}
-@@ -43,14 +38,7 @@ const compressData = (state) => {
+    return btoa(binary);
+  } catch (e) {
+    return "";
+  }
+};
+
 const decompressData = (str) => {
-try {
-if (!str) return null;
-    let base64 = str.replace(/-/g, "+").replace(/_/g, "/");
-    while (base64.length % 4) base64 += "=";
-    const binString = atob(base64);
-    const bytes = new Uint8Array(binString.length);
-    for (let i = 0; i < binString.length; i++) {
-      bytes[i] = binString.charCodeAt(i);
+  try {
+    if (!str) return null;
+    const binary = atob(str);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
     }
     return JSON.parse(new TextDecoder().decode(bytes));
-    return JSON.parse(decodeURIComponent(atob(str)));
-} catch (e) {
-return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+
+// ─── SUB COMPONENTS ───────────────────────────────────────────────────────────
+function Tag({ color, children, style = {} }) {
+  return <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 700, ...style }}>{children}</span>;
 }
-@@ -78,22 +66,21 @@ function Btn({ children, onClick, variant = "primary", style = {}, disabled = fa
-return <button onClick={disabled ? undefined : onClick} style={{ ...base, ...vars[variant], ...style }}>{children}</button>;
+
+function Card({ children, style = {} }) {
+  return <div style={{ background: "#13131a", border: "1px solid #1e2235", borderRadius: 16, padding: 24, ...style }}>{children}</div>;
+}
+
+function Btn({ children, onClick, variant = "primary", style = {}, disabled = false }) {
+  const base = { border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "all .15s", opacity: disabled ? 0.4 : 1 };
+  const vars = {
+    primary: { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff" },
+    ghost: { background: "transparent", border: "1px solid #1e2235", color: "#94a3b8" },
+    danger: { background: "#450a0a", color: "#fca5a5", border: "1px solid #7f1d1d" },
+    success: { background: "#052e16", color: "#86efac", border: "1px solid #166534" },
+  };
+  return <button onClick={disabled ? undefined : onClick} style={{ ...base, ...vars[variant], ...style }}>{children}</button>;
 }
 
 function Input({ value, onChange, placeholder, style = {}, type = "text", onKeyDown }) {
   return <input type={type} value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-function Input({ value, onChange, placeholder, style = {}, type = "text" }) {
-  return <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-style={{ background: "#0a0a10", border: "1px solid #1e2235", borderRadius: 10, padding: "10px 14px", color: "#e2e8f0", fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box", colorScheme: "dark", ...style }}
+    style={{ background: "#0a0a10", border: "1px solid #1e2235", borderRadius: 10, padding: "10px 14px", color: "#e2e8f0", fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box", colorScheme: "dark", ...style }}
     onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#1e2235"}
     onKeyDown={onKeyDown} />;
-    onFocus={e => e.target.style.borderColor = "#6366f1"} onBlur={e => e.target.style.borderColor = "#1e2235"} />;
 }
 
 function Select({ value, onChange, children, style = {} }) {
   return <select value={value || ""} onChange={e => onChange(e.target.value)}
-  return <select value={value} onChange={e => onChange(e.target.value)}
-style={{ background: "#0a0a10", border: "1px solid #1e2235", borderRadius: 10, padding: "10px 14px", color: value ? "#e2e8f0" : "#475569", fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", cursor: "pointer", ...style }}>
-{children}
-</select>;
+    style={{ background: "#0a0a10", border: "1px solid #1e2235", borderRadius: 10, padding: "10px 14px", color: value ? "#e2e8f0" : "#475569", fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", cursor: "pointer", ...style }}>
+    {children}
+  </select>;
 }
 
 function RatingSelect({ value, onChange }) {
   return <select value={value ?? 0} onChange={e => onChange(Number(e.target.value))}
-  return <select value={value} onChange={e => onChange(Number(e.target.value))}
-style={{ background: "#0a0a10", border: "1px solid #1e2235", borderRadius: 8, padding: "7px 10px", color: "#e2e8f0", fontSize: 13, outline: "none", fontFamily: "inherit", cursor: "pointer", width: "100%" }}>
-{RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-</select>;
-@@ -106,11 +93,6 @@ function ProgressBar({ value, max, color = "#6366f1" }) {
-</div>;
+    style={{ background: "#0a0a10", border: "1px solid #1e2235", borderRadius: 8, padding: "7px 10px", color: "#e2e8f0", fontSize: 13, outline: "none", fontFamily: "inherit", cursor: "pointer", width: "100%" }}>
+    {RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+  </select>;
 }
 
-// ─── STYLES (định nghĩa sau components để tránh lỗi thứ tự) ─────────────────────
+function ProgressBar({ value, max, color = "#6366f1" }) {
+  const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+  return <div style={{ height: 8, background: "#1e2235", borderRadius: 4, overflow: "hidden" }}>
+    <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${color},${color}99)`, borderRadius: 4, transition: "width .5s ease" }} />
+  </div>;
+}
+
+// ─── STYLES ───────────────────────────────────────────────────────────────────
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
 const filterBtn = { padding: "6px 14px", borderRadius: 20, border: "1px solid #1e2235", background: "transparent", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" };
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
 
 // ─── SETUP TAB ────────────────────────────────────────────────────────────────
 function SetupTab({ members, setMembers, projectName, setProjectName, leader, setLeader }) {
-const [name, setName] = useState("");
-@@ -122,6 +104,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
-setName(""); setMssv("");
-};
+  const [name, setName] = useState("");
+  const [mssv, setMssv] = useState("");
 
-  // FIX: cho phép nhấn Enter để thêm thành viên
-const handleKeyDown = (e) => {
-if (e.key === "Enter") add();
-};
-@@ -144,9 +127,14 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
-</div>
-</div>
-<div style={{ marginTop: 20, padding: 16, background: "#0a0a10", borderRadius: 12, fontSize: 13, color: "#475569", lineHeight: 1.8 }}>
-          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 Công thức tính điểm hệ thống (Thang 100)</div>
-          <div>• Thành viên: <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 40%</b> + <b style={{ color: "#f59e0b" }}>Leader × 20%</b></div>
-          <div>• Nhóm trưởng: <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 60%</b></div>
+  const add = () => {
+    if (!name.trim()) return;
+    setMembers(m => [...m, { id: uid(), name: name.trim(), mssv: mssv.trim() }]);
+    setName(""); setMssv("");
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") add();
+  };
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      <Card>
+        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THÔNG TIN DỰ ÁN</h3>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div>
+            <label style={lbl}>Tên dự án / môn học</label>
+            <Input value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing Semester 2" />
+          </div>
+          <div>
+            <label style={lbl}>Nhóm trưởng</label>
+            <Select value={leader} onChange={setLeader}>
+              <option value="">Chọn nhóm trưởng...</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </Select>
+          </div>
+        </div>
+        <div style={{ marginTop: 20, padding: 16, background: "#0a0a10", borderRadius: 12, fontSize: 13, color: "#475569", lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 Công thức tính điểm</div>
-          {/* FIX: mô tả công thức đúng với logic trong ResultTab */}
-          <div>Thành viên = <b style={{ color: "#6366f1" }}>Task × 0.4</b> + <b style={{ color: "#22c55e" }}>Peer × 0.4</b> + <b style={{ color: "#f59e0b" }}>Leader × 0.2</b></div>
-          <div style={{ marginTop: 4 }}>Nhóm trưởng = <b style={{ color: "#6366f1" }}>Task × 0.4</b> + <b style={{ color: "#22c55e" }}>Peer × 0.6</b></div>
-          <div style={{ marginTop: 8, fontSize: 12 }}>• Task: dựa trên độ phức tạp × % hoàn thành</div>
-          <div style={{ fontSize: 12 }}>• Peer: TB điểm đánh giá từ các thành viên khác (thang 10, nhân 10)</div>
-          <div style={{ fontSize: 12 }}>• Leader: điểm nhóm trưởng cho theo 3 tiêu chí (thang 10, nhân 10)</div>
-          <div style={{ fontSize: 12, color: "#334155", marginTop: 6 }}>* Các thành phần chưa có dữ liệu sẽ không kéo điểm xuống 0</div>
-</div>
-</Card>
+          <div>Thành viên = <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 40%</b> + <b style={{ color: "#f59e0b" }}>Leader × 20%</b></div>
+          <div>Nhóm trưởng = <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 60%</b></div>
+        </div>
+      </Card>
 
-@@ -168,7 +156,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
-<div style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{m.name}</div>
-{m.mssv && <div style={{ fontSize: 11, color: "#475569" }}>{m.mssv}</div>}
-</div>
+      <Card>
+        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>👥 THÀNH VIÊN NHÓM</h3>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, marginBottom: 16 }}>
+          <Input value={name} onChange={setName} placeholder="Họ và tên" onKeyDown={handleKeyDown} />
+          <Input value={mssv} onChange={setMssv} placeholder="MSSV (tuỳ chọn)" onKeyDown={handleKeyDown} />
+          <Btn onClick={add}>Thêm</Btn>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
+          {members.length === 0 && <div style={{ textAlign: "center", padding: 40, color: "#334155", fontSize: 14 }}>Chưa có thành viên nào</div>}
+          {members.map((m, i) => (
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#0a0a10", borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: MEMBER_COLORS[i % MEMBER_COLORS.length] + "22", border: `2px solid ${MEMBER_COLORS[i % MEMBER_COLORS.length]}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: MEMBER_COLORS[i % MEMBER_COLORS.length], flexShrink: 0 }}>
+                {m.name.split(" ").pop().charAt(0)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{m.name}</div>
+                {m.mssv && <div style={{ fontSize: 11, color: "#475569" }}>{m.mssv}</div>}
+              </div>
               {leader === m.id && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
-              {leader === String(m.id) && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
-<button onClick={() => setMembers(ms => ms.filter(x => x.id !== m.id))} style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
-</div>
-))}
-@@ -197,13 +185,12 @@ function TaskTab({ members, tasks, setTasks }) {
-};
+              <button onClick={() => setMembers(ms => ms.filter(x => x.id !== m.id))} style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
 
-const filtered = filter === "all" ? tasks : tasks.filter(t => t.assignee === filter);
-  
+// ─── TASK TAB ─────────────────────────────────────────────────────────────────
+function TaskTab({ members, tasks, setTasks }) {
+  const [form, setForm] = useState({ name: "", assignee: "", deadline: "", complexity: 2 });
+  const [filter, setFilter] = useState("all");
+  const [showForm, setShowForm] = useState(false);
 
-  // FIX: so sánh ngày chính xác — cắt giờ để tránh lệch múi giờ
-const overdue = (t) => {
-if (!t.deadline || t.status === "done") return false;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const dl = new Date(t.deadline);
-    dl.setHours(0,0,0,0);
+  const addTask = () => {
+    if (!form.name.trim() || !form.assignee) return;
+    setTasks(t => [...t, { id: uid(), ...form, status: "todo" }]);
+    setForm({ name: "", assignee: "", deadline: "", complexity: 2 });
+    setShowForm(false);
+  };
+
+  const cycleStatus = (id) => {
+    const order = ["todo", "doing", "done"];
+    setTasks(ts => ts.map(t => t.id !== id ? t : { ...t, status: order[(order.indexOf(t.status) + 1) % 3] }));
+  };
+
+  const filtered = filter === "all" ? tasks : tasks.filter(t => t.assignee === filter);
+  const overdue = (t) => {
+    if (!t.deadline || t.status === "done") return false;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const dl = new Date(t.deadline + "T00:00:00");
-return dl < today;
-};
+    return dl < today;
+  };
 
-@@ -216,8 +203,8 @@ function TaskTab({ members, tasks, setTasks }) {
-</button>
-{members.filter(m => tasks.some(t => t.assignee === m.id)).map(m => (
-<button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)}
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <button onClick={() => setFilter("all")} style={{ ...filterBtn, ...(filter === "all" ? filterActive : {}) }}>
+            Tất cả ({tasks.length})
+          </button>
+          {members.filter(m => tasks.some(t => t.assignee === m.id)).map(m => (
+            <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)}
               style={{ ...filterBtn, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "18" } : {}) }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], display: "inline-block" }} />
-              style={{ ...filterBtn, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % 16], color: MEMBER_COLORS[members.indexOf(m) % 16], background: MEMBER_COLORS[members.indexOf(m) % 16] + "18" } : {}) }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: MEMBER_COLORS[members.indexOf(m) % 16], display: "inline-block" }} />
-{m.name.split(" ").pop()} ({tasks.filter(t => t.assignee === m.id).length})
-</button>
-))}
-@@ -273,7 +260,7 @@ function TaskTab({ members, tasks, setTasks }) {
-{filtered.map(t => {
-const member = members.find(m => m.id === t.assignee);
-const mIdx = member ? members.indexOf(member) : 0;
-            const mc = MEMBER_COLORS[mIdx % MEMBER_COLORS.length];
-            const mc = MEMBER_COLORS[mIdx % 16];
-const sc = STATUS[t.status];
-const od = overdue(t);
-return (
-@@ -294,7 +281,7 @@ function TaskTab({ members, tasks, setTasks }) {
-</div>
-{t.deadline && (
-<div style={{ fontSize: 12, color: od ? "#f87171" : "#475569", marginBottom: 12 }}>
-                    {od ? "⚠️ Quá hạn: " : "📅 "}{new Date(t.deadline).toLocaleDateString("vi-VN")}
-                    {od ? "⚠️ Quá hạn: " : "📅 "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}
-</div>
-)}
-<button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "background .15s" }}
-@@ -330,22 +317,14 @@ function PeerTab({ members, peerScores, setPeerScores }) {
-const reviewees = members.filter(m => m.id !== reviewer);
-const reviewerMember = members.find(m => m.id === reviewer);
+              {m.name.split(" ").pop()} ({tasks.filter(t => t.assignee === m.id).length})
+            </button>
+          ))}
+        </div>
+        <Btn onClick={() => setShowForm(true)}>+ Thêm Task</Btn>
+      </div>
 
-  const completedCount = members.filter(m => {
-  // FIX: chỉ tính badge khi có ít nhất 2 thành viên
+      {showForm && (
+        <Card style={{ marginBottom: 20, borderColor: "#312e81" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
+            <div>
+              <label style={lbl}>Tên công việc *</label>
+              <Input value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." />
+            </div>
+            <div>
+              <label style={lbl}>Giao cho *</label>
+              <Select value={form.assignee} onChange={v => setForm(f => ({ ...f, assignee: v }))}>
+                <option value="">Chọn thành viên...</option>
+                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </Select>
+            </div>
+            <div>
+              <label style={lbl}>Deadline</label>
+              <Input type="date" value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} />
+            </div>
+            <div style={{ paddingBottom: 0 }}>
+              <label style={lbl}>Độ khó</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[1, 2, 3].map(v => (
+                  <button key={v} onClick={() => setForm(f => ({ ...f, complexity: v }))}
+                    style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v].color : "#1e2235"}`, background: form.complexity === v ? COMPLEXITY[v].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v].color : "#475569", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                    LV{v}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <Btn onClick={() => setShowForm(false)} variant="ghost">Huỷ</Btn>
+            <Btn onClick={addTask}>✓ Thêm Task</Btn>
+          </div>
+        </Card>
+      )}
+
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có task nào</div>
+          <div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm Task" để bắt đầu phân công</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
+          {filtered.map(t => {
+            const member = members.find(m => m.id === t.assignee);
+            const mIdx = member ? members.indexOf(member) : 0;
+            const mc = MEMBER_COLORS[mIdx % MEMBER_COLORS.length];
+            const sc = STATUS[t.status];
+            const od = overdue(t);
+            return (
+              <div key={t.id} style={{ background: "#13131a", border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : "#1e2235"}`, borderRadius: 14, padding: 18, transition: "transform .15s,box-shadow .15s", cursor: "default" }}
+                onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.boxShadow = "0 8px 32px rgba(0,0,0,.5)"; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ""; e.currentTarget.style.boxShadow = ""; }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                  <span style={{ background: mc + "22", color: mc, border: `1px solid ${mc}44`, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>
+                    {member ? member.name.split(" ").pop() : "?"}
+                  </span>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <Tag color={COMPLEXITY[t.complexity].color}>LV{t.complexity} {COMPLEXITY[t.complexity].label}</Tag>
+                    <button onClick={() => setTasks(ts => ts.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: "#334155", cursor: "pointer", fontSize: 18 }}>×</button>
+                  </div>
+                </div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : "#e2e8f0", textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10, lineHeight: 1.4 }}>
+                  {t.name}
+                </div>
+                {t.deadline && (
+                  <div style={{ fontSize: 12, color: od ? "#f87171" : "#475569", marginBottom: 12 }}>
+                    {od ? "⚠️ Quá hạn: " : "📅 "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}
+                  </div>
+                )}
+                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", transition: "background .15s" }}
+                  onMouseEnter={e => e.currentTarget.style.background = sc.color + "30"}
+                  onMouseLeave={e => e.currentTarget.style.background = sc.color + "18"}>
+                  {t.status === "todo" ? "⬜" : t.status === "doing" ? "🔄" : "✅"} {sc.label} <span style={{ opacity: .5, fontSize: 11 }}>→ click đổi</span>
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── PEER REVIEW TAB ──────────────────────────────────────────────────────────
+function PeerTab({ members, peerScores, setPeerScores }) {
+  const [reviewer, setReviewer] = useState("");
+
+  const setScore = (reviewee, criterion, val) => {
+    setPeerScores(ps => {
+      const next = { ...ps };
+      if (!next[reviewer]) next[reviewer] = {};
+      if (!next[reviewer][reviewee]) next[reviewer][reviewee] = {};
+      next[reviewer][reviewee][criterion] = val;
+      return next;
+    });
+  };
+
+  const getScore = (reviewee, criterion) => peerScores?.[reviewer]?.[reviewee]?.[criterion] ?? 0;
+
+  const reviewees = members.filter(m => m.id !== reviewer);
+  const reviewerMember = members.find(m => m.id === reviewer);
+
   const completedCount = members.length < 2 ? 0 : members.filter(m => {
-if (!peerScores[m.id]) return false;
-return members.filter(x => x.id !== m.id).every(reviewee =>
-PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)
-);
-}).length;
+    if (!peerScores[m.id]) return false;
+    return members.filter(x => x.id !== m.id).every(reviewee =>
+      PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)
+    );
+  }).length;
 
   if (members.length < 2) {
     return (
@@ -177,112 +341,154 @@ PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)
     );
   }
 
-return (
-<div>
-<Card style={{ marginBottom: 20 }}>
-@@ -357,13 +336,16 @@ function PeerTab({ members, peerScores, setPeerScores }) {
-{members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-</Select>
-</div>
-          <div style={{ fontSize: 13, color: "#475569" }}>
-            ✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length} thành viên
+  return (
+    <div>
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 14, color: "#94a3b8", fontWeight: 600, flexShrink: 0 }}>Bạn là:</div>
+          <div style={{ flex: 1, maxWidth: 360 }}>
+            <Select value={reviewer} onChange={setReviewer}>
+              <option value="">Chọn tên của bạn...</option>
+              {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+            </Select>
           </div>
-          {/* FIX: chỉ hiện badge khi có >= 2 thành viên */}
           {members.length >= 2 && (
             <div style={{ fontSize: 13, color: "#475569" }}>
               ✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length} thành viên
             </div>
           )}
-</div>
-{reviewer && (
-<div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>
-            Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá các thành viên còn lại theo thang điểm bên dưới.
+        </div>
+        {reviewer && (
+          <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>
             Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại theo thang điểm bên dưới.
-</div>
-)}
-</Card>
-@@ -376,9 +358,10 @@ function PeerTab({ members, peerScores, setPeerScores }) {
-) : (
-<div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-{reviewees.map((reviewee) => {
+          </div>
+        )}
+      </Card>
+
+      {!reviewer ? (
+        <div style={{ textAlign: "center", padding: "60px 0", color: "#334155" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>👆</div>
+          <div style={{ fontSize: 16 }}>Chọn tên của bạn để bắt đầu đánh giá</div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {reviewees.map((reviewee) => {
             const mc = MEMBER_COLORS[members.indexOf(reviewee) % MEMBER_COLORS.length];
-            const mc = MEMBER_COLORS[members.indexOf(reviewee) % 16];
-const scores = PEER_CRITERIA.map(c => getScore(reviewee.id, c));
-            const rowAvg = avg(scores.filter(s => s > 0));
+            const scores = PEER_CRITERIA.map(c => getScore(reviewee.id, c));
             const filledScores = scores.filter(s => s > 0);
             const rowAvg = filledScores.length > 0 ? avg(filledScores) : 0;
-return (
-<Card key={reviewee.id} style={{ borderColor: "#1e2235" }}>
-<div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-@@ -428,10 +411,12 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
-</div>
-);
+            return (
+              <Card key={reviewee.id} style={{ borderColor: "#1e2235" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc, flexShrink: 0 }}>
+                    {reviewee.name.split(" ").pop().charAt(0)}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#e2e8f0" }}>{reviewee.name}</div>
+                    {reviewee.mssv && <div style={{ fontSize: 12, color: "#475569" }}>{reviewee.mssv}</div>}
+                  </div>
+                  {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {rowAvg.toFixed(1)}</Tag>}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+                  {PEER_CRITERIA.map(c => (
+                    <div key={c}>
+                      <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>{c}</div>
+                      <RatingSelect value={getScore(reviewee.id, c)} onChange={v => setScore(reviewee.id, c, v)} />
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            );
+          })}
+          <div style={{ textAlign: "center", paddingTop: 8 }}>
+            <Btn onClick={() => setReviewer("")} variant="success">✓ Đã đánh giá xong — Thoát</Btn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
-  if (members.length === 0) return (
+// ─── LEADER TAB ───────────────────────────────────────────────────────────────
+function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
+  const leaderMember = members.find(m => m.id === leader);
+
+  const setScore = (memberId, criterion, val) => {
+    setLeaderScores(ls => ({ ...ls, [memberId]: { ...(ls[memberId] || {}), [criterion]: val } }));
+  };
+
+  const getScore = (memberId, criterion) => leaderScores?.[memberId]?.[criterion] ?? 0;
+
+  if (!leader) return (
+    <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>👑</div>
+      <div style={{ fontSize: 16 }}>Chưa chọn nhóm trưởng. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div>
+    </div>
+  );
+
   const others = members.filter(m => m.id !== leader);
 
   if (others.length === 0) return (
-<div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
-<div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
-      <div style={{ fontSize: 16 }}>Chưa có thành viên nào trong nhóm.</div>
+    <div style={{ textAlign: "center", padding: "80px 0", color: "#334155" }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>👥</div>
       <div style={{ fontSize: 16 }}>Nhóm chỉ có nhóm trưởng, chưa có thành viên để đánh giá.</div>
-</div>
-);
+    </div>
+  );
 
-@@ -442,26 +427,24 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
-<div style={{ fontSize: 28 }}>👑</div>
-<div>
-<div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Nhóm trưởng: {leaderMember?.name}</div>
-            <div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá năng lực trách nhiệm và chấm điểm cho các thành viên.</div>
+  return (
+    <div>
+      <Card style={{ marginBottom: 20, borderColor: "#451a03" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ fontSize: 28 }}>👑</div>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Nhóm trưởng: {leaderMember?.name}</div>
             <div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí.</div>
-</div>
-</div>
-</Card>
+          </div>
+        </div>
+      </Card>
 
-<div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {members.map(m => {
-          const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         {others.map(m => {
-          const mc = MEMBER_COLORS[members.indexOf(m) % 16];
-const scores = LEADER_CRITERIA.map(c => getScore(m.id, c));
-          const mAvg = avg(scores.filter(s => s > 0));
-          const isLeader = m.id === leader;
+          const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
+          const scores = LEADER_CRITERIA.map(c => getScore(m.id, c));
           const filledScores = scores.filter(s => s > 0);
           const mAvg = filledScores.length > 0 ? avg(filledScores) : 0;
-return (
-            <Card key={m.id} style={{ borderColor: isLeader ? "#312e81" : "#1e2235" }}>
+          return (
             <Card key={m.id}>
-<div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-<div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc, flexShrink: 0 }}>
-{m.name.split(" ").pop().charAt(0)}
-</div>
-                <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>
-                  {m.name} {isLeader && <span style={{ color: "#f59e0b", fontSize: 12 }}>(Trưởng nhóm)</span>}
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc, flexShrink: 0 }}>
+                  {m.name.split(" ").pop().charAt(0)}
                 </div>
                 <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: "#e2e8f0" }}>{m.name}</div>
-{mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm TB: {mAvg.toFixed(1)}</Tag>}
-</div>
-<div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-@@ -483,12 +466,338 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores }) {
+                {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm TB: {mAvg.toFixed(1)}</Tag>}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+                {LEADER_CRITERIA.map(c => (
+                  <div key={c}>
+                    <div style={{ fontSize: 12, color: "#64748b", marginBottom: 8, fontWeight: 600 }}>{c}</div>
+                    <RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── RESULT TAB ───────────────────────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore }) {
-const results = useMemo(() => {
+  const results = useMemo(() => {
     if (members.length === 0) return [];
     
-return members.map(m => {
-      // 1. Task Score
-      // ── Task Score ─────────────────────────────────────────────────────────
-const myTasks = tasks.filter(t => t.assignee === m.id);
-      let taskScore = 100;
-      if (myTasks.length > 0) {
-        const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
-        const earned = myTasks.reduce
+    return members.map(m => {
+      const myTasks = tasks.filter(t => t.assignee === m.id);
       const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
       const earned = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100 * STATUS[t.status].pct, 0);
-      // FIX: nếu không có task → không tính (null) thay vì 0
       const taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : null;
 
-      // ── Peer Score ─────────────────────────────────────────────────────────
       const receivedScores = [];
       members.forEach(reviewer => {
         if (reviewer.id === m.id) return;
@@ -291,28 +497,21 @@ const myTasks = tasks.filter(t => t.assignee === m.id);
           if (s > 0) receivedScores.push(s);
         });
       });
-      // FIX: null nếu chưa có ai đánh giá
       const peerScore = receivedScores.length > 0 ? avg(receivedScores) * 10 : null;
 
-      // ── Leader Score ───────────────────────────────────────────────────────
       const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter(s => s > 0);
-      // FIX: null nếu nhóm trưởng chưa chấm
       const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : null;
 
       const isLeader = m.id === leader;
 
-      // ── Final Score ────────────────────────────────────────────────────────
-      // FIX: chỉ tính trọng số các thành phần đã có dữ liệu, tránh kéo điểm xuống 0
       let finalScore;
       if (isLeader) {
-        // Nhóm trưởng: Task 0.4 + Peer 0.6 (không có leader score)
         const parts = [];
         if (taskScore !== null) parts.push({ v: taskScore, w: 0.4 });
         if (peerScore !== null) parts.push({ v: peerScore, w: 0.6 });
         const totalW = parts.reduce((s, p) => s + p.w, 0);
         finalScore = totalW > 0 ? parts.reduce((s, p) => s + p.v * (p.w / totalW), 0) : 0;
       } else {
-        // Thành viên: Task 0.4 + Peer 0.4 + Leader 0.2
         const parts = [];
         if (taskScore !== null) parts.push({ v: taskScore, w: 0.4 });
         if (peerScore !== null) parts.push({ v: peerScore, w: 0.4 });
@@ -344,11 +543,10 @@ const myTasks = tasks.filter(t => t.assignee === m.id);
   const ts = parseFloat(teacherScore);
   const hasTeacherScore = !isNaN(ts) && ts >= 0 && ts <= 10;
 
-  // FIX: tránh NaN khi totalScore = 0
   const pctOf = (score) => totalScore > 0 ? (score / totalScore) * 100 : (results.length > 0 ? 100 / results.length : 0);
   const personalGrade = (score) => {
     if (!hasTeacherScore || results.length === 0) return null;
-    if (totalScore === 0) return ts / results.length; // chia đều nếu tất cả bằng 0
+    if (totalScore === 0) return ts / results.length;
     return ts * (score / totalScore) * results.length;
   };
 
@@ -408,7 +606,7 @@ const myTasks = tasks.filter(t => t.assignee === m.id);
         </div>
 
         {sorted.map((r) => {
-          const mc = MEMBER_COLORS[members.indexOf(members.find(m => m.id === r.id)) % 16];
+          const mc = MEMBER_COLORS[members.indexOf(members.find(m => m.id === r.id)) % MEMBER_COLORS.length];
           const pct = pctOf(r.finalScore);
           const pg = personalGrade(r.finalScore);
           const pgColor = pg === null ? "#475569" : pg >= 8.5 ? "#22c55e" : pg >= 7 ? "#6366f1" : pg >= 5.5 ? "#f59e0b" : "#ef4444";
@@ -423,14 +621,12 @@ const myTasks = tasks.filter(t => t.assignee === m.id);
                 </div>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{r.name}</div>
-                  {/* FIX: hiện "–" khi chưa có task thay vì "0/0 task xong" */}
                   <div style={{ fontSize: 11, color: "#334155" }}>
                     {r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} task xong` : "Chưa có task"}
                   </div>
                 </div>
               </div>
 
-              {/* FIX: hiện "—" khi chưa có dữ liệu thay vì "0" gây hiểu nhầm */}
               <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: r.taskHasData ? (r.taskScore >= 70 ? "#22c55e" : "#64748b") : "#1e2235" }}>
                 {r.taskHasData ? r.taskScore.toFixed(0) : "—"}
               </div>
@@ -489,11 +685,6 @@ const myTasks = tasks.filter(t => t.assignee === m.id);
   );
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
-const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
-const filterBtn = { padding: "6px 14px", borderRadius: 20, border: "1px solid #1e2235", background: "transparent", color: "#64748b", fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" };
-const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
-
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   const [tab, setTab] = useState("setup");
@@ -505,11 +696,9 @@ export default function App() {
   const [leaderScores, setLeaderScores] = useState({});
   const [teacherScore, setTeacherScore] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-
-  // FIX: dùng ref để tránh sync URL khi chưa load xong
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   const loaded = useRef(false);
 
-  // Load state from URL on first render
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedData = params.get("g");
@@ -526,14 +715,12 @@ export default function App() {
       }
     }
     loaded.current = true;
+    setIsDataLoaded(true);
   }, []);
 
-  // FIX: chỉ sync URL sau khi đã load xong state từ URL
-  // FIX: không ghi URL khi state hoàn toàn rỗng
   useEffect(() => {
     if (!loaded.current) return;
-    if (members.length === 0 && !projectName) {
-      // Xoá query param nếu không có dữ liệu
+    if (members.length === 0 && !projectName && tasks.length === 0) {
       window.history.replaceState(null, "", window.location.pathname);
       return;
     }
@@ -551,7 +738,6 @@ export default function App() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // FIX: badge peer chỉ hiện khi có ít nhất 2 thành viên
   const peerCompletedCount = members.length >= 2 ? members.filter(m => {
     if (!peerScores[m.id]) return false;
     return members.filter(x => x.id !== m.id).every(r => PEER_CRITERIA.every(c => (peerScores[m.id][r.id]?.[c] ?? 0) > 0));
@@ -563,11 +749,21 @@ export default function App() {
     result: null,
   };
 
+  if (!isDataLoaded) {
+    return (
+      <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🔄</div>
+          <div style={{ fontSize: 16, color: "#a5b4fc" }}>Đang tải dữ liệu...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: "#0a0a10", color: "#e2e8f0" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
 
-      {/* Header */}
       <div style={{ background: "linear-gradient(135deg,#0f0c29,#1a1040,#0f0c29)", borderBottom: "1px solid #1e2235", padding: "0 32px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -598,7 +794,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Content */}
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 32px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} />}
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} />}
