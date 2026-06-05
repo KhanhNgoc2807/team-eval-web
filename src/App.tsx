@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TeamFlow v2 - Quản lý nhóm hiệu quả</title>
+<title>TeamFlow v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <style>
   :root {
@@ -36,6 +36,7 @@
   .nav-item:hover{background:var(--surface3);color:var(--text);}
   .nav-item.active{background:var(--text);color:white;}
   .nav-icon{font-size:15px;width:20px;text-align:center;}
+  .nav-badge{margin-left:auto;background:var(--red);color:white;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700;}
   .sidebar-project{padding:12px 16px;border-top:1px solid var(--border);}
   .project-pill{background:var(--surface3);border-radius:10px;padding:10px 12px;border:1px solid var(--border);}
   .project-label{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:.5px;margin-bottom:4px;}
@@ -73,6 +74,7 @@
   .stat-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;margin-bottom:12px;}
   .stat-value{font-size:28px;font-weight:800;font-family:var(--mono);letter-spacing:-1px;}
   .stat-label{font-size:11px;color:var(--text3);font-weight:500;margin-top:3px;}
+  .stat-change{font-size:11px;margin-top:6px;font-weight:600;}.stat-change.up{color:var(--green);}.stat-change.down{color:var(--red);}
   .progress-track{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;}
   .progress-fill{height:100%;border-radius:3px;transition:width .5s ease;}
   .avatar{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
@@ -93,9 +95,10 @@
   .chip:hover{border-color:var(--text);color:var(--text);}.chip.active{background:var(--text);color:white;border-color:var(--text);}
   .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;color:var(--text3);gap:12px;}
   .empty-icon{font-size:40px;opacity:.4;}.empty-text{font-size:13px;font-weight:500;}
-  .confirm-modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:1100;backdrop-filter:blur(4px);}
-  .confirm-box{background:#ffffff;border-radius:20px;padding:24px;max-width:360px;width:92%;text-align:center;}
-  .confirm-buttons{display:flex;gap:12px;justify-content:center;margin-top:20px;}
+  .comment{display:flex;gap:10px;margin-bottom:12px;}
+  .comment-body{flex:1;background:var(--surface2);border-radius:10px;padding:10px 13px;border:1px solid var(--border);}
+  .comment-author{font-size:11px;font-weight:700;}.comment-time{font-size:10px;color:var(--text3);margin-left:8px;}
+  .comment-text{font-size:12.5px;color:var(--text2);margin-top:3px;line-height:1.5;}
   .ai-panel{position:fixed;right:24px;bottom:24px;width:360px;background:#ffffff;border:1px solid var(--border);border-radius:18px;box-shadow:0 8px 40px rgba(0,0,0,.12);display:flex;flex-direction:column;overflow:hidden;z-index:500;transition:all .3s cubic-bezier(.34,1.56,.64,1);}
   .ai-panel.collapsed{height:52px;}.ai-panel.expanded{height:480px;}
   .ai-header{padding:14px 16px;background:var(--text);color:white;display:flex;align-items:center;gap:10px;cursor:pointer;flex-shrink:0;}
@@ -116,15 +119,26 @@
   .cal-day-header{text-align:center;font-size:10px;font-weight:600;color:var(--text3);padding:4px;text-transform:uppercase;letter-spacing:.5px;}
   .cal-day{aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:8px;font-size:12px;cursor:pointer;transition:all .15s;border:1px solid transparent;position:relative;}
   .cal-day:hover{background:var(--surface3);}.cal-day.today{background:var(--text);color:white;font-weight:700;}
-  .cal-day.has-deadline::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:2px;background:var(--red);}
-  .cal-day.today.has-deadline::after{background:white;}
+  .cal-day.has-event::after{content:'';position:absolute;bottom:3px;width:4px;height:4px;border-radius:2px;background:var(--blue);}
+  .cal-day.has-deadline::after{background:var(--red);}
+  .cal-day.today.has-event::after,.cal-day.today.has-deadline::after{background:white;}
+  .cal-day.selected{border-color:var(--text);background:var(--surface3);}
+  .time-slot{padding:8px 12px;border-radius:8px;font-size:11px;font-weight:600;border:1px solid var(--border);background:#ffffff;cursor:pointer;transition:all .15s;text-align:center;}
+  .time-slot.free{background:#f0fdf4;border-color:#bbf7d0;color:var(--green);}
+  .time-slot.busy{background:#fef2f2;border-color:#fecaca;color:var(--red);}
   .table{width:100%;border-collapse:collapse;}
   .table th{text-align:left;font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.8px;text-transform:uppercase;padding:10px 14px;border-bottom:1px solid var(--border);}
   .table td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;}
   .table tr:last-child td{border-bottom:none;}.table tr:hover td{background:var(--surface2);}
   .divider{height:1px;background:var(--border);margin:16px 0;}
+  .divider-label{display:flex;align-items:center;gap:10px;color:var(--text3);font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;}
+  .divider-label::before,.divider-label::after{content:'';flex:1;height:1px;background:var(--border);}
   .toast{position:fixed;top:20px;right:24px;background:var(--text);color:white;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:500;z-index:2000;animation:slideIn .3s ease;}
   @keyframes slideIn{from{transform:translateY(-20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+  .onboard-screen{height:100vh;display:flex;align-items:center;justify-content:center;background:#ffffff;}
+  .onboard-card{background:#ffffff;border:1px solid var(--border);border-radius:24px;padding:48px;max-width:440px;width:92%;box-shadow:var(--shadow2);text-align:center;}
+
+  /* ===== AVAILABILITY FEATURE ===== */
   .avail-grid{display:grid;gap:12px;}
   .avail-member-row{background:#ffffff;border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;}
   .avail-member-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
@@ -135,6 +149,14 @@
   .avail-slot.free{background:#f0fdf4;border-color:#86efac;color:#15803d;}
   .avail-slot.busy{background:#fef2f2;border-color:#fca5a5;color:#b91c1c;}
   .avail-slot:hover{transform:scale(1.05);}
+  .overlap-heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:12px;}
+  .overlap-col{display:flex;flex-direction:column;gap:4px;}
+  .overlap-day-label{font-size:9px;font-weight:700;color:var(--text3);text-align:center;letter-spacing:.5px;text-transform:uppercase;margin-bottom:2px;}
+  .overlap-cell{padding:5px 2px;border-radius:6px;font-size:9px;font-weight:700;text-align:center;border:1px solid transparent;}
+  .suggest-meeting-banner{background:linear-gradient(135deg,#1a1916 0%,#3a3a35 100%);color:white;border-radius:var(--r);padding:20px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;}
+  .suggest-banner-left{flex:1;}
+  .suggest-banner-title{font-size:14px;font-weight:700;margin-bottom:4px;}
+  .suggest-banner-sub{font-size:12px;opacity:.7;}
   .avail-legend{display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text2);}
   .avail-legend-dot{width:10px;height:10px;border-radius:3px;}
   .meeting-card{background:#ffffff;border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;margin-bottom:10px;}
@@ -146,8 +168,6 @@
   .week-nav-btn{padding:5px 10px;border-radius:7px;border:1px solid var(--border2);background:#ffffff;cursor:pointer;font-size:13px;transition:all .15s;}
   .week-nav-btn:hover{background:var(--surface3);}
   .week-label{font-size:13px;font-weight:600;color:var(--text);}
-  .tooltip-icon{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--surface3);color:var(--text3);font-size:10px;font-weight:700;cursor:help;margin-left:6px;}
-  .formula-hint{font-size:11px;color:var(--text3);margin-top:4px;padding:6px 8px;background:var(--surface2);border-radius:6px;}
 </style>
 </head>
 <body>
@@ -168,19 +188,6 @@ const TIME_SLOTS=["8:00","9:00","10:00","11:00","13:00","14:00","15:00","16:00",
 const uid=()=>Math.random().toString(36).substring(2,9);
 const avg=arr=>arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0;
 
-// Seed data mẫu
-const SEED_MEMBERS=[
-  {id:uid(),name:"Nguyễn Văn An",role:"leader"},
-  {id:uid(),name:"Trần Thị Bình",role:"member"},
-  {id:uid(),name:"Lê Hoàng Cường",role:"member"},
-];
-const SEED_TASKS=[
-  {id:uid(),title:"Thiết kế database",assignee:SEED_MEMBERS[0].id,complexity:2,status:"done",deadline:"2026-06-10"},
-  {id:uid(),title:"Xây dựng UI Dashboard",assignee:SEED_MEMBERS[1].id,complexity:2,status:"doing",deadline:"2026-06-15"},
-  {id:uid(),title:"Tích hợp API",assignee:SEED_MEMBERS[2].id,complexity:3,status:"todo",deadline:"2026-06-20"},
-  {id:uid(),title:"Viết tài liệu",assignee:SEED_MEMBERS[0].id,complexity:1,status:"todo",deadline:"2026-06-18"},
-];
-
 const PAGES=[
   {id:"dashboard",icon:"📊",label:"Dashboard"},
   {id:"setup",icon:"⚙️",label:"Thiết lập"},
@@ -193,6 +200,7 @@ const PAGES=[
   {id:"result",icon:"🏆",label:"Kết quả"},
 ];
 
+// ---- Small components ----
 function Tag({color,children}){
   const cls=color==="green"?"tag-green":color==="amber"?"tag-amber":color==="red"?"tag-red":color==="blue"?"tag-blue":"tag-gray";
   return h("span",{className:`tag ${cls}`},children);
@@ -214,29 +222,19 @@ function Toast({msg,onDone}){
   useEffect(()=>{const t=setTimeout(onDone,2200);return()=>clearTimeout(t);},[]);
   return h("div",{className:"toast"},msg);
 }
-function ConfirmModal({message,onConfirm,onCancel}){
-  return h("div",{className:"confirm-modal",onClick:e=>{if(e.target===e.currentTarget)onCancel();}},
-    h("div",{className:"confirm-box"},
-      h("div",{style:{fontSize:16,marginBottom:16}},"⚠️ "+message),
-      h("div",{className:"confirm-buttons"},
-        h("button",{className:"btn btn-ghost btn-sm",onClick:onCancel},"Hủy"),
-        h("button",{className:"btn btn-danger btn-sm",onClick:onConfirm},"Xóa")
-      )
-    )
-  );
-}
 
-// Availability Page
+// ---- Availability Page ----
+// availability[memberId][weekOffset][dayIdx][slotIdx] = "free"|"busy"|undefined
 function AvailabilityPage({members,availability,setAvailability,meetings,setMeetings}){
   const [weekOffset,setWeekOffset]=useState(0);
   const [showMeetingModal,setShowMeetingModal]=useState(false);
   const [meetingForm,setMeetingForm]=useState({title:"",day:"",slot:"",duration:"60",attendees:[]});
   const [toast,setToast]=useState(null);
-  const [activeTab,setActiveTab]=useState("avail");
-  const [confirmDelete,setConfirmDelete]=useState(null);
+  const [activeTab,setActiveTab]=useState("avail"); // avail | meetings | suggest
 
   const weekKey=`w${weekOffset}`;
 
+  // Get week date range label
   const weekLabel=useMemo(()=>{
     const now=new Date();
     const mon=new Date(now);
@@ -262,6 +260,7 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
     return availability?.[memberId]?.[weekKey]?.[dayIdx]?.[slotIdx];
   }
 
+  // Overlap: count how many members are free for each slot
   const overlapMatrix=useMemo(()=>{
     const matrix=[];
     for(let d=0;d<7;d++){
@@ -279,6 +278,7 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
     return matrix;
   },[members,availability,weekOffset,weekKey]);
 
+  // Best suggested slots = highest overlap
   const suggestedSlots=useMemo(()=>{
     const flat=[];
     for(let d=0;d<7;d++){
@@ -308,20 +308,12 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
     setToast("Đã tạo lịch họp! 📅");
   }
 
-  function requestDeleteMeeting(id){
-    setConfirmDelete(id);
-  }
-  function deleteMeeting(id){
-    setMeetings(prev=>prev.filter(m=>m.id!==id));
-    setConfirmDelete(null);
-    setToast("Đã xóa lịch họp");
-  }
+  function deleteMeeting(id){setMeetings(prev=>prev.filter(m=>m.id!==id));}
 
   const thisWeekMeetings=meetings.filter(m=>m.weekKey===weekKey);
 
   return h("div",null,
     toast&&h(Toast,{msg:toast,onDone:()=>setToast(null)}),
-    confirmDelete&&h(ConfirmModal,{message:"Bạn có chắc muốn xóa cuộc họp này?",onConfirm:()=>deleteMeeting(confirmDelete),onCancel:()=>setConfirmDelete(null)}),
     h("div",{className:"topbar"},
       h("div",null,
         h("div",{className:"page-title"},"📅 Lịch rảnh & Họp nhóm"),
@@ -332,37 +324,55 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
       )
     ),
     h("div",{className:"content"},
+      // Sub tabs
       h("div",{className:"sub-tabs"},
         h("button",{className:`sub-tab ${activeTab==="avail"?"active":""}`,onClick:()=>setActiveTab("avail")},"📋 Lịch rảnh"),
         h("button",{className:`sub-tab ${activeTab==="suggest"?"active":""}`,onClick:()=>setActiveTab("suggest")},"✨ Gợi ý giờ họp"),
         h("button",{className:`sub-tab ${activeTab==="meetings"?"active":""}`,onClick:()=>setActiveTab("meetings")},`🗓️ Lịch họp (${thisWeekMeetings.length})`)
       ),
+
+      // Week nav
       h("div",{className:"week-nav"},
         h("button",{className:"week-nav-btn",onClick:()=>setWeekOffset(w=>w-1)},"← Tuần trước"),
         h("span",{className:"week-label"},`Tuần ${weekLabel}`),
         h("button",{className:"week-nav-btn",onClick:()=>setWeekOffset(w=>w+1)},"Tuần sau →"),
         weekOffset!==0&&h("button",{className:"week-nav-btn",onClick:()=>setWeekOffset(0),style:{marginLeft:4,fontSize:11}},"Hôm nay")
       ),
+
       activeTab==="avail"&&h("div",null,
+        // Legend
         h("div",{className:"avail-legend",style:{marginBottom:14}},
-          h("div",{style:{display:"flex",alignItems:"center",gap:5}},h("div",{className:"avail-legend-dot",style:{background:"#f0fdf4",border:"1px solid #86efac"}}),h("span",null,"Rảnh")),
-          h("div",{style:{display:"flex",alignItems:"center",gap:5}},h("div",{className:"avail-legend-dot",style:{background:"#fef2f2",border:"1px solid #fca5a5"}}),h("span",null,"Bận")),
-          h("div",{style:{display:"flex",alignItems:"center",gap:5}},h("div",{className:"avail-legend-dot",style:{background:"#f8f8f8",border:"1px solid #ebebeb"}}),h("span",null,"Chưa điền")),
+          h("div",{style:{display:"flex",alignItems:"center",gap:5}},[
+            h("div",{key:"f",className:"avail-legend-dot",style:{background:"#f0fdf4",border:"1px solid #86efac"}}),
+            h("span",{key:"fl"},"Rảnh")
+          ]),
+          h("div",{style:{display:"flex",alignItems:"center",gap:5}},[
+            h("div",{key:"b",className:"avail-legend-dot",style:{background:"#fef2f2",border:"1px solid #fca5a5"}}),
+            h("span",{key:"bl"},"Bận")
+          ]),
+          h("div",{style:{display:"flex",alignItems:"center",gap:5}},[
+            h("div",{key:"e",className:"avail-legend-dot",style:{background:"#f8f8f8",border:"1px solid #ebebeb"}}),
+            h("span",{key:"el"},"Chưa điền")
+          ]),
           h("span",{style:{color:"var(--text3)",fontSize:11}},"— Nhấn ô để chuyển: rảnh → bận → xóa")
         ),
+
         members.length===0
           ?h("div",{className:"empty"},h("div",{className:"empty-icon"},"👥"),h("div",{className:"empty-text"},"Chưa có thành viên. Vào Thiết lập để thêm."))
           :h("div",{className:"avail-grid"},
             members.map((m,mi)=>h("div",{key:m.id,className:"avail-member-row"},
               h("div",{className:"avail-member-header"},
                 h(Avatar,{name:m.name,idx:mi}),
-                h("span",{style:{fontWeight:600,fontSize:13}},m.name),
+                h("span",{style:{fontWeight:600,fontSize:13}}),m.name,
                 h("span",{style:{fontSize:11,color:"var(--text3)",marginLeft:"auto"}},
                   `Rảnh: ${Object.values(availability?.[m.id]?.[weekKey]||{}).flatMap(d=>Object.values(d)).filter(v=>v==="free").length} slot`)
               ),
+              // Day columns
               h("div",{style:{display:"flex",gap:6}},
-                h("div",{style:{width:48,flexShrink:0}}),
-                WEEK_DAYS.map((day,di)=>h("div",{key:di,className:"avail-day-col",style:{flex:1}},h("div",{className:"avail-day-label"},day)))
+                h("div",{style:{width:48,flexShrink:0}}), // spacer for time labels
+                WEEK_DAYS.map((day,di)=>h("div",{key:di,className:"avail-day-col",style:{flex:1}},
+                  h("div",{className:"avail-day-label"},day)
+                ))
               ),
               TIME_SLOTS.map((slot,si)=>h("div",{key:si,style:{display:"flex",gap:6,marginTop:4}},
                 h("div",{style:{width:48,flexShrink:0,fontSize:9,fontWeight:600,color:"var(--text3)",display:"flex",alignItems:"center",justifyContent:"flex-end",paddingRight:6}},slot),
@@ -377,10 +387,12 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
             ))
           )
       ),
+
       activeTab==="suggest"&&h("div",null,
         members.length===0
           ?h("div",{className:"empty"},h("div",{className:"empty-icon"},"👥"),h("div",{className:"empty-text"},"Thêm thành viên trước."))
           :h("div",null,
+            // Heatmap
             h("div",{className:"card",style:{marginBottom:16}},
               h("div",{style:{fontWeight:700,fontSize:14,marginBottom:4}},"🔥 Heatmap lịch rảnh chung"),
               h("div",{style:{fontSize:12,color:"var(--text3)",marginBottom:14}},"Màu càng xanh = càng nhiều người rảnh cùng lúc"),
@@ -399,6 +411,8 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
                 })
               ))
             ),
+
+            // Suggestions
             h("div",{className:"card"},
               h("div",{style:{fontWeight:700,fontSize:14,marginBottom:12}},"✨ Gợi ý giờ họp tốt nhất"),
               suggestedSlots.length===0
@@ -422,6 +436,7 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
             )
           )
       ),
+
       activeTab==="meetings"&&h("div",null,
         h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}},
           h("div",{style:{fontWeight:600,fontSize:13}},`${thisWeekMeetings.length} cuộc họp tuần này`),
@@ -448,11 +463,13 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
                   })
                 )
               ),
-              h("button",{className:"btn btn-sm btn-danger",onClick:()=>requestDeleteMeeting(mtg.id)},"Xóa")
+              h("button",{className:"btn btn-sm btn-danger",onClick:()=>deleteMeeting(mtg.id)},"Xóa")
             )
           )))
       )
     ),
+
+    // Meeting modal
     showMeetingModal&&h("div",{className:"modal-overlay",onClick:e=>{if(e.target===e.currentTarget)setShowMeetingModal(false)}},
       h("div",{className:"modal"},
         h("div",{className:"modal-title"},"📅 Tạo lịch họp"),
@@ -506,11 +523,13 @@ function AvailabilityPage({members,availability,setAvailability,meetings,setMeet
   );
 }
 
-// Dashboard Page
+// ---- Dashboard ----
 function DashboardPage({members,tasks,meetings,availability}){
   const done=tasks.filter(t=>t.status==="done").length;
   const total=tasks.length;
   const overdue=tasks.filter(t=>t.deadline&&new Date(t.deadline)<new Date()&&t.status!=="done").length;
+
+  // Count total free slots across all members this week
   const totalFreeSlots=useMemo(()=>{
     let n=0;
     Object.values(availability||{}).forEach(m=>{
@@ -559,17 +578,17 @@ function DashboardPage({members,tasks,meetings,availability}){
   );
 }
 
-// Setup Page
-function SetupPage({project,setProject,members,setMembers,sprint,setSprint,showToast}){
+// ---- Setup Page ----
+function SetupPage({project,setProject,members,setMembers,sprint,setSprint,toast,showToast}){
   const [name,setName]=useState("");
   const [role,setRole]=useState("member");
 
   function addMember(){
-    if(!name.trim()){showToast("Vui lòng nhập tên thành viên!");return;}
+    if(!name.trim())return;
     setMembers(prev=>[...prev,{id:uid(),name:name.trim(),role}]);
     setName("");showToast("Đã thêm thành viên!");
   }
-  function removeMember(id){setMembers(prev=>prev.filter(m=>m.id!==id));showToast("Đã xóa thành viên");}
+  function removeMember(id){setMembers(prev=>prev.filter(m=>m.id!==id));}
 
   return h("div",null,
     h("div",{className:"topbar"},
@@ -622,28 +641,24 @@ function SetupPage({project,setProject,members,setMembers,sprint,setSprint,showT
   );
 }
 
-// Tasks Page
+// ---- Tasks Page ----
 function TasksPage({members,tasks,setTasks,showToast}){
   const [filter,setFilter]=useState("all");
   const [showAdd,setShowAdd]=useState(false);
   const [form,setForm]=useState({title:"",assignee:"",complexity:1,status:"todo",deadline:""});
-  const [confirmDelete,setConfirmDelete]=useState(null);
 
   function addTask(){
-    if(!form.title.trim()){showToast("Vui lòng nhập tiêu đề task!");return;}
-    if(!form.assignee){showToast("Vui lòng chọn người thực hiện!");return;}
+    if(!form.title.trim()||!form.assignee)return;
     setTasks(prev=>[...prev,{id:uid(),...form}]);
     setForm({title:"",assignee:"",complexity:1,status:"todo",deadline:""});
     setShowAdd(false);showToast("Đã thêm task!");
   }
   function updateTask(id,patch){setTasks(prev=>prev.map(t=>t.id===id?{...t,...patch}:t));}
-  function requestDeleteTask(id){setConfirmDelete(id);}
-  function deleteTask(id){setTasks(prev=>prev.filter(t=>t.id!==id));setConfirmDelete(null);showToast("Đã xóa task");}
+  function deleteTask(id){setTasks(prev=>prev.filter(t=>t.id!==id));}
 
   const filtered=tasks.filter(t=>filter==="all"||t.status===filter||t.assignee===filter);
 
   return h("div",null,
-    confirmDelete&&h(ConfirmModal,{message:"Bạn có chắc muốn xóa task này?",onConfirm:()=>deleteTask(confirmDelete),onCancel:()=>setConfirmDelete(null)}),
     h("div",{className:"topbar"},
       h("div",null,h("div",{className:"page-title"},"✅ Task Log"),h("div",{className:"page-sub"},"Quản lý công việc nhóm")),
       h("button",{className:"btn btn-primary",onClick:()=>setShowAdd(v=>!v)},showAdd?"Đóng":"+ Thêm Task")
@@ -703,7 +718,7 @@ function TasksPage({members,tasks,setTasks,showToast}){
                 h("select",{className:"input",style:{width:130,padding:"4px 8px",fontSize:11},value:t.status,onChange:e=>updateTask(t.id,{status:e.target.value})},
                   Object.entries(STATUS).map(([k,v])=>h("option",{key:k,value:k},v.label))
                 ),
-                h("button",{className:"btn btn-sm btn-danger",style:{padding:"4px 8px"},onClick:()=>requestDeleteTask(t.id)},"✕")
+                h("button",{className:"btn btn-sm btn-danger",style:{padding:"4px 8px"},onClick:()=>deleteTask(t.id)},"✕")
               )
             )
           );
@@ -713,7 +728,7 @@ function TasksPage({members,tasks,setTasks,showToast}){
   );
 }
 
-// Analytics Page
+// ---- Analytics Page ----
 function AnalyticsPage({members,tasks}){
   const stats=useMemo(()=>members.map((m,i)=>{
     const mt=tasks.filter(t=>t.assignee===m.id);
@@ -746,7 +761,7 @@ function AnalyticsPage({members,tasks}){
   );
 }
 
-// Peer Review Page
+// ---- Peer Review ----
 function PeerPage({members,peerReviews,setPeerReviews,showToast}){
   const [reviewer,setReviewer]=useState("");
   const [saved,setSaved]=useState(false);
@@ -796,7 +811,8 @@ function PeerPage({members,peerReviews,setPeerReviews,showToast}){
   );
 }
 
-// Leader Review Pagefunction LeaderPage({members,leaderReviews,setLeaderReviews,showToast}){
+// ---- Leader Page ----
+function LeaderPage({members,leaderReviews,setLeaderReviews,showToast}){
   function getRating(memberId,ci){return leaderReviews?.[memberId]?.[ci]??0;}
   function setRating(memberId,ci,val){
     setLeaderReviews(prev=>{
@@ -825,28 +841,25 @@ function PeerPage({members,peerReviews,setPeerReviews,showToast}){
   );
 }
 
-// Result Page with formula explanation
+// ---- Result Page ----
 function ResultPage({members,tasks,peerReviews,leaderReviews}){
-  const [showFormula,setShowFormula]=useState(false);
   const results=useMemo(()=>members.map((m,i)=>{
     const mt=tasks.filter(t=>t.assignee===m.id);
-    const completedTasks=mt.filter(t=>t.status==="done");
-    const totalComplexity=mt.reduce((a,t)=>a+COMPLEXITY[t.complexity].pts,0);
-    const earnedComplexity=completedTasks.reduce((a,t)=>a+COMPLEXITY[t.complexity].pts,0);
-    const taskScore=totalComplexity>0?Math.min((earnedComplexity/totalComplexity)*10,10):0;
+    const pts=mt.filter(t=>t.status==="done").reduce((a,t)=>a+COMPLEXITY[t.complexity].pts,0);
+    const taskScore=mt.length?Math.min(pts/mt.length*3.33,10):0;
 
     let peerSum=0,peerCount=0;
     members.forEach(r=>{
       if(r.id===m.id)return;
       PEER_CRITERIA.forEach((_,ci)=>{
         const v=peerReviews?.[r.id]?.[m.id]?.[ci];
-        if(v&&v>0){peerSum+=v;peerCount++;}
+        if(v){peerSum+=v;peerCount++;}
       });
     });
     const peerScore=peerCount?peerSum/peerCount:0;
 
     let ldrSum=0,ldrCount=0;
-    LEADER_CRITERIA.forEach((_,ci)=>{const v=leaderReviews?.[m.id]?.[ci];if(v&&v>0){ldrSum+=v;ldrCount++;}});
+    LEADER_CRITERIA.forEach((_,ci)=>{const v=leaderReviews?.[m.id]?.[ci];if(v){ldrSum+=v;ldrCount++;}});
     const ldrScore=ldrCount?ldrSum/ldrCount:0;
 
     const final=(taskScore*0.4+peerScore*0.35+ldrScore*0.25).toFixed(2);
@@ -854,23 +867,8 @@ function ResultPage({members,tasks,peerReviews,leaderReviews}){
   }).sort((a,b)=>b.final-a.final),[members,tasks,peerReviews,leaderReviews]);
 
   return h("div",null,
-    h("div",{className:"topbar"},
-      h("div",null,
-        h("div",{className:"page-title"},"🏆 Kết quả"),
-        h("div",{className:"page-sub"},"Tổng hợp điểm số cuối kỳ")
-      ),
-      h("div",{className:"topbar-actions"},
-        h("button",{className:"btn btn-ghost btn-sm",onClick:()=>setShowFormula(!showFormula)},"📐 Công thức")
-      )
-    ),
+    h("div",{className:"topbar"},h("div",null,h("div",{className:"page-title"},"🏆 Kết quả"),h("div",{className:"page-sub"},"Tổng hợp điểm số cuối kỳ"))),
     h("div",{className:"content"},
-      showFormula&&h("div",{className:"card",style:{marginBottom:16,background:"var(--surface2)"}},
-        h("div",{style:{fontWeight:600,marginBottom:8}},"📐 Cách tính điểm cuối cùng:"),
-        h("div",{className:"formula-hint"},"• Điểm Task: (Điểm phức tạp đã hoàn thành / Tổng điểm phức tạp) × 10, tối đa 10 điểm"),
-        h("div",{className:"formula-hint"},"• Điểm Peer: Trung bình cộng các đánh giá từ đồng nghiệp (thang điểm 10)"),
-        h("div",{className:"formula-hint"},"• Điểm Leader: Trung bình cộng đánh giá từ trưởng nhóm (thang điểm 10)"),
-        h("div",{className:"formula-hint",style:{marginTop:8,fontWeight:700}},"🎯 Điểm cuối = Task×40% + Peer×35% + Leader×25%")
-      ),
       results.length===0?h("div",{className:"empty"},h("div",{className:"empty-icon"},"🏆"),h("div",{className:"empty-text"},"Chưa có dữ liệu")):
       h("table",{className:"table"},
         h("thead",null,h("tr",null,
@@ -879,9 +877,9 @@ function ResultPage({members,tasks,peerReviews,leaderReviews}){
         h("tbody",null,results.map((r,i)=>h("tr",{key:r.id},
           h("td",null,i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1),
           h("td",null,h("div",{style:{display:"flex",alignItems:"center",gap:8}},h(Avatar,{name:r.name,idx:r.idx}),h("span",{style:{fontWeight:600}},r.name))),
-          h("td",null,h("span",{style:{fontFamily:"var(--mono)"}},r.taskScore)),
-          h("td",null,h("span",{style:{fontFamily:"var(--mono)"}},r.peerScore)),
-          h("td",null,h("span",{style:{fontFamily:"var(--mono)"}},r.ldrScore)),
+          h("td",null,h("span",{style:{fontFamily:"var(--mono)"}}),r.taskScore),
+          h("td",null,h("span",{style:{fontFamily:"var(--mono)"}}),r.peerScore),
+          h("td",null,h("span",{style:{fontFamily:"var(--mono)"}}),r.ldrScore),
           h("td",null,h("span",{style:{fontFamily:"var(--mono)",fontWeight:800,fontSize:16,color:i===0?"var(--green)":i===1?"var(--amber)":"var(--text)"}},r.final))
         )))
       )
@@ -889,7 +887,7 @@ function ResultPage({members,tasks,peerReviews,leaderReviews}){
   );
 }
 
-// Calendar Page
+// ---- Calendar Page ----
 function CalendarPage({tasks,meetings}){
   const today=new Date();
   const [month,setMonth]=useState(today.getMonth());
@@ -926,13 +924,13 @@ function CalendarPage({tasks,meetings}){
   );
 }
 
-// Main App
+// ---- App ----
 function App(){
   const [page,setPage]=useState("dashboard");
-  const [project,setProject]=useState({name:"Dự án nhóm mẫu",desc:"Dự án quản lý công việc nhóm với TeamFlow"});
-  const [sprint,setSprint]=useState({start:"2026-06-01",end:"2026-06-30"});
-  const [members,setMembers]=useState(SEED_MEMBERS);
-  const [tasks,setTasks]=useState(SEED_TASKS);
+  const [project,setProject]=useState({name:"Dự án nhóm",desc:""});
+  const [sprint,setSprint]=useState({start:"",end:""});
+  const [members,setMembers]=useState([]);
+  const [tasks,setTasks]=useState([]);
   const [peerReviews,setPeerReviews]=useState({});
   const [leaderReviews,setLeaderReviews]=useState({});
   const [availability,setAvailability]=useState({});
@@ -951,11 +949,9 @@ function App(){
     setAiInput("");
     setTimeout(()=>{
       let reply="Tôi hiểu rồi! Hiện tại tôi đang hỗ trợ bạn quản lý lịch họp và task nhóm.";
-      const lower=userMsg.toLowerCase();
-      if(lower.includes("lịch rảnh")||lower.includes("lịch"))reply="Vào tab 'Lịch rảnh' để xem và cập nhật lịch rảnh của từng thành viên, rồi dùng 'Gợi ý giờ họp' để tìm khung giờ phù hợp nhất!";
-      else if(lower.includes("task")||lower.includes("công việc"))reply="Vào 'Task Log' để thêm và quản lý công việc. Mỗi task có thể gán cho thành viên, đặt deadline và mức độ phức tạp.";
-      else if(lower.includes("họp")||lower.includes("meeting"))reply="Để tạo lịch họp, vào 'Lịch rảnh' → tab 'Lịch họp' → nhấn '+ Tạo lịch họp'. Hệ thống cũng gợi ý giờ họp dựa trên lịch rảnh chung!";
-      else if(lower.includes("điểm")||lower.includes("kết quả"))reply="Vào tab 'Kết quả' để xem tổng hợp điểm cuối kỳ theo công thức: Task 40%, Peer 35%, Leader 25%.";
+      if(userMsg.toLowerCase().includes("lịch"))reply="Vào tab 'Lịch rảnh' để xem và cập nhật lịch rảnh của từng thành viên, rồi dùng 'Gợi ý giờ họp' để tìm khung giờ phù hợp nhất!";
+      else if(userMsg.toLowerCase().includes("task"))reply="Vào 'Task Log' để thêm và quản lý công việc. Mỗi task có thể gán cho thành viên, đặt deadline và mức độ phức tạp.";
+      else if(userMsg.toLowerCase().includes("họp"))reply="Để tạo lịch họp, vào 'Lịch rảnh' → tab 'Lịch họp' → nhấn '+ Tạo lịch họp'. Hệ thống cũng gợi ý giờ họp dựa trên lịch rảnh chung!";
       setAiMsgs(m=>[...m,{role:"bot",text:reply}]);
     },600);
   }
@@ -963,7 +959,7 @@ function App(){
   const renderPage=()=>{
     switch(page){
       case"dashboard":return h(DashboardPage,{members,tasks,meetings,availability});
-      case"setup":return h(SetupPage,{project,setProject,members,setMembers,sprint,setSprint,showToast});
+      case"setup":return h(SetupPage,{project,setProject,members,setMembers,sprint,setSprint,toast,showToast});
       case"tasks":return h(TasksPage,{members,tasks,setTasks,showToast});
       case"analytics":return h(AnalyticsPage,{members,tasks});
       case"availability":return h(AvailabilityPage,{members,availability,setAvailability,meetings,setMeetings});
@@ -980,7 +976,7 @@ function App(){
     h("div",{className:"sidebar"},
       h("div",{className:"logo"},
         h("div",{className:"logo-mark"},
-          h("div",{className:"logo-icon"},h("svg",{viewBox:"0 0 16 16",width:16,height:16},h("path",{d:"M8 1L1 5v6l7 4 7-4V5L8 1z",fill:"white"}))),
+          h("div",{className:"logo-icon"},h("svg",{viewBox:"0 0 16 16"},h("path",{d:"M8 1L1 5v6l7 4 7-4V5L8 1z"}))),
           h("div",null,h("div",{className:"logo-name"},"TeamFlow"),h("div",{className:"logo-sub"},"v2.0"))
         )
       ),
@@ -1001,6 +997,7 @@ function App(){
       )
     ),
     h("div",{className:"main"},renderPage()),
+    // AI panel
     h("div",{className:`ai-panel ${aiOpen?"expanded":"collapsed"}`},
       h("div",{className:"ai-header",onClick:()=>setAiOpen(v=>!v)},
         h("div",{className:"ai-dot"}),
