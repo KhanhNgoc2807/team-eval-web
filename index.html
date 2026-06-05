@@ -1,12 +1,322 @@
 <!DOCTYPE html>
 <html lang="vi">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Team Eval - Đánh giá nhóm</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TeamFlow v2 - Quản lý nhóm</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:#ffffff;--surface:#ffffff;--surface2:#f8f8f8;--surface3:#f2f2f0;
+    --border:#ebebeb;--border2:#d9d9d9;
+    --text:#1a1916;--text2:#6b6860;--text3:#9c9a94;
+    --indigo:#4338ca;--blue:#1d4ed8;--green:#059669;--amber:#d97706;--red:#dc2626;--purple:#7c3aed;
+    --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);
+    --r:14px;--r2:10px;--r3:8px;
+    --font:'Sora',sans-serif;--mono:'JetBrains Mono',monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font);background:var(--bg);color:var(--text);font-size:14px;}
+  .app{display:flex;height:100vh;overflow:hidden;}
+  .sidebar{width:220px;background:#ffffff;border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;}
+  .main{flex:1;overflow-y:auto;}
+  .logo{padding:20px;border-bottom:1px solid var(--border);}
+  .logo-name{font-size:15px;font-weight:700;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;margin:4px 8px;color:var(--text2);}
+  .nav-item:hover{background:var(--surface3);}
+  .nav-item.active{background:var(--text);color:white;}
+  .content{padding:24px;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px;}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+  .btn{padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-weight:600;}
+  .btn-primary{background:var(--text);color:white;}
+  .btn-ghost{background:transparent;border:1px solid var(--border2);}
+  .input{width:100%;padding:8px 12px;border:1px solid var(--border2);border-radius:8px;}
+  .form-group{margin-bottom:12px;}
+  .form-label{font-size:11px;font-weight:600;color:var(--text3);}
+  .tag{padding:2px 8px;border-radius:5px;font-size:11px;font-weight:600;display:inline-block;}
+  .tag-green{background:#f0fdf4;color:var(--green);}
+  .tag-amber{background:#fffbeb;color:var(--amber);}
+  .tag-red{background:#fef2f2;color:var(--red);}
+  .tag-blue{background:#eff6ff;color:var(--blue);}
+  .avatar{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-weight:700;}
+  .member-chip{display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border-radius:10px;margin-bottom:6px;}
+  .task-card{padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;}
+  .progress-track{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;}
+  .progress-fill{height:100%;border-radius:3px;}
+  .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;}
+  .stat-value{font-size:28px;font-weight:800;}
+  table{width:100%;border-collapse:collapse;}
+  th,td{padding:10px;text-align:left;border-bottom:1px solid var(--border);}
+  .toast{position:fixed;bottom:20px;right:20px;background:var(--text);color:white;padding:10px 20px;border-radius:20px;z-index:1000;}
+  .sub-tabs{display:flex;gap:4px;margin-bottom:16px;}
+  .sub-tab{padding:6px 16px;border-radius:20px;border:none;cursor:pointer;}
+  .sub-tab.active{background:var(--text);color:white;}
+  .avail-slot{padding:4px;border-radius:4px;font-size:10px;text-align:center;cursor:pointer;border:1px solid var(--border);}
+  .avail-slot.free{background:#f0fdf4;border-color:#86efac;color:#15803d;}
+  .avail-slot.busy{background:#fef2f2;border-color:#fca5a5;color:#b91c1c;}
+  .week-nav{display:flex;gap:8px;align-items:center;margin-bottom:16px;}
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;z-index:1000;}
+  .modal{background:white;border-radius:20px;padding:24px;max-width:500px;width:90%;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+
+<script>
+  const { useState, useEffect, useMemo } = React;
+  
+  const uid = () => Math.random().toString(36).substring(2, 8);
+  const COMPLEXITY = {1:{label:"Nhẹ",pts:1},2:{label:"TB",pts:2},3:{label:"Nặng",pts:3}};
+  const STATUS = {todo:{label:"Todo"},doing:{label:"Đang làm"},done:{label:"Hoàn thành"}};
+  const PEER_CRITERIA = ["Chất lượng CV", "Chủ động", "Hợp tác"];
+  const LEADER_CRITERIA = ["Trách nhiệm", "Chất lượng", "Phối hợp"];
+  const RATING_OPTS = [0,2,6,8,9,10];
+  const WEEK_DAYS = ["T2","T3","T4","T5","T6","T7","CN"];
+  const TIME_SLOTS = ["8:00","9:00","10:00","11:00","13:00","14:00","15:00","16:00","17:00"];
+  const MEMBER_COLORS = ["#4338ca","#059669","#d97706","#dc2626","#7c3aed"];
+  
+  // Seed
+  const seedMembers = [
+    {id:uid(), name:"Nguyễn Văn An", role:"member"},
+    {id:uid(), name:"Trần Thị Bình", role:"member"},
+    {id:uid(), name:"Lê Hoàng Cường", role:"leader"}
+  ];
+  const seedTasks = [
+    {id:uid(), title:"Thiết kế UI", assignee:seedMembers[0].id, complexity:2, status:"done", deadline:"2026-06-10"},
+    {id:uid(), title:"Xây API", assignee:seedMembers[1].id, complexity:3, status:"doing", deadline:"2026-06-15"},
+    {id:uid(), title:"Viết báo cáo", assignee:seedMembers[2].id, complexity:1, status:"todo", deadline:"2026-06-18"}
+  ];
+
+  // Components
+  const Avatar = ({name, idx}) => {
+    const color = MEMBER_COLORS[idx % MEMBER_COLORS.length];
+    return React.createElement('div', {className:'avatar', style:{background:color+'20', color:color}}, name.charAt(0));
+  };
+  const Tag = ({color, children}) => React.createElement('span', {className:`tag tag-${color}`}, children);
+  const Progress = ({value, max, color}) => React.createElement('div', {className:'progress-track'},
+    React.createElement('div', {className:'progress-fill', style:{width:`${(value/max)*100}%`, background:color}}));
+
+  // Dashboard
+  const Dashboard = ({members, tasks}) => {
+    const done = tasks.filter(t=>t.status==='done').length;
+    return React.createElement('div', {className:'content'},
+      React.createElement('div', {className:'grid-4'},
+        React.createElement('div', {className:'stat-card'}, React.createElement('div', {className:'stat-value'}, members.length), React.createElement('div', null, 'Thành viên')),
+        React.createElement('div', {className:'stat-card'}, React.createElement('div', {className:'stat-value'}, done), React.createElement('div', null, 'Hoàn thành')),
+        React.createElement('div', {className:'stat-card'}, React.createElement('div', {className:'stat-value'}, tasks.length), React.createElement('div', null, 'Tổng task'))
+      ),
+      React.createElement('div', {className:'card'},
+        React.createElement('h3', null, 'Tiến độ'),
+        React.createElement(Progress, {value:done, max:tasks.length||1, color:'#059669'})
+      )
+    );
+  };
+
+  // Setup
+  const Setup = ({members, setMembers, showToast}) => {
+    const [name, setName] = useState('');
+    const add = () => {
+      if(!name.trim()) return;
+      setMembers([...members, {id:uid(), name:name.trim(), role:'member'}]);
+      setName('');
+      showToast('Đã thêm');
+    };
+    const remove = (id) => setMembers(members.filter(m=>m.id!==id));
+    return React.createElement('div', {className:'content'},
+      React.createElement('div', {className:'card'},
+        React.createElement('div', {style:{display:'flex', gap:8}},
+          React.createElement('input', {className:'input', placeholder:'Tên', value:name, onChange:e=>setName(e.target.value)}),
+          React.createElement('button', {className:'btn btn-primary', onClick:add}, 'Thêm')
+        ),
+        members.map((m,idx)=>React.createElement('div', {key:m.id, className:'member-chip'},
+          React.createElement(Avatar, {name:m.name, idx}),
+          React.createElement('span', {style:{flex:1}}, m.name),
+          React.createElement(Tag, {color:m.role==='leader'?'amber':'blue'}, m.role),
+          React.createElement('button', {className:'btn btn-ghost', style:{padding:'4px 8px'}, onClick:()=>remove(m.id)}, 'Xóa')
+        ))
+      )
+    );
+  };
+
+  // Tasks
+  const Tasks = ({members, tasks, setTasks, showToast}) => {
+    const [title, setTitle] = useState('');
+    const [assignee, setAssignee] = useState('');
+    const add = () => {
+      if(!title || !assignee) return;
+      setTasks([...tasks, {id:uid(), title, assignee, complexity:2, status:'todo'}]);
+      setTitle('');
+      showToast('Đã thêm');
+    };
+    const updateStatus = (id, status) => setTasks(tasks.map(t=>t.id===id ? {...t, status} : t));
+    return React.createElement('div', {className:'content'},
+      React.createElement('div', {className:'card'},
+        React.createElement('div', {className:'grid-3', style:{gap:8}},
+          React.createElement('input', {className:'input', placeholder:'Task', value:title, onChange:e=>setTitle(e.target.value)}),
+          React.createElement('select', {className:'input', value:assignee, onChange:e=>setAssignee(e.target.value)},
+            React.createElement('option', {value:''}, 'Người làm'), members.map(m=>React.createElement('option', {key:m.id, value:m.id}, m.name))
+          ),
+          React.createElement('button', {className:'btn btn-primary', onClick:add}, 'Thêm')
+        )
+      ),
+      tasks.map(t=>{
+        const member = members.find(m=>m.id===t.assignee);
+        return React.createElement('div', {key:t.id, className:'task-card'},
+          React.createElement('div', {style:{display:'flex', justifyContent:'space-between'}},
+            React.createElement('div', null, React.createElement('strong', null, t.title), React.createElement('div', {style:{fontSize:12, color:'gray'}}, member?.name)),
+            React.createElement('select', {value:t.status, onChange:e=>updateStatus(t.id, e.target.value)},
+              React.createElement('option', {value:'todo'}, 'Todo'), React.createElement('option', {value:'doing'}, 'Đang làm'), React.createElement('option', {value:'done'}, 'Done')
+            )
+          )
+        );
+      })
+    );
+  };
+
+  // Peer Review
+  const Peer = ({members, peerReviews, setPeerReviews, showToast}) => {
+    const [reviewer, setReviewer] = useState('');
+    const get = (reviewee, ci) => peerReviews?.[reviewer]?.[reviewee]?.[ci] || 0;
+    const set = (reviewee, ci, val) => setPeerReviews(prev => ({
+      ...prev, [reviewer]: {...prev[reviewer], [reviewee]: {...prev[reviewer]?.[reviewee], [ci]: val}}
+    }));
+    return React.createElement('div', {className:'content'},
+      React.createElement('div', {className:'card'},
+        React.createElement('select', {className:'input', value:reviewer, onChange:e=>setReviewer(e.target.value)},
+          React.createElement('option', {value:''}, '-- Bạn là ai? --'), members.map(m=>React.createElement('option', {key:m.id, value:m.id}, m.name))
+        ),
+        reviewer && members.filter(m=>m.id!==reviewer).map(reviewee => React.createElement('div', {key:reviewee.id, style:{marginTop:16}},
+          React.createElement('h4', null, 'Đánh giá ', reviewee.name),
+          PEER_CRITERIA.map((c,ci)=>React.createElement('div', {key:ci, className:'form-group'},
+            React.createElement('div', {className:'form-label'}, c),
+            React.createElement('select', {className:'input', value:get(reviewee.id, ci), onChange:e=>set(reviewee.id, ci, Number(e.target.value))},
+              RATING_OPTS.map(v=>React.createElement('option', {key:v, value:v}, v===0?'--':v))
+            )
+          ))
+        ))),
+        reviewer && React.createElement('button', {className:'btn btn-primary', style:{marginTop:16}, onClick:()=>showToast('Đã lưu')}, 'Lưu')
+      )
+    );
+  };
+
+  // Leader Review
+  const Leader = ({members, leaderReviews, setLeaderReviews, showToast}) => {
+    const get = (mid, ci) => leaderReviews?.[mid]?.[ci] || 0;
+    const set = (mid, ci, val) => setLeaderReviews(prev => ({...prev, [mid]: {...prev[mid], [ci]: val}}));
+    return React.createElement('div', {className:'content'},
+      React.createElement('div', {className:'card'},
+        members.map(m => React.createElement('div', {key:m.id, style:{marginBottom:16}},
+          React.createElement('h4', null, m.name),
+          LEADER_CRITERIA.map((c,ci)=>React.createElement('div', {key:ci, className:'form-group'},
+            React.createElement('div', {className:'form-label'}, c),
+            React.createElement('select', {className:'input', value:get(m.id, ci), onChange:e=>set(m.id, ci, Number(e.target.value))},
+              RATING_OPTS.map(v=>React.createElement('option', {key:v, value:v}, v===0?'--':v))
+            )
+          ))
+        )),
+        React.createElement('button', {className:'btn btn-primary', onClick:()=>showToast('Đã lưu')}, 'Lưu')
+      )
+    );
+  };
+
+  // Result
+  const Result = ({members, tasks, peerReviews, leaderReviews}) => {
+    const results = useMemo(() => members.map(m => {
+      const myTasks = tasks.filter(t=>t.assignee===m.id);
+      const doneTasks = myTasks.filter(t=>t.status==='done');
+      const taskScore = myTasks.length ? (doneTasks.length/myTasks.length)*10 : 0;
+      
+      let peerSum=0, peerCnt=0;
+      members.forEach(r => {
+        if(r.id === m.id) return;
+        PEER_CRITERIA.forEach((_,ci) => {
+          const v = peerReviews?.[r.id]?.[m.id]?.[ci];
+          if(v>0) { peerSum+=v; peerCnt++; }
+        });
+      });
+      const peerScore = peerCnt ? peerSum/peerCnt : 0;
+      
+      let leaderSum=0, leaderCnt=0;
+      LEADER_CRITERIA.forEach((_,ci) => {
+        const v = leaderReviews?.[m.id]?.[ci];
+        if(v>0) { leaderSum+=v; leaderCnt++; }
+      });
+      const leaderScore = leaderCnt ? leaderSum/leaderCnt : 0;
+      
+      // Task 40% + Peer 40% + Leader 20%
+      const final = (taskScore * 0.4) + (peerScore * 0.4) + (leaderScore * 0.2);
+      return {...m, taskScore: taskScore.toFixed(1), peerScore: peerScore.toFixed(1), leaderScore: leaderScore.toFixed(1), final: final.toFixed(2)};
+    }).sort((a,b)=>b.final - a.final), [members,tasks,peerReviews,leaderReviews]);
+    
+    return React.createElement('div', {className:'content'},
+      React.createElement('div', {className:'card'},
+        React.createElement('div', {style:{background:'#f0efe9', padding:10, borderRadius:8, marginBottom:16}},
+          '📐 Công thức: Task 40% + Peer 40% + Leader 20%'
+        ),
+        React.createElement('table', null,
+          React.createElement('thead', null, React.createElement('tr', null,
+            React.createElement('th', '#'), React.createElement('th', 'Thành viên'), React.createElement('th', 'Task'), React.createElement('th', 'Peer'), React.createElement('th', 'Leader'), React.createElement('th', 'Tổng')
+          )),
+          React.createElement('tbody', null, results.map((r,i)=>React.createElement('tr', {key:r.id},
+            React.createElement('td', i===0?'🥇':i===1?'🥈':i===2?'🥉':i+1),
+            React.createElement('td', r.name),
+            React.createElement('td', r.taskScore),
+            React.createElement('td', r.peerScore),
+            React.createElement('td', r.leaderScore),
+            React.createElement('td', {style:{fontWeight:'bold'}}, r.final)
+          )))
+        )
+      )
+    );
+  };
+
+  // App
+  const App = () => {
+    const [page, setPage] = useState('dashboard');
+    const [members, setMembers] = useState(seedMembers);
+    const [tasks, setTasks] = useState(seedTasks);
+    const [peerReviews, setPeerReviews] = useState({});
+    const [leaderReviews, setLeaderReviews] = useState({});
+    const [toast, setToast] = useState(null);
+    const showToast = (msg) => { setToast(msg); setTimeout(()=>setToast(null), 2000); };
+    
+    const pages = {
+      dashboard: React.createElement(Dashboard, {members, tasks}),
+      setup: React.createElement(Setup, {members, setMembers, showToast}),
+      tasks: React.createElement(Tasks, {members, tasks, setTasks, showToast}),
+      peer: React.createElement(Peer, {members, peerReviews, setPeerReviews, showToast}),
+      leader: React.createElement(Leader, {members, leaderReviews, setLeaderReviews, showToast}),
+      result: React.createElement(Result, {members, tasks, peerReviews, leaderReviews})
+    };
+    
+    const nav = [
+      {id:'dashboard', label:'📊 Dashboard'},
+      {id:'setup', label:'⚙️ Thiết lập'},
+      {id:'tasks', label:'✅ Task Log'},
+      {id:'peer', label:'🤝 Peer Review'},
+      {id:'leader', label:'👑 Leader'},
+      {id:'result', label:'🏆 Kết quả'}
+    ];
+    
+    return React.createElement('div', {className:'app'},
+      React.createElement('div', {className:'sidebar'},
+        React.createElement('div', {className:'logo'}, React.createElement('div', {className:'logo-name'}, '🎯 TeamFlow')),
+        nav.map(item => React.createElement('button', {key:item.id, className:`nav-item ${page===item.id ? 'active' : ''}`, onClick:()=>setPage(item.id)},
+          React.createElement('span', null, item.label)
+        ))
+      ),
+      React.createElement('div', {className:'main'}, pages[page]),
+      toast && React.createElement('div', {className:'toast'}, toast)
+    );
+  };
+
+  ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App, null));
+</script>
+</body>
 </html>
