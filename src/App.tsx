@@ -16,15 +16,16 @@ const RATING_OPTIONS = [
 const MEMBER_COLORS = ["#6366f1","#ec4899","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ef4444","#14b8a6","#f97316","#84cc16","#06b6d4","#a855f7","#e11d48","#0ea5e9","#22c55e","#eab308"];
 const TABS = [
   { id: "setup", icon: "⚙️", label: "Thiết lập" },
-  { id: "tasks", icon: "📋", label: "Task Log" },
-  { id: "peer", icon: "👥", label: "Peer Review" },
-  { id: "leader", icon: "👑", label: "Leader" },
+  { id: "tasks", icon: "📋", label: "Công việc" },
+  { id: "peer", icon: "👥", label: "Đánh giá đồng đội" },
+  { id: "leader", icon: "👑", label: "Đánh giá trưởng nhóm" },
+  { id: "schedule", icon: "📅", label: "Họp nhóm" },
   { id: "result", icon: "🏆", label: "Kết quả" },
 ];
 const uid = () => Math.random().toString(36).substring(2, 9);
 const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-// ─── THEME CONTEXT ────────────────────────────────────────────────────────────
+// ─── THEME ────────────────────────────────────────────────────────────────────
 type Theme = "dark" | "light";
 const getInitialTheme = (): Theme => {
   const saved = localStorage.getItem("theme") as Theme | null;
@@ -32,7 +33,6 @@ const getInitialTheme = (): Theme => {
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 };
 
-// ─── THEME STYLES ─────────────────────────────────────────────────────────────
 const themeStyles = {
   dark: {
     bg: "#0a0a10",
@@ -42,7 +42,6 @@ const themeStyles = {
     textMuted: "#475569",
     headerBg: "linear-gradient(135deg,#0f0c29,#1a1040,#0f0c29)",
     inputBg: "#0a0a10",
-    tagBg: "#22",
   },
   light: {
     bg: "#f3f4f6",
@@ -52,7 +51,6 @@ const themeStyles = {
     textMuted: "#64748b",
     headerBg: "linear-gradient(135deg,#e0e7ff,#c7d2fe,#e0e7ff)",
     inputBg: "#ffffff",
-    tagBg: "",
   }
 };
 
@@ -106,6 +104,206 @@ const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6,
 const filterBtn = (theme: Theme) => ({ padding: "6px 14px", borderRadius: 20, border: `1px solid ${themeStyles[theme].border}`, background: "transparent", color: themeStyles[theme].textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" });
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
 
+// ─── SCHEDULE TAB (LỊCH HỌP NHÓM) ─────────────────────────────────────────────
+function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme }: any) {
+  const styles = themeStyles[theme];
+  const [newSlotDate, setNewSlotDate] = useState("");
+  const [newSlotStart, setNewSlotStart] = useState("");
+  const [newSlotEnd, setNewSlotEnd] = useState("");
+  const [selectedMember, setSelectedMember] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const addTimeSlot = () => {
+    if (!newSlotDate || !newSlotStart || !newSlotEnd) return;
+    const newSlot = {
+      id: uid(),
+      date: newSlotDate,
+      start: newSlotStart,
+      end: newSlotEnd,
+      label: `${new Date(newSlotDate).toLocaleDateString("vi-VN")} - ${newSlotStart}→${newSlotEnd}`
+    };
+    setScheduleSlots((prev: any[]) => [...prev, newSlot]);
+    setNewSlotDate("");
+    setNewSlotStart("");
+    setNewSlotEnd("");
+    setShowCreateForm(false);
+  };
+
+  const deleteSlot = (slotId: string) => {
+    setScheduleSlots((prev: any[]) => prev.filter(s => s.id !== slotId));
+    const newSelections = { ...scheduleSelections };
+    Object.keys(newSelections).forEach(memberId => {
+      if (newSelections[memberId][slotId]) {
+        delete newSelections[memberId][slotId];
+      }
+    });
+    setScheduleSelections(newSelections);
+  };
+
+  const toggleSelection = (slotId: string) => {
+    if (!selectedMember) return;
+    setScheduleSelections((prev: any) => ({
+      ...prev,
+      [selectedMember]: {
+        ...(prev[selectedMember] || {}),
+        [slotId]: !(prev[selectedMember]?.[slotId] || false)
+      }
+    }));
+  };
+
+  const slotTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    scheduleSlots.forEach((slot: any) => {
+      let count = 0;
+      members.forEach((m: any) => {
+        if (scheduleSelections[m.id]?.[slot.id]) count++;
+      });
+      totals[slot.id] = count;
+    });
+    return totals;
+  }, [scheduleSlots, scheduleSelections, members]);
+
+  const bestSlot = useMemo(() => {
+    if (scheduleSlots.length === 0) return null;
+    let best = scheduleSlots[0];
+    let bestCount = 0;
+    scheduleSlots.forEach((slot: any) => {
+      if (slotTotals[slot.id] > bestCount) {
+        bestCount = slotTotals[slot.id];
+        best = slot;
+      }
+    });
+    return { slot: best, count: bestCount, total: members.length };
+  }, [scheduleSlots, slotTotals, members]);
+
+  const copyResult = () => {
+    if (!bestSlot) return;
+    const text = `📅 KẾT QUẢ KHẢO SÁT LỊCH HỌP NHÓM\n\nKhung giờ được chọn nhiều nhất: ${bestSlot.slot.label}\n${bestSlot.count}/${bestSlot.total} người rảnh\n\nChi tiết:\n${scheduleSlots.map((slot: any) => {
+      const available = members.filter((m: any) => scheduleSelections[m.id]?.[slot.id]).map((m: any) => m.name).join(", ");
+      return `${slot.label}: ${slotTotals[slot.id]} người${available ? ` (${available})` : ""}`;
+    }).join("\n")}`;
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  return (
+    <div>
+      <Card theme={theme} style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📅 KHẢO SÁT LỊCH RẢNH</h3>
+          <Btn onClick={() => setShowCreateForm(!showCreateForm)} variant="ghost" theme={theme}>
+            {showCreateForm ? "✖ Đóng" : "+ Thêm khung giờ"}
+          </Btn>
+        </div>
+        
+        {showCreateForm && (
+          <div style={{ background: styles.inputBg, borderRadius: 12, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
+              <div><label style={lbl}>Ngày</label><Input type="date" value={newSlotDate} onChange={setNewSlotDate} theme={theme} /></div>
+              <div><label style={lbl}>Từ giờ</label><Input type="time" value={newSlotStart} onChange={setNewSlotStart} theme={theme} /></div>
+              <div><label style={lbl}>Đến giờ</label><Input type="time" value={newSlotEnd} onChange={setNewSlotEnd} theme={theme} /></div>
+              <div><Btn onClick={addTimeSlot} theme={theme}>Thêm</Btn></div>
+            </div>
+          </div>
+        )}
+
+        {scheduleSlots.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 40, color: styles.textMuted }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📅</div>
+            <div>Chưa có khung giờ nào. Hãy thêm khung giờ để cả nhóm chọn lịch rảnh.</div>
+          </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 20 }}>
+              <label style={lbl}>Bạn là:</label>
+              <Select value={selectedMember} onChange={setSelectedMember} theme={theme} style={{ maxWidth: 300 }}>
+                <option value="">Chọn tên của bạn...</option>
+                {members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              </Select>
+            </div>
+
+            {selectedMember && (
+              <div style={{ overflowX: "auto", marginBottom: 24 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${styles.border}` }}>
+                      <th style={{ textAlign: "left", padding: 12 }}>Khung giờ</th>
+                      <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn của bạn</th>
+                      <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
+                      <th style={{ textAlign: "center", padding: 12 }}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {scheduleSlots.map((slot: any) => (
+                      <tr key={slot.id} style={{ borderBottom: `1px solid ${styles.border}` }}>
+                        <td style={{ padding: 12 }}>{slot.label}</td>
+                        <td style={{ textAlign: "center", padding: 12 }}>
+                          <button
+                            onClick={() => toggleSelection(slot.id)}
+                            style={{
+                              width: 32, height: 32, borderRadius: 8,
+                              background: scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.inputBg,
+                              border: `1px solid ${scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.border}`,
+                              cursor: "pointer",
+                              color: scheduleSelections[selectedMember]?.[slot.id] ? "#fff" : styles.textMuted
+                            }}
+                          >
+                            {scheduleSelections[selectedMember]?.[slot.id] ? "✓" : "○"}
+                          </button>
+                        </td>
+                        <td style={{ textAlign: "center", padding: 12 }}>
+                          <span style={{ fontWeight: 700, color: "#22c55e" }}>{slotTotals[slot.id]}</span>/{members.length}
+                        </td>
+                        <td style={{ textAlign: "center", padding: 12 }}>
+                          <button onClick={() => deleteSlot(slot.id)} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>🗑️</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {bestSlot && bestSlot.count > 0 && (
+              <div style={{ background: "#1e1b4b", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontSize: 13, color: "#a5b4fc", marginBottom: 4 }}>🏆 KHUNG GIỜ ĐƯỢC CHỌN NHIỀU NHẤT</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#fcd34d" }}>{bestSlot.slot.label}</div>
+                    <div style={{ fontSize: 13, color: "#818cf8" }}>{bestSlot.count}/{bestSlot.total} người rảnh</div>
+                  </div>
+                  <Btn onClick={copyResult} variant="primary" theme={theme}>
+                    {copySuccess ? "✓ Đã copy!" : "📋 Copy kết quả"}
+                  </Btn>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div style={{ fontWeight: 700, marginBottom: 12, color: "#a5b4fc" }}>📋 CHI TIẾT THEO KHUNG GIỜ</div>
+              {scheduleSlots.map((slot: any) => {
+                const availableMembers = members.filter((m: any) => scheduleSelections[m.id]?.[slot.id]);
+                return (
+                  <div key={slot.id} style={{ marginBottom: 12, padding: 12, background: styles.inputBg, borderRadius: 10 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>{slot.label}</div>
+                    <div style={{ fontSize: 13, color: availableMembers.length > 0 ? "#22c55e" : styles.textMuted }}>
+                      {availableMembers.length > 0 
+                        ? `✅ ${availableMembers.map((m: any) => m.name).join(", ")}`
+                        : "❌ Chưa có ai rảnh"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+      </Card>
+    </div>
+  );
+}
+
 // ─── SETUP TAB ────────────────────────────────────────────────────────────────
 function SetupTab({ members, setMembers, projectName, setProjectName, leader, setLeader, theme }: any) {
   const [name, setName] = useState("");
@@ -116,22 +314,22 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
       <Card theme={theme}>
-        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THÔNG TIN DỰ ÁN</h3>
+        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THIẾT LẬP</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div><label style={lbl}>Tên dự án / môn học</label><Input value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing Semester 2" theme={theme} /></div>
-          <div><label style={lbl}>Nhóm trưởng</label><Select value={leader} onChange={setLeader} theme={theme}><option value="">Chọn nhóm trưởng...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
+          <div><label style={lbl}>Tên dự án / môn học</label><Input value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing - Học kỳ 2" theme={theme} /></div>
+          <div><label style={lbl}>Trưởng nhóm</label><Select value={leader} onChange={setLeader} theme={theme}><option value="">Chọn trưởng nhóm...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
         </div>
         <div style={{ marginTop: 20, padding: 16, background: styles.inputBg, borderRadius: 12, fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
-          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 Công thức tính điểm</div>
-          <div>Thành viên = <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 40%</b> + <b style={{ color: "#f59e0b" }}>Leader × 20%</b></div>
-          <div>Nhóm trưởng = <b style={{ color: "#6366f1" }}>Task × 40%</b> + <b style={{ color: "#22c55e" }}>Peer × 60%</b></div>
+          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
+          <div>Thành viên = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 40%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá trưởng nhóm × 20%</b></div>
+          <div>Trưởng nhóm = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 60%</b></div>
         </div>
       </Card>
       <Card theme={theme}>
-        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>👥 THÀNH VIÊN NHÓM</h3>
+        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>👥 DANH SÁCH THÀNH VIÊN</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, marginBottom: 16 }}>
           <Input value={name} onChange={setName} placeholder="Họ và tên" onKeyDown={handleKeyDown} theme={theme} />
-          <Input value={mssv} onChange={setMssv} placeholder="MSSV (tuỳ chọn)" onKeyDown={handleKeyDown} theme={theme} />
+          <Input value={mssv} onChange={setMssv} placeholder="Mã số sinh viên (tùy chọn)" onKeyDown={handleKeyDown} theme={theme} />
           <Btn onClick={add} theme={theme}>Thêm</Btn>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
@@ -143,7 +341,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: styles.text }}>{m.name}</div>
-                {m.mssv && <div style={{ fontSize: 11, color: styles.textMuted }}>{m.mssv}</div>}
+                {m.mssv && <div style={{ fontSize: 11, color: styles.textMuted }}>MSSV: {m.mssv}</div>}
               </div>
               {leader === m.id && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
               <button onClick={() => setMembers((ms: any[]) => ms.filter((x: any) => x.id !== m.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
@@ -178,21 +376,21 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
             </button>
           ))}
         </div>
-        <Btn onClick={() => setShowForm(true)} theme={theme}>+ Thêm Task</Btn>
+        <Btn onClick={() => setShowForm(true)} theme={theme}>+ Thêm công việc</Btn>
       </div>
       {showForm && (
         <Card style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
             <div><label style={lbl}>Tên công việc *</label><Input value={form.name} onChange={v => setForm((f: any) => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." theme={theme} /></div>
             <div><label style={lbl}>Giao cho *</label><Select value={form.assignee} onChange={v => setForm((f: any) => ({ ...f, assignee: v }))} theme={theme}><option value="">Chọn thành viên...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
-            <div><label style={lbl}>Deadline</label><Input type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} /></div>
-            <div><label style={lbl}>Độ khó</label><div style={{ display: "flex", gap: 6 }}>{[1,2,3].map(v => (<button key={v} onClick={() => setForm((f: any) => ({ ...f, complexity: v }))} style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.border}`, background: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>LV{v}</button>))}</div></div>
+            <div><label style={lbl}>Hạn chót</label><Input type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} /></div>
+            <div><label style={lbl}>Độ khó</label><div style={{ display: "flex", gap: 6 }}>{[1,2,3].map(v => (<button key={v} onClick={() => setForm((f: any) => ({ ...f, complexity: v }))} style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.border}`, background: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Cấp {v}</button>))}</div></div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Btn onClick={() => setShowForm(false)} variant="ghost" theme={theme}>Huỷ</Btn><Btn onClick={addTask} theme={theme}>✓ Thêm Task</Btn></div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Btn onClick={() => setShowForm(false)} variant="ghost" theme={theme}>Hủy</Btn><Btn onClick={addTask} theme={theme}>✓ Thêm công việc</Btn></div>
         </Card>
       )}
       {filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có task nào</div><div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm Task" để bắt đầu phân công</div></div>
+        <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có công việc nào</div><div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu phân công</div></div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
@@ -204,11 +402,11 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
                   <span style={{ background: mc + "22", color: mc, border: `1px solid ${mc}44`, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>{member?.name.split(" ").pop()}</span>
-                  <div><Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>LV{t.complexity}</Tag><button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button></div>
+                  <div><Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag><button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button></div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
-                {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
-                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{sc.label} → click đổi</button>
+                {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
+                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{sc.label} → Nhấn để đổi trạng thái</button>
               </div>
             );
           })}
@@ -227,16 +425,16 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const reviewees = members.filter((m: any) => m.id !== reviewer);
   const reviewerMember = members.find((m: any) => m.id === reviewer);
   const completedCount = members.filter((m: any) => { if (!peerScores[m.id]) return false; return members.filter((x: any) => x.id !== m.id).every((reviewee: any) => PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)); }).length;
-  if (members.length < 2) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
+  if (members.length < 2) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên để thực hiện đánh giá đồng đội</div></div>;
   return (
     <div>
       <Card style={{ marginBottom: 20 }} theme={theme}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn là:</div>
+          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn đang đánh giá với vai trò:</div>
           <div style={{ flex: 1, maxWidth: 360 }}><Select value={reviewer} onChange={setReviewer} theme={theme}><option value="">Chọn tên của bạn...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
           {members.length >= 2 && <div style={{ fontSize: 13, color: styles.textMuted }}>✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length} thành viên</div>}
         </div>
-        {reviewer && <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại.</div>}
+        {reviewer && <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại theo thang điểm bên dưới.</div>}
       </Card>
       {!reviewer ? (
         <div style={{ textAlign: "center", padding: 60, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👆</div><div>Chọn tên của bạn để bắt đầu đánh giá</div></div>
@@ -249,7 +447,7 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc }}>{r.name.split(" ").pop().charAt(0)}</div>
                 <div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 700, color: styles.text }}>{r.name}</div></div>
-                {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {rowAvg.toFixed(1)}</Tag>}
+                {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>Trung bình: {rowAvg.toFixed(1)}</Tag>}
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{PEER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(r.id, c)} onChange={v => setScore(r.id, c, v)} theme={theme} /></div>))}</div>
             </Card>
@@ -266,13 +464,13 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   const styles = themeStyles[theme];
   const setScore = (memberId: string, criterion: string, val: number) => { setLeaderScores((ls: any) => ({ ...ls, [memberId]: { ...(ls[memberId] || {}), [criterion]: val } })); };
   const getScore = (memberId: string, criterion: string) => leaderScores?.[memberId]?.[criterion] ?? 0;
-  if (!leader) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👑</div><div>Chưa chọn nhóm trưởng. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div></div>;
+  if (!leader) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👑</div><div>Chưa chọn trưởng nhóm. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div></div>;
   const others = members.filter((m: any) => m.id !== leader);
-  if (others.length === 0) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Nhóm chỉ có nhóm trưởng, chưa có thành viên.</div></div>;
+  if (others.length === 0) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Nhóm chỉ có trưởng nhóm, chưa có thành viên để đánh giá</div></div>;
   return (
     <div>
       <Card style={{ marginBottom: 20, borderColor: "#451a03" }} theme={theme}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ fontSize: 28 }}>👑</div><div><div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Nhóm trưởng: {leaderMember?.name}</div><div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí.</div></div></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ fontSize: 28 }}>👑</div><div><div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Trưởng nhóm: {leaderMember?.name}</div><div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí bên dưới</div></div></div>
       </Card>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>{others.map((m: any) => {
         const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
@@ -282,7 +480,7 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
             <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
               <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc }}>{m.name.split(" ").pop().charAt(0)}</div>
               <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: styles.text }}>{m.name}</div>
-              {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm TB: {mAvg.toFixed(1)}</Tag>}
+              {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm trung bình: {mAvg.toFixed(1)}</Tag>}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{LEADER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} theme={theme} /></div>))}</div>
           </Card>
@@ -329,7 +527,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
       <Card style={{ marginBottom: 24, borderColor: "#1e3a5f", background: theme === "dark" ? "linear-gradient(135deg,#0c1929,#13131a)" : "linear-gradient(135deg,#e0e7ff,#c7d2fe)" }} theme={theme}>
         <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ fontSize: 36 }}>🎓</div>
-          <div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 800, color: "#93c5fd", marginBottom: 4 }}>Điểm thầy/cô cho nhóm</div><div style={{ fontSize: 13, color: styles.textMuted }}>Nhập điểm thầy chấm (thang 10) → app tự tính điểm cá nhân theo % đóng góp</div></div>
+          <div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 800, color: "#93c5fd", marginBottom: 4 }}>Điểm giảng viên cho nhóm</div><div style={{ fontSize: 13, color: styles.textMuted }}>Nhập điểm giảng viên chấm (thang 10) → hệ thống tự tính điểm cá nhân theo % đóng góp</div></div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <input type="number" min="0" max="10" step="0.1" value={teacherScore} onChange={e => setTeacherScore(e.target.value)} placeholder="VD: 9" style={{ width: 100, background: styles.inputBg, border: `2px solid #1e3a5f`, borderRadius: 12, padding: "12px 16px", color: "#93c5fd", fontSize: 22, fontWeight: 800, textAlign: "center" }} />
             <div style={{ fontSize: 13, color: styles.textMuted }}>/ 10</div>
@@ -340,8 +538,8 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "Điểm TB hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
-          { label: hasTeacherScore ? "Điểm thầy cho" : "Chờ điểm thầy", value: hasTeacherScore ? ts.toFixed(1) : "—", icon: "🎓", color: "#3b82f6", sub: "thang 10" },
+          { label: "Điểm trung bình hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
+          { label: hasTeacherScore ? "Điểm giảng viên" : "Chờ điểm giảng viên", value: hasTeacherScore ? ts.toFixed(1) : "—", icon: "🎓", color: "#3b82f6", sub: "thang 10" },
           { label: "Điểm cá nhân cao nhất", value: hasTeacherScore && results.length ? Math.max(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⭐", color: "#22c55e", sub: "thang 10" },
           { label: "Điểm cá nhân thấp nhất", value: hasTeacherScore && results.length ? Math.min(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⚠️", color: "#f59e0b", sub: "thang 10" },
         ].map(s => (
@@ -356,7 +554,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
 
       <Card style={{ padding: 0, overflow: "hidden" }} theme={theme}>
         <div style={{ padding: "14px 24px", background: styles.inputBg, borderBottom: `1px solid ${styles.border}`, display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", fontSize: 11, fontWeight: 700, letterSpacing: 1, color: styles.textMuted, textTransform: "uppercase", gap: 8, alignItems: "center" }}>
-          <span>Thành viên</span><span style={{ textAlign: "center" }}>Task</span><span style={{ textAlign: "center" }}>Peer</span><span style={{ textAlign: "center" }}>Leader</span><span style={{ textAlign: "center" }}>Tổng (100)</span><span style={{ textAlign: "center" }}>% Đóng góp</span><span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực" : "Chờ điểm"}</span>
+          <span>Thành viên</span><span style={{ textAlign: "center" }}>Công việc</span><span style={{ textAlign: "center" }}>Đồng đội</span><span style={{ textAlign: "center" }}>Trưởng nhóm</span><span style={{ textAlign: "center" }}>Tổng (100)</span><span style={{ textAlign: "center" }}>% Đóng góp</span><span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực tế" : "Chờ điểm"}</span>
         </div>
         {sorted.map((r: any) => {
           const memberIndex = members.findIndex((m: any) => m.id === r.id);
@@ -368,7 +566,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
             <div key={r.id} style={{ display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", padding: "14px 24px", borderBottom: `1px solid ${styles.border}`, alignItems: "center", gap: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc }}>{r.name.split(" ").pop().charAt(0)}</div>
-                <div><div style={{ fontSize: 13, fontWeight: 600, color: styles.text }}>{r.name}</div><div style={{ fontSize: 11, color: styles.textMuted }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} task xong` : "Chưa có task"}</div></div>
+                <div><div style={{ fontSize: 13, fontWeight: 600, color: styles.text }}>{r.name}</div><div style={{ fontSize: 11, color: styles.textMuted }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} công việc hoàn thành` : "Chưa có công việc"}</div></div>
               </div>
               <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.taskScore.toFixed(0)}</div>
               <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.peerScore.toFixed(0)}</div>
@@ -407,15 +605,16 @@ export default function App() {
   const [hasGroup, setHasGroup] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  
+  const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
+  const [scheduleSelections, setScheduleSelections] = useState<any>({});
 
-  // Toggle theme
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
   };
 
-  // Load data từ URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedData = params.get("data");
@@ -429,23 +628,24 @@ export default function App() {
         if (data.peerScores) setPeerScores(data.peerScores);
         if (data.leaderScores) setLeaderScores(data.leaderScores);
         if (data.teacherScore) setTeacherScore(data.teacherScore);
+        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
+        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
         setHasGroup(true);
       } catch (e) {}
     }
     setIsReady(true);
   }, []);
 
-  // Lưu dữ liệu vào URL
   useEffect(() => {
     if (!isReady) return;
     if (!hasGroup && members.length === 0 && tasks.length === 0) return;
-    const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore };
+    const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
     try {
       const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
       const newUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
       window.history.replaceState(null, "", newUrl);
     } catch (e) {}
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, hasGroup, isReady]);
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, hasGroup, isReady]);
 
   const createNewGroup = () => {
     setProjectName("");
@@ -455,6 +655,8 @@ export default function App() {
     setPeerScores({});
     setLeaderScores({});
     setTeacherScore("");
+    setScheduleSlots([]);
+    setScheduleSelections({});
     setHasGroup(true);
     window.history.replaceState(null, "", window.location.pathname);
   };
@@ -474,11 +676,12 @@ export default function App() {
   const tabBadge = {
     tasks: tasks.length || null,
     peer: peerCompletedCount !== null ? `${peerCompletedCount}/${members.length}` : null,
+    schedule: scheduleSlots.length > 0 ? scheduleSlots.length : null,
     result: null,
   };
 
   if (!isReady) {
-    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: styles.bg, color: styles.text }}>Đang tải...</div>;
+    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: styles.bg, color: styles.text }}>Đang tải dữ liệu...</div>;
   }
 
   if (!hasGroup) {
@@ -487,7 +690,7 @@ export default function App() {
         <Card style={{ textAlign: "center", maxWidth: 500, width: "90%" }} theme={theme}>
           <div style={{ fontSize: 64, marginBottom: 20 }}>🚀</div>
           <h2 style={{ color: "#a5b4fc", marginBottom: 12 }}>TEAM EVAL</h2>
-          <p style={{ color: styles.textMuted, marginBottom: 24, lineHeight: 1.6 }}>Công cụ đánh giá nhóm học tập<br/>Tạo nhóm mới để bắt đầu</p>
+          <p style={{ color: styles.textMuted, marginBottom: 24, lineHeight: 1.6 }}>Công cụ đánh giá nhóm học tập trực tuyến<br/>Tạo nhóm mới để bắt đầu</p>
           <Btn onClick={createNewGroup} variant="primary" theme={theme} style={{ padding: "12px 24px", fontSize: 16 }}>➕ Tạo nhóm mới</Btn>
         </Card>
       </div>
@@ -518,7 +721,7 @@ export default function App() {
               {theme === "dark" ? "☀️" : "🌙"}
             </Btn>
             <Btn onClick={generateShareLink} variant={isCopied ? "success" : "primary"} theme={theme} style={{ padding: "8px 16px", fontSize: 12 }}>
-              {isCopied ? "✓ Đã copy link nhóm!" : "🔗 Sinh link riêng biệt"}
+              {isCopied ? "✓ Đã sao chép link nhóm!" : "🔗 Tạo link chia sẻ riêng"}
             </Btn>
           </div>
         </div>
@@ -528,6 +731,7 @@ export default function App() {
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
         {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
+        {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
         {tab === "result" && <ResultTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} theme={theme} />}
       </div>
     </div>
