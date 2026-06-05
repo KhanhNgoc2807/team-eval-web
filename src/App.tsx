@@ -61,7 +61,7 @@ function Tag({ color, children, style = {} }: { color: string; children: React.R
 
 function Card({ children, style = {}, theme }: { children: React.ReactNode; style?: React.CSSProperties; theme: Theme }) {
   const styles = themeStyles[theme];
-  return <div style={{ background: styles.cardBg, border: `1px solid ${styles.border}`, borderRadius: 16, padding: 24, ...style }}>{children}</div>;
+  return <div className="card" style={{ background: styles.cardBg, border: `1px solid ${styles.border}`, borderRadius: 16, padding: 24, ...style }}>{children}</div>;
 }
 
 function Btn({ children, onClick, variant = "primary", style = {}, disabled = false, theme }: { children: React.ReactNode; onClick?: () => void; variant?: string; style?: React.CSSProperties; disabled?: boolean; theme: Theme }) {
@@ -191,7 +191,7 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
   return (
     <div>
       <Card theme={theme} style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📅 KHẢO SÁT LỊCH RẢNH</h3>
           <Btn onClick={() => setShowCreateForm(!showCreateForm)} variant="ghost" theme={theme}>
             {showCreateForm ? "✖ Đóng" : "+ Thêm khung giờ"}
@@ -200,7 +200,7 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
         
         {showCreateForm && (
           <div style={{ background: styles.inputBg, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
+            <div className="schedule-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
               <div><label style={lbl}>Ngày</label><Input type="date" value={newSlotDate} onChange={setNewSlotDate} theme={theme} /></div>
               <div><label style={lbl}>Từ giờ</label><Input type="time" value={newSlotStart} onChange={setNewSlotStart} theme={theme} /></div>
               <div><label style={lbl}>Đến giờ</label><Input type="time" value={newSlotEnd} onChange={setNewSlotEnd} theme={theme} /></div>
@@ -218,19 +218,19 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
           <>
             <div style={{ marginBottom: 20 }}>
               <label style={lbl}>Bạn là:</label>
-              <Select value={selectedMember} onChange={setSelectedMember} theme={theme} style={{ maxWidth: 300 }}>
+              <Select value={selectedMember} onChange={setSelectedMember} theme={theme} style={{ maxWidth: 300, width: "100%" }}>
                 <option value="">Chọn tên của bạn...</option>
                 {members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </Select>
             </div>
 
             {selectedMember && (
-              <div style={{ overflowX: "auto", marginBottom: 24 }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div className="schedule-table-wrapper" style={{ overflowX: "auto", marginBottom: 24 }}>
+                <table className="schedule-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${styles.border}` }}>
                       <th style={{ textAlign: "left", padding: 12 }}>Khung giờ</th>
-                      <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn của bạn</th>
+                      <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn</th>
                       <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
                       <th style={{ textAlign: "center", padding: 12 }}></th>
                     </tr>
@@ -312,7 +312,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
   const add = () => { if (!name.trim()) return; setMembers((m: any[]) => [...m, { id: uid(), name: name.trim(), mssv: mssv.trim() }]); setName(""); setMssv(""); };
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") add(); };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+    <div className="two-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
       <Card theme={theme}>
         <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THIẾT LẬP</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -329,13 +329,13 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
         <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>👥 DANH SÁCH THÀNH VIÊN</h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 10, marginBottom: 16 }}>
           <Input value={name} onChange={setName} placeholder="Họ và tên" onKeyDown={handleKeyDown} theme={theme} />
-          <Input value={mssv} onChange={setMssv} placeholder="Mã số sinh viên (tùy chọn)" onKeyDown={handleKeyDown} theme={theme} />
+          <Input value={mssv} onChange={setMssv} placeholder="Mã số sinh viên" onKeyDown={handleKeyDown} theme={theme} />
           <Btn onClick={add} theme={theme}>Thêm</Btn>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
           {members.length === 0 && <div style={{ textAlign: "center", padding: 40, color: styles.textMuted, fontSize: 14 }}>Chưa có thành viên nào</div>}
           {members.map((m: any, i: number) => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, background: styles.inputBg, borderRadius: 10, padding: "10px 14px" }}>
+            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, background: styles.inputBg, borderRadius: 10, padding: "10px 14px", flexWrap: "wrap" }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: MEMBER_COLORS[i % MEMBER_COLORS.length] + "22", border: `2px solid ${MEMBER_COLORS[i % MEMBER_COLORS.length]}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: MEMBER_COLORS[i % MEMBER_COLORS.length], flexShrink: 0 }}>
                 {m.name.split(" ").pop().charAt(0)}
               </div>
@@ -372,7 +372,8 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
           {members.filter((m: any) => tasks.some((t: any) => t.assignee === m.id)).map((m: any) => (
             <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)} style={{ ...btnStyle, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "18" } : {}) }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], display: "inline-block" }} />
-              {m.name.split(" ").pop()} ({tasks.filter((t: any) => t.assignee === m.id).length})
+              <span className="hide-on-mobile">{m.name.split(" ").pop()}</span>
+              <span> ({tasks.filter((t: any) => t.assignee === m.id).length})</span>
             </button>
           ))}
         </div>
@@ -380,7 +381,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
       </div>
       {showForm && (
         <Card style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
+          <div className="task-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
             <div><label style={lbl}>Tên công việc *</label><Input value={form.name} onChange={v => setForm((f: any) => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." theme={theme} /></div>
             <div><label style={lbl}>Giao cho *</label><Select value={form.assignee} onChange={v => setForm((f: any) => ({ ...f, assignee: v }))} theme={theme}><option value="">Chọn thành viên...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
             <div><label style={lbl}>Hạn chót</label><Input type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} /></div>
@@ -390,7 +391,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
         </Card>
       )}
       {filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có công việc nào</div><div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu phân công</div></div>
+        <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có công việc nào</div><div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu</div></div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
@@ -400,13 +401,13 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
             const od = overdue(t);
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <span style={{ background: mc + "22", color: mc, border: `1px solid ${mc}44`, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>{member?.name.split(" ").pop()}</span>
-                  <div><Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag><button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button></div>
+                  <div style={{ display: "flex", gap: 6 }}><Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag><button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button></div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
-                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{sc.label} → Nhấn để đổi trạng thái</button>
+                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{sc.label} → Nhấn để đổi</button>
               </div>
             );
           })}
@@ -425,31 +426,31 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const reviewees = members.filter((m: any) => m.id !== reviewer);
   const reviewerMember = members.find((m: any) => m.id === reviewer);
   const completedCount = members.filter((m: any) => { if (!peerScores[m.id]) return false; return members.filter((x: any) => x.id !== m.id).every((reviewee: any) => PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)); }).length;
-  if (members.length < 2) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên để thực hiện đánh giá đồng đội</div></div>;
+  if (members.length < 2) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
   return (
     <div>
       <Card style={{ marginBottom: 20 }} theme={theme}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn đang đánh giá với vai trò:</div>
-          <div style={{ flex: 1, maxWidth: 360 }}><Select value={reviewer} onChange={setReviewer} theme={theme}><option value="">Chọn tên của bạn...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
-          {members.length >= 2 && <div style={{ fontSize: 13, color: styles.textMuted }}>✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length} thành viên</div>}
+          <div style={{ flex: 1, minWidth: 200 }}><Select value={reviewer} onChange={setReviewer} theme={theme}><option value="">Chọn tên của bạn...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
+          {members.length >= 2 && <div style={{ fontSize: 13, color: styles.textMuted }}>✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length}</div>}
         </div>
-        {reviewer && <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại theo thang điểm bên dưới.</div>}
+        {reviewer && <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại.</div>}
       </Card>
       {!reviewer ? (
         <div style={{ textAlign: "center", padding: 60, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👆</div><div>Chọn tên của bạn để bắt đầu đánh giá</div></div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>{reviewees.map((r: any) => {
+        <div className="peer-grid" style={{ display: "flex", flexDirection: "column", gap: 16 }}>{reviewees.map((r: any) => {
           const mc = MEMBER_COLORS[members.indexOf(r) % MEMBER_COLORS.length];
           const rowAvg = avg(PEER_CRITERIA.map(c => getScore(r.id, c)).filter(s => s > 0));
           return (
             <Card key={r.id} style={{ borderColor: styles.border }} theme={theme}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc }}>{r.name.split(" ").pop().charAt(0)}</div>
                 <div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 700, color: styles.text }}>{r.name}</div></div>
-                {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>Trung bình: {rowAvg.toFixed(1)}</Tag>}
+                {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {rowAvg.toFixed(1)}</Tag>}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{PEER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(r.id, c)} onChange={v => setScore(r.id, c, v)} theme={theme} /></div>))}</div>
+              <div className="peer-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{PEER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(r.id, c)} onChange={v => setScore(r.id, c, v)} theme={theme} /></div>))}</div>
             </Card>
           );
         })}<div style={{ textAlign: "center", paddingTop: 8 }}><Btn onClick={() => setReviewer("")} variant="success" theme={theme}>✓ Đã đánh giá xong — Thoát</Btn></div></div>
@@ -466,23 +467,23 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   const getScore = (memberId: string, criterion: string) => leaderScores?.[memberId]?.[criterion] ?? 0;
   if (!leader) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👑</div><div>Chưa chọn trưởng nhóm. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div></div>;
   const others = members.filter((m: any) => m.id !== leader);
-  if (others.length === 0) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Nhóm chỉ có trưởng nhóm, chưa có thành viên để đánh giá</div></div>;
+  if (others.length === 0) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Nhóm chỉ có trưởng nhóm, chưa có thành viên</div></div>;
   return (
     <div>
       <Card style={{ marginBottom: 20, borderColor: "#451a03" }} theme={theme}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ fontSize: 28 }}>👑</div><div><div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Trưởng nhóm: {leaderMember?.name}</div><div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí bên dưới</div></div></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}><div style={{ fontSize: 28 }}>👑</div><div><div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Trưởng nhóm: {leaderMember?.name}</div><div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí</div></div></div>
       </Card>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>{others.map((m: any) => {
+      <div className="leader-grid" style={{ display: "flex", flexDirection: "column", gap: 14 }}>{others.map((m: any) => {
         const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
         const mAvg = avg(LEADER_CRITERIA.map(c => getScore(m.id, c)).filter(s => s > 0));
         return (
           <Card key={m.id} style={{ borderColor: styles.border }} theme={theme}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
               <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc }}>{m.name.split(" ").pop().charAt(0)}</div>
               <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: styles.text }}>{m.name}</div>
-              {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>Điểm trung bình: {mAvg.toFixed(1)}</Tag>}
+              {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {mAvg.toFixed(1)}</Tag>}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{LEADER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} theme={theme} /></div>))}</div>
+            <div className="leader-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{LEADER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} theme={theme} /></div>))}</div>
           </Card>
         );
       })}</div>
@@ -527,7 +528,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
       <Card style={{ marginBottom: 24, borderColor: "#1e3a5f", background: theme === "dark" ? "linear-gradient(135deg,#0c1929,#13131a)" : "linear-gradient(135deg,#e0e7ff,#c7d2fe)" }} theme={theme}>
         <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
           <div style={{ fontSize: 36 }}>🎓</div>
-          <div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 800, color: "#93c5fd", marginBottom: 4 }}>Điểm giảng viên cho nhóm</div><div style={{ fontSize: 13, color: styles.textMuted }}>Nhập điểm giảng viên chấm (thang 10) → hệ thống tự tính điểm cá nhân theo % đóng góp</div></div>
+          <div style={{ flex: 1 }}><div style={{ fontSize: 16, fontWeight: 800, color: "#93c5fd", marginBottom: 4 }}>Điểm giảng viên cho nhóm</div><div style={{ fontSize: 13, color: styles.textMuted }}>Nhập điểm giảng viên (thang 10) → tự tính điểm cá nhân theo % đóng góp</div></div>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <input type="number" min="0" max="10" step="0.1" value={teacherScore} onChange={e => setTeacherScore(e.target.value)} placeholder="VD: 9" style={{ width: 100, background: styles.inputBg, border: `2px solid #1e3a5f`, borderRadius: 12, padding: "12px 16px", color: "#93c5fd", fontSize: 22, fontWeight: 800, textAlign: "center" }} />
             <div style={{ fontSize: 13, color: styles.textMuted }}>/ 10</div>
@@ -536,16 +537,16 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
         </div>
       </Card>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
+      <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "Điểm trung bình hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
+          { label: "Điểm TB hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
           { label: hasTeacherScore ? "Điểm giảng viên" : "Chờ điểm giảng viên", value: hasTeacherScore ? ts.toFixed(1) : "—", icon: "🎓", color: "#3b82f6", sub: "thang 10" },
           { label: "Điểm cá nhân cao nhất", value: hasTeacherScore && results.length ? Math.max(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⭐", color: "#22c55e", sub: "thang 10" },
           { label: "Điểm cá nhân thấp nhất", value: hasTeacherScore && results.length ? Math.min(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⚠️", color: "#f59e0b", sub: "thang 10" },
         ].map(s => (
           <Card key={s.label} style={{ textAlign: "center" }} theme={theme}>
             <div style={{ fontSize: 24 }}>{s.icon}</div>
-            <div style={{ fontSize: 30, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: s.color, margin: "8px 0 2px" }}>{s.value}</div>
+            <div style={{ fontSize: "clamp(20px, 5vw, 30px)", fontWeight: 800, fontFamily: "'Space Mono',monospace", color: s.color, margin: "8px 0 2px" }}>{s.value}</div>
             <div style={{ fontSize: 11, color: styles.textMuted, marginBottom: 2 }}>{s.sub}</div>
             <div style={{ fontSize: 12, color: styles.textMuted }}>{s.label}</div>
           </Card>
@@ -553,38 +554,40 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
       </div>
 
       <Card style={{ padding: 0, overflow: "hidden" }} theme={theme}>
-        <div style={{ padding: "14px 24px", background: styles.inputBg, borderBottom: `1px solid ${styles.border}`, display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", fontSize: 11, fontWeight: 700, letterSpacing: 1, color: styles.textMuted, textTransform: "uppercase", gap: 8, alignItems: "center" }}>
-          <span>Thành viên</span><span style={{ textAlign: "center" }}>Công việc</span><span style={{ textAlign: "center" }}>Đồng đội</span><span style={{ textAlign: "center" }}>Trưởng nhóm</span><span style={{ textAlign: "center" }}>Tổng (100)</span><span style={{ textAlign: "center" }}>% Đóng góp</span><span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực tế" : "Chờ điểm"}</span>
-        </div>
-        {sorted.map((r: any) => {
-          const memberIndex = members.findIndex((m: any) => m.id === r.id);
-          const mc = MEMBER_COLORS[memberIndex >= 0 ? memberIndex % MEMBER_COLORS.length : 0];
-          const pct = pctOf(r.finalScore);
-          const pg = personalGrade(r.finalScore);
-          const pgColor = pg === null ? styles.textMuted : pg >= 8.5 ? "#22c55e" : pg >= 7 ? "#6366f1" : pg >= 5.5 ? "#f59e0b" : "#ef4444";
-          return (
-            <div key={r.id} style={{ display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", padding: "14px 24px", borderBottom: `1px solid ${styles.border}`, alignItems: "center", gap: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc }}>{r.name.split(" ").pop().charAt(0)}</div>
-                <div><div style={{ fontSize: 13, fontWeight: 600, color: styles.text }}>{r.name}</div><div style={{ fontSize: 11, color: styles.textMuted }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} công việc hoàn thành` : "Chưa có công việc"}</div></div>
+        <div className="result-table-wrapper" style={{ overflowX: "auto" }}>
+          <div style={{ padding: "14px 24px", background: styles.inputBg, borderBottom: `1px solid ${styles.border}`, display: "grid", gridTemplateColumns: "minmax(140px,1fr) 70px 70px 70px 80px 100px 80px", fontSize: 11, fontWeight: 700, letterSpacing: 1, color: styles.textMuted, textTransform: "uppercase", gap: 8, alignItems: "center", minWidth: 700 }}>
+            <span>Thành viên</span><span style={{ textAlign: "center" }}>CV</span><span style={{ textAlign: "center" }}>ĐĐ</span><span style={{ textAlign: "center" }}>TN</span><span style={{ textAlign: "center" }}>Tổng</span><span style={{ textAlign: "center" }}>% Đóng góp</span><span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực" : "Chờ"}</span>
+          </div>
+          {sorted.map((r: any) => {
+            const memberIndex = members.findIndex((m: any) => m.id === r.id);
+            const mc = MEMBER_COLORS[memberIndex >= 0 ? memberIndex % MEMBER_COLORS.length : 0];
+            const pct = pctOf(r.finalScore);
+            const pg = personalGrade(r.finalScore);
+            const pgColor = pg === null ? styles.textMuted : pg >= 8.5 ? "#22c55e" : pg >= 7 ? "#6366f1" : pg >= 5.5 ? "#f59e0b" : "#ef4444";
+            return (
+              <div key={r.id} style={{ display: "grid", gridTemplateColumns: "minmax(140px,1fr) 70px 70px 70px 80px 100px 80px", padding: "14px 24px", borderBottom: `1px solid ${styles.border}`, alignItems: "center", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc, flexShrink: 0 }}>{r.name.split(" ").pop().charAt(0)}</div>
+                  <div><div style={{ fontSize: 13, fontWeight: 600, color: styles.text }}>{r.name.split(" ").length > 1 ? r.name.split(" ").pop() : r.name}</div><div style={{ fontSize: 11, color: styles.textMuted }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} cv` : "Chưa có"}</div></div>
+                </div>
+                <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.taskScore.toFixed(0)}</div>
+                <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.peerScore.toFixed(0)}</div>
+                <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.isLeader ? "–" : r.leaderScore.toFixed(0)}</div>
+                <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: "#a5b4fc", marginBottom: 4 }}>{r.finalScore.toFixed(1)}</div><ProgressBar value={r.finalScore} max={maxFinal} color={mc} /></div>
+                <div style={{ textAlign: "center" }}><div style={{ background: mc + "18", border: `1px solid ${mc}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}><div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: mc }}>{pct.toFixed(1)}%</div></div></div>
+                <div style={{ textAlign: "center" }}>{pg !== null ? <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 60 }}><div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div></div> : <span style={{ color: styles.textMuted, fontSize: 20 }}>—</span>}</div>
               </div>
-              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.taskScore.toFixed(0)}</div>
-              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.peerScore.toFixed(0)}</div>
-              <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.isLeader ? "–" : r.leaderScore.toFixed(0)}</div>
-              <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: "#a5b4fc", marginBottom: 4 }}>{r.finalScore.toFixed(1)}</div><ProgressBar value={r.finalScore} max={maxFinal} color={mc} /></div>
-              <div style={{ textAlign: "center" }}><div style={{ background: mc + "18", border: `1px solid ${mc}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 80 }}><div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: mc }}>{pct.toFixed(1)}%</div></div></div>
-              <div style={{ textAlign: "center" }}>{pg !== null ? <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}><div style={{ fontSize: 18, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div></div> : <span style={{ color: styles.textMuted, fontSize: 20 }}>—</span>}</div>
-            </div>
-          );
-        })}
-        <div style={{ display: "grid", gridTemplateColumns: "170px 80px 80px 80px 90px 130px 90px", padding: "14px 24px", background: styles.inputBg, alignItems: "center", gap: 8, borderTop: `2px solid ${styles.border}` }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1" }}>Trung bình nhóm</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.taskScore)).toFixed(1)}</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.peerScore)).toFixed(1)}</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.filter((r: any) => !r.isLeader).map((r: any) => r.leaderScore)).toFixed(1)}</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: "#a5b4fc" }}>{teamAvg.toFixed(1)}</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 13, color: "#6366f1" }}>100%</div>
-          <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: hasTeacherScore ? "#93c5fd" : styles.textMuted }}>{hasTeacherScore ? ts.toFixed(1) : "—"}</div>
+            );
+          })}
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1fr) 70px 70px 70px 80px 100px 80px", padding: "14px 24px", background: styles.inputBg, alignItems: "center", gap: 8, borderTop: `2px solid ${styles.border}` }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1" }}>Trung bình nhóm</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.taskScore)).toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.peerScore)).toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.filter((r: any) => !r.isLeader).map((r: any) => r.leaderScore)).toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: "#a5b4fc" }}>{teamAvg.toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 13, color: "#6366f1" }}>100%</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: hasTeacherScore ? "#93c5fd" : styles.textMuted }}>{hasTeacherScore ? ts.toFixed(1) : "—"}</div>
+          </div>
         </div>
       </Card>
     </div>
@@ -686,12 +689,12 @@ export default function App() {
 
   if (!hasGroup) {
     return (
-      <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Card style={{ textAlign: "center", maxWidth: 500, width: "90%" }} theme={theme}>
+      <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <Card style={{ textAlign: "center", maxWidth: 500, width: "100%" }} theme={theme}>
           <div style={{ fontSize: 64, marginBottom: 20 }}>🚀</div>
           <h2 style={{ color: "#a5b4fc", marginBottom: 12 }}>TEAM EVAL</h2>
           <p style={{ color: styles.textMuted, marginBottom: 24, lineHeight: 1.6 }}>Công cụ đánh giá nhóm học tập trực tuyến<br/>Tạo nhóm mới để bắt đầu</p>
-          <Btn onClick={createNewGroup} variant="primary" theme={theme} style={{ padding: "12px 24px", fontSize: 16 }}>➕ Tạo nhóm mới</Btn>
+          <Btn onClick={createNewGroup} variant="primary" theme={theme} style={{ padding: "12px 24px", fontSize: 16, width: "100%", maxWidth: 200 }}>➕ Tạo nhóm mới</Btn>
         </Card>
       </div>
     );
@@ -699,34 +702,48 @@ export default function App() {
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text }}>
+      <style>{`
+        @media (max-width: 768px) {
+          .two-columns { grid-template-columns: 1fr !important; gap: 16px !important; }
+          .task-form-grid { grid-template-columns: 1fr !important; }
+          .peer-grid, .leader-grid { grid-template-columns: 1fr !important; }
+          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .result-table-wrapper { overflow-x: auto !important; }
+          .schedule-form-grid { grid-template-columns: 1fr !important; }
+          .schedule-table-wrapper { overflow-x: auto !important; }
+          .card { padding: 16px !important; }
+          .hide-on-mobile { display: none; }
+          .app-nav button span:last-child { display: none; }
+          .app-nav button span:first-child { font-size: 18px; }
+        }
+        @media (max-width: 480px) {
+          .stats-grid { grid-template-columns: 1fr !important; }
+        }
+      `}</style>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-      <div style={{ background: styles.headerBg, borderBottom: `1px solid ${styles.border}`, padding: "0 32px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68 }}>
+      <div style={{ background: styles.headerBg, borderBottom: `1px solid ${styles.border}`, padding: "0 16px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "12px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✦</div>
             <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
             <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div></div>
           </div>
-          <nav style={{ display: "flex", gap: 4, background: styles.inputBg, borderRadius: 14, padding: 5 }}>
+          <nav className="app-nav" style={{ display: "flex", gap: 4, background: styles.inputBg, borderRadius: 14, padding: 5, overflowX: "auto", flex: "1 1 auto", justifyContent: "center" }}>
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 18px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                 <span>{t.icon}</span>
                 <span>{t.label}</span>
-                {tabBadge[t.id] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>{tabBadge[t.id]}</span>}
+                {tabBadge[t.id] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{tabBadge[t.id]}</span>}
               </button>
             ))}
           </nav>
-          <div style={{ display: "flex", gap: 12 }}>
-            <Btn onClick={toggleTheme} variant="ghost" theme={theme} style={{ padding: "8px 12px", fontSize: 18 }}>
-              {theme === "dark" ? "☀️" : "🌙"}
-            </Btn>
-            <Btn onClick={generateShareLink} variant={isCopied ? "success" : "primary"} theme={theme} style={{ padding: "8px 16px", fontSize: 12 }}>
-              {isCopied ? "✓ Đã sao chép link nhóm!" : "🔗 Tạo link chia sẻ riêng"}
-            </Btn>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Btn onClick={toggleTheme} variant="ghost" theme={theme} style={{ padding: "8px 12px", fontSize: 18 }}>{theme === "dark" ? "☀️" : "🌙"}</Btn>
+            <Btn onClick={generateShareLink} variant={isCopied ? "success" : "primary"} theme={theme} style={{ padding: "8px 16px", fontSize: 12, whiteSpace: "nowrap" }}>{isCopied ? "✓ Đã copy!" : "🔗 Chia sẻ"}</Btn>
           </div>
         </div>
       </div>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 32px" }}>
+      <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
         {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} />}
