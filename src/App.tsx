@@ -233,12 +233,12 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                       <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn</th>
                       <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
                       <th style={{ textAlign: "center", padding: 12 }}></th>
-                    </tr>
+                    <tr>
                   </thead>
                   <tbody>
                     {scheduleSlots.map((slot: any) => (
                       <tr key={slot.id} style={{ borderBottom: `1px solid ${styles.border}` }}>
-                        <td style={{ padding: 12 }}>{slot.label}</td>
+                        <td style={{ padding: 12 }}>{slot.label}</tr>
                         <td style={{ textAlign: "center", padding: 12 }}>
                           <button
                             onClick={() => toggleSelection(slot.id)}
@@ -521,7 +521,6 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
 
   const reviewees = members.filter((m: any) => m.id !== reviewer);
   
-  // Kiểm tra xem reviewer đã đánh giá xong chưa
   const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
 
   const setScore = (revieweeId: string, criterion: string, val: number) => {
@@ -721,7 +720,7 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   );
 }
 
-// ─── RESULT TAB ───────────────────────────────────────────────────────────────
+// ─── RESULT TAB (ĐÃ SỬA TÊN CỘT) ──────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
   
@@ -783,7 +782,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
 
       <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
         {[
-          { label: "Điểm TB hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
+          { label: "Điểm trung bình hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
           { label: hasTeacherScore ? "Điểm giảng viên" : "Chờ điểm giảng viên", value: hasTeacherScore ? ts.toFixed(1) : "—", icon: "🎓", color: "#3b82f6", sub: "thang 10" },
           { label: "Điểm cá nhân cao nhất", value: hasTeacherScore && results.length ? Math.max(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⭐", color: "#22c55e", sub: "thang 10" },
           { label: "Điểm cá nhân thấp nhất", value: hasTeacherScore && results.length ? Math.min(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⚠️", color: "#f59e0b", sub: "thang 10" },
@@ -799,8 +798,14 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
 
       <Card style={{ padding: 0, overflow: "hidden" }} theme={theme}>
         <div className="result-table-wrapper" style={{ overflowX: "auto" }}>
-          <div style={{ padding: "14px 24px", background: styles.inputBg, borderBottom: `1px solid ${styles.border}`, display: "grid", gridTemplateColumns: "minmax(140px,1fr) 70px 70px 70px 80px 100px 80px", fontSize: 11, fontWeight: 700, letterSpacing: 1, color: styles.textMuted, textTransform: "uppercase", gap: 8, alignItems: "center", minWidth: 700 }}>
-            <span>Thành viên</span><span style={{ textAlign: "center" }}>CV</span><span style={{ textAlign: "center" }}>ĐĐ</span><span style={{ textAlign: "center" }}>TN</span><span style={{ textAlign: "center" }}>Tổng</span><span style={{ textAlign: "center" }}>% Đóng góp</span><span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực" : "Chờ"}</span>
+          <div style={{ padding: "14px 24px", background: styles.inputBg, borderBottom: `1px solid ${styles.border}`, display: "grid", gridTemplateColumns: "minmax(150px,1fr) 80px 80px 80px 90px 110px 100px", fontSize: 11, fontWeight: 700, letterSpacing: 1, color: styles.textMuted, textTransform: "uppercase", gap: 8, alignItems: "center", minWidth: 750 }}>
+            <span>Thành viên</span>
+            <span style={{ textAlign: "center" }}>Công việc</span>
+            <span style={{ textAlign: "center" }}>Đồng đội</span>
+            <span style={{ textAlign: "center" }}>Trưởng nhóm</span>
+            <span style={{ textAlign: "center" }}>Tổng (100)</span>
+            <span style={{ textAlign: "center" }}>% Đóng góp</span>
+            <span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực tế" : "Chờ điểm"}</span>
           </div>
           {sorted.map((r: any) => {
             const memberIndex = members.findIndex((m: any) => m.id === r.id);
@@ -809,21 +814,41 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
             const pg = personalGrade(r.finalScore);
             const pgColor = pg === null ? styles.textMuted : pg >= 8.5 ? "#22c55e" : pg >= 7 ? "#6366f1" : pg >= 5.5 ? "#f59e0b" : "#ef4444";
             return (
-              <div key={r.id} style={{ display: "grid", gridTemplateColumns: "minmax(140px,1fr) 70px 70px 70px 80px 100px 80px", padding: "14px 24px", borderBottom: `1px solid ${styles.border}`, alignItems: "center", gap: 8 }}>
+              <div key={r.id} style={{ display: "grid", gridTemplateColumns: "minmax(150px,1fr) 80px 80px 80px 90px 110px 100px", padding: "14px 24px", borderBottom: `1px solid ${styles.border}`, alignItems: "center", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc, flexShrink: 0 }}>{r.name.split(" ").pop().charAt(0)}</div>
-                  <div><div style={{ fontSize: 13, fontWeight: 600, color: styles.text }}>{r.name.split(" ").length > 1 ? r.name.split(" ").pop() : r.name}</div><div style={{ fontSize: 11, color: styles.textMuted }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} cv` : "Chưa có"}</div></div>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: mc, flexShrink: 0 }}>
+                    {r.name.split(" ").pop().charAt(0)}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: styles.text }}>{r.name.split(" ").length > 1 ? r.name.split(" ").pop() : r.name}</div>
+                    <div style={{ fontSize: 11, color: styles.textMuted }}>{r.myTasks > 0 ? `${r.doneTasks}/${r.myTasks} công việc` : "Chưa có công việc"}</div>
+                  </div>
                 </div>
                 <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.taskScore.toFixed(0)}</div>
                 <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.peerScore.toFixed(0)}</div>
                 <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, fontFamily: "'Space Mono',monospace", color: "#22c55e" }}>{r.isLeader ? "–" : r.leaderScore.toFixed(0)}</div>
-                <div style={{ textAlign: "center" }}><div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: "#a5b4fc", marginBottom: 4 }}>{r.finalScore.toFixed(1)}</div><ProgressBar value={r.finalScore} max={maxFinal} color={mc} /></div>
-                <div style={{ textAlign: "center" }}><div style={{ background: mc + "18", border: `1px solid ${mc}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}><div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: mc }}>{pct.toFixed(1)}%</div></div></div>
-                <div style={{ textAlign: "center" }}>{pg !== null ? <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 60 }}><div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div></div> : <span style={{ color: styles.textMuted, fontSize: 20 }}>—</span>}</div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: "#a5b4fc", marginBottom: 4 }}>{r.finalScore.toFixed(1)}</div>
+                  <ProgressBar value={r.finalScore} max={maxFinal} color={mc} />
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ background: mc + "18", border: `1px solid ${mc}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 80 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: mc }}>{pct.toFixed(1)}%</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  {pg !== null ? (
+                    <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div>
+                    </div>
+                  ) : (
+                    <span style={{ color: styles.textMuted, fontSize: 20 }}>—</span>
+                  )}
+                </div>
               </div>
             );
           })}
-          <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1fr) 70px 70px 70px 80px 100px 80px", padding: "14px 24px", background: styles.inputBg, alignItems: "center", gap: 8, borderTop: `2px solid ${styles.border}` }}>
+          <div style={{ display: "grid", gridTemplateColumns: "minmax(150px,1fr) 80px 80px 80px 90px 110px 100px", padding: "14px 24px", background: styles.inputBg, alignItems: "center", gap: 8, borderTop: `2px solid ${styles.border}` }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1" }}>Trung bình nhóm</div>
             <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.taskScore)).toFixed(1)}</div>
             <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.peerScore)).toFixed(1)}</div>
