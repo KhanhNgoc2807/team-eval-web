@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
@@ -24,36 +24,13 @@ const TABS = [
   { id: "result", icon: "🏆", label: "Kết quả" },
 ];
 const uid = () => Math.random().toString(36).substring(2, 9);
-const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-
-// ─── CLOUD STORAGE ────────────────────────────────────────────────────────────
-// Sử dụng window.storage (Artifact persistent storage) thay cho localStorage
-// Data được lưu trên cloud, đồng bộ qua roomId trên URL
-const cloudStorage = {
-  async get(roomId) {
-    try {
-      const result = await window.storage.get(`room:${roomId}`, true); // shared=true
-      if (result && result.value) return JSON.parse(result.value);
-    } catch (e) {
-      // Key không tồn tại hoặc lỗi
-    }
-    return null;
-  },
-  async set(roomId, data) {
-    try {
-      await window.storage.set(`room:${roomId}`, JSON.stringify(data), true); // shared=true
-    } catch (e) {
-      console.error("Storage error:", e);
-    }
-  }
-};
+const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
 // ─── THEME ────────────────────────────────────────────────────────────────────
-const getInitialTheme = () => {
-  try {
-    const saved = localStorage.getItem("theme");
-    if (saved) return saved;
-  } catch(e) {}
+type Theme = "dark" | "light";
+const getInitialTheme = (): Theme => {
+  const saved = localStorage.getItem("theme") as Theme | null;
+  if (saved) return saved;
   return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 };
 
@@ -78,74 +55,94 @@ const themeStyles = {
   }
 };
 
+// ─── GOOGLE SHEETS API (URL CỦA BẠN) ─────────────────────────────────────────
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx1HgDPVeZZeVyRGkqu2D5SdHHY1h2TtcV83Zkp7XHX8V8ck57H5nZD-NvrisdjQWY2/exec";
+
+const saveToSheet = async (roomId: string, data: any) => {
+  try {
+    const response = await fetch(`${SCRIPT_URL}?action=save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId, data })
+    });
+    const result = await response.json();
+    console.log("✅ Saved to Google Sheet:", result);
+    return result;
+  } catch (error) {
+    console.error("Save error:", error);
+  }
+};
+
+const loadFromSheet = async (roomId: string) => {
+  try {
+    const response = await fetch(`${SCRIPT_URL}?action=load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId })
+    });
+    const result = await response.json();
+    if (result.success && result.data) {
+      console.log("📥 Loaded from Google Sheet");
+      return result.data;
+    }
+    return null;
+  } catch (error) {
+    console.error("Load error:", error);
+    return null;
+  }
+};
+
 // ─── SUB COMPONENTS ───────────────────────────────────────────────────────────
-function Tag({ color, children, style = {} }) {
+function Tag({ color, children, style = {} }: { color: string; children: React.ReactNode; style?: React.CSSProperties }) {
   return <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 700, ...style }}>{children}</span>;
 }
 
-function Card({ children, style = {}, theme }) {
+function Card({ children, style = {}, theme }: { children: React.ReactNode; style?: React.CSSProperties; theme: Theme }) {
   const styles = themeStyles[theme];
   return <div className="card" style={{ background: styles.cardBg, border: `1px solid ${styles.border}`, borderRadius: 16, padding: 24, ...style }}>{children}</div>;
 }
 
-function Btn({ children, onClick, variant = "primary", style = {}, disabled = false, theme }) {
+function Btn({ children, onClick, variant = "primary", style = {}, disabled = false, theme }: { children: React.ReactNode; onClick?: () => void; variant?: string; style?: React.CSSProperties; disabled?: boolean; theme: Theme }) {
   const base = { border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", fontFamily: "inherit", transition: "all .15s", opacity: disabled ? 0.4 : 1 };
-  const vars = {
-    primary: { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff" },
-    ghost: { background: "transparent", border: `1px solid ${themeStyles[theme].border}`, color: themeStyles[theme].textMuted },
-    danger: { background: "#450a0a", color: "#fca5a5", border: "1px solid #7f1d1d" },
-    success: { background: "#052e16", color: "#86efac", border: "1px solid #166534" }
+  const vars: Record<string, React.CSSProperties> = { 
+    primary: { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff" }, 
+    ghost: { background: "transparent", border: `1px solid ${themeStyles[theme].border}`, color: themeStyles[theme].textMuted }, 
+    danger: { background: "#450a0a", color: "#fca5a5", border: "1px solid #7f1d1d" }, 
+    success: { background: "#052e16", color: "#86efac", border: "1px solid #166534" } 
   };
   return <button onClick={disabled ? undefined : onClick} style={{ ...base, ...vars[variant], ...style }}>{children}</button>;
 }
 
-function Input({ value, onChange, placeholder, style = {}, type = "text", onKeyDown, theme }) {
+function Input({ value, onChange, placeholder, style = {}, type = "text", onKeyDown, theme }: { value: string; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; type?: string; onKeyDown?: (e: React.KeyboardEvent) => void; theme: Theme }) {
   const styles = themeStyles[theme];
   return <input type={type} value={value || ""} onChange={e => onChange(e.target.value)} placeholder={placeholder}
     style={{ background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px 14px", color: styles.text, fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", boxSizing: "border-box", ...style }}
     onFocus={e => e.currentTarget.style.borderColor = "#6366f1"} onBlur={e => e.currentTarget.style.borderColor = styles.border} onKeyDown={onKeyDown} />;
 }
 
-function Select({ value, onChange, children, style = {}, theme }) {
+function Select({ value, onChange, children, style = {}, theme }: { value: string; onChange: (v: string) => void; children: React.ReactNode; style?: React.CSSProperties; theme: Theme }) {
   const styles = themeStyles[theme];
   return <select value={value || ""} onChange={e => onChange(e.target.value)} style={{ background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px 14px", color: value ? styles.text : styles.textMuted, fontSize: 14, outline: "none", fontFamily: "inherit", width: "100%", cursor: "pointer", ...style }}>{children}</select>;
 }
 
-function RatingSelect({ value, onChange, theme }) {
+function RatingSelect({ value, onChange, theme }: { value: number; onChange: (v: number) => void; theme: Theme }) {
   const styles = themeStyles[theme];
   return <select value={value ?? 0} onChange={e => onChange(Number(e.target.value))} style={{ background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 8, padding: "7px 10px", color: styles.text, fontSize: 13, outline: "none", fontFamily: "inherit", cursor: "pointer", width: "100%" }}>
     {RATING_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
   </select>;
 }
 
-function ProgressBar({ value, max, color = "#6366f1" }) {
+function ProgressBar({ value, max, color = "#6366f1" }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.min((value / max) * 100, 100) : 0;
   return <div style={{ height: 8, background: "#1e2235", borderRadius: 4, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${color},${color}99)`, borderRadius: 4, transition: "width .5s ease" }} /></div>;
 }
 
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
-const filterBtn = (theme) => ({ padding: "6px 14px", borderRadius: 20, border: `1px solid ${themeStyles[theme].border}`, background: "transparent", color: themeStyles[theme].textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" });
+const filterBtn = (theme: Theme) => ({ padding: "6px 14px", borderRadius: 20, border: `1px solid ${themeStyles[theme].border}`, background: "transparent", color: themeStyles[theme].textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" });
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
 
-// ─── SYNC STATUS INDICATOR ────────────────────────────────────────────────────
-function SyncStatus({ status }) {
-  const configs = {
-    idle: { color: "#475569", text: "Đã lưu", icon: "☁️" },
-    saving: { color: "#f59e0b", text: "Đang lưu...", icon: "⏳" },
-    saved: { color: "#22c55e", text: "Đã lưu cloud ✓", icon: "☁️" },
-    error: { color: "#ef4444", text: "Lỗi lưu", icon: "⚠️" },
-  };
-  const cfg = configs[status] || configs.idle;
-  return (
-    <div style={{ fontSize: 11, color: cfg.color, display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", borderRadius: 6, background: cfg.color + "15" }}>
-      <span>{cfg.icon}</span>
-      <span>{cfg.text}</span>
-    </div>
-  );
-}
-
 // ─── SCHEDULE TAB ─────────────────────────────────────────────────────────────
-function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme }) {
+function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme }: any) {
   const styles = themeStyles[theme];
   const [newSlotDate, setNewSlotDate] = useState("");
   const [newSlotStart, setNewSlotStart] = useState("");
@@ -163,25 +160,27 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
       end: newSlotEnd,
       label: `${new Date(newSlotDate).toLocaleDateString("vi-VN")} - ${newSlotStart}→${newSlotEnd}`
     };
-    setScheduleSlots(prev => [...prev, newSlot]);
+    setScheduleSlots((prev: any[]) => [...prev, newSlot]);
     setNewSlotDate("");
     setNewSlotStart("");
     setNewSlotEnd("");
     setShowCreateForm(false);
   };
 
-  const deleteSlot = (slotId) => {
-    setScheduleSlots(prev => prev.filter(s => s.id !== slotId));
+  const deleteSlot = (slotId: string) => {
+    setScheduleSlots((prev: any[]) => prev.filter(s => s.id !== slotId));
     const newSelections = { ...scheduleSelections };
     Object.keys(newSelections).forEach(memberId => {
-      if (newSelections[memberId][slotId]) delete newSelections[memberId][slotId];
+      if (newSelections[memberId][slotId]) {
+        delete newSelections[memberId][slotId];
+      }
     });
     setScheduleSelections(newSelections);
   };
 
-  const toggleSelection = (slotId) => {
+  const toggleSelection = (slotId: string) => {
     if (!selectedMember) return;
-    setScheduleSelections(prev => ({
+    setScheduleSelections((prev: any) => ({
       ...prev,
       [selectedMember]: {
         ...(prev[selectedMember] || {}),
@@ -191,10 +190,12 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
   };
 
   const slotTotals = useMemo(() => {
-    const totals = {};
-    scheduleSlots.forEach(slot => {
+    const totals: Record<string, number> = {};
+    scheduleSlots.forEach((slot: any) => {
       let count = 0;
-      members.forEach(m => { if (scheduleSelections[m.id]?.[slot.id]) count++; });
+      members.forEach((m: any) => {
+        if (scheduleSelections[m.id]?.[slot.id]) count++;
+      });
       totals[slot.id] = count;
     });
     return totals;
@@ -202,17 +203,21 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
 
   const bestSlot = useMemo(() => {
     if (scheduleSlots.length === 0) return null;
-    let best = scheduleSlots[0], bestCount = 0;
-    scheduleSlots.forEach(slot => {
-      if (slotTotals[slot.id] > bestCount) { bestCount = slotTotals[slot.id]; best = slot; }
+    let best = scheduleSlots[0];
+    let bestCount = 0;
+    scheduleSlots.forEach((slot: any) => {
+      if (slotTotals[slot.id] > bestCount) {
+        bestCount = slotTotals[slot.id];
+        best = slot;
+      }
     });
     return { slot: best, count: bestCount, total: members.length };
   }, [scheduleSlots, slotTotals, members]);
 
   const copyResult = () => {
     if (!bestSlot) return;
-    const text = `📅 KẾT QUẢ KHẢO SÁT LỊCH HỌP NHÓM\n\nKhung giờ được chọn nhiều nhất: ${bestSlot.slot.label}\n${bestSlot.count}/${bestSlot.total} người rảnh\n\nChi tiết:\n${scheduleSlots.map(slot => {
-      const available = members.filter(m => scheduleSelections[m.id]?.[slot.id]).map(m => m.name).join(", ");
+    const text = `📅 KẾT QUẢ KHẢO SÁT LỊCH HỌP NHÓM\n\nKhung giờ được chọn nhiều nhất: ${bestSlot.slot.label}\n${bestSlot.count}/${bestSlot.total} người rảnh\n\nChi tiết:\n${scheduleSlots.map((slot: any) => {
+      const available = members.filter((m: any) => scheduleSelections[m.id]?.[slot.id]).map((m: any) => m.name).join(", ");
       return `${slot.label}: ${slotTotals[slot.id]} người${available ? ` (${available})` : ""}`;
     }).join("\n")}`;
     navigator.clipboard.writeText(text);
@@ -229,7 +234,7 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
             {showCreateForm ? "✖ Đóng" : "+ Thêm khung giờ"}
           </Btn>
         </div>
-
+        
         {showCreateForm && (
           <div style={{ background: styles.inputBg, borderRadius: 12, padding: 16, marginBottom: 16 }}>
             <div className="schedule-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
@@ -252,7 +257,7 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
               <label style={lbl}>Bạn là:</label>
               <Select value={selectedMember} onChange={setSelectedMember} theme={theme} style={{ maxWidth: 300, width: "100%" }}>
                 <option value="">Chọn tên của bạn...</option>
-                {members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                {members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </Select>
             </div>
 
@@ -268,11 +273,20 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                     </tr>
                   </thead>
                   <tbody>
-                    {scheduleSlots.map(slot => (
+                    {scheduleSlots.map((slot: any) => (
                       <tr key={slot.id} style={{ borderBottom: `1px solid ${styles.border}` }}>
                         <td style={{ padding: 12 }}>{slot.label}</td>
                         <td style={{ textAlign: "center", padding: 12 }}>
-                          <button onClick={() => toggleSelection(slot.id)} style={{ width: 32, height: 32, borderRadius: 8, background: scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.inputBg, border: `1px solid ${scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.border}`, cursor: "pointer", color: scheduleSelections[selectedMember]?.[slot.id] ? "#fff" : styles.textMuted }}>
+                          <button
+                            onClick={() => toggleSelection(slot.id)}
+                            style={{
+                              width: 32, height: 32, borderRadius: 8,
+                              background: scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.inputBg,
+                              border: `1px solid ${scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.border}`,
+                              cursor: "pointer",
+                              color: scheduleSelections[selectedMember]?.[slot.id] ? "#fff" : styles.textMuted
+                            }}
+                          >
                             {scheduleSelections[selectedMember]?.[slot.id] ? "✓" : "○"}
                           </button>
                         </td>
@@ -297,20 +311,24 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                     <div style={{ fontSize: 18, fontWeight: 700, color: "#fcd34d" }}>{bestSlot.slot.label}</div>
                     <div style={{ fontSize: 13, color: "#818cf8" }}>{bestSlot.count}/{bestSlot.total} người rảnh</div>
                   </div>
-                  <Btn onClick={copyResult} variant="primary" theme={theme}>{copySuccess ? "✓ Đã copy!" : "📋 Copy kết quả"}</Btn>
+                  <Btn onClick={copyResult} variant="primary" theme={theme}>
+                    {copySuccess ? "✓ Đã copy!" : "📋 Copy kết quả"}
+                  </Btn>
                 </div>
               </div>
             )}
 
             <div>
               <div style={{ fontWeight: 700, marginBottom: 12, color: "#a5b4fc" }}>📋 CHI TIẾT THEO KHUNG GIỜ</div>
-              {scheduleSlots.map(slot => {
-                const availableMembers = members.filter(m => scheduleSelections[m.id]?.[slot.id]);
+              {scheduleSlots.map((slot: any) => {
+                const availableMembers = members.filter((m: any) => scheduleSelections[m.id]?.[slot.id]);
                 return (
                   <div key={slot.id} style={{ marginBottom: 12, padding: 12, background: styles.inputBg, borderRadius: 10 }}>
                     <div style={{ fontWeight: 600, marginBottom: 6 }}>{slot.label}</div>
                     <div style={{ fontSize: 13, color: availableMembers.length > 0 ? "#22c55e" : styles.textMuted }}>
-                      {availableMembers.length > 0 ? `✅ ${availableMembers.map(m => m.name).join(", ")}` : "❌ Chưa có ai rảnh"}
+                      {availableMembers.length > 0 
+                        ? `✅ ${availableMembers.map((m: any) => m.name).join(", ")}`
+                        : "❌ Chưa có ai rảnh"}
                     </div>
                   </div>
                 );
@@ -324,19 +342,19 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
 }
 
 // ─── SETUP TAB ────────────────────────────────────────────────────────────────
-function SetupTab({ members, setMembers, projectName, setProjectName, leader, setLeader, theme }) {
+function SetupTab({ members, setMembers, projectName, setProjectName, leader, setLeader, theme }: any) {
   const [name, setName] = useState("");
   const [mssv, setMssv] = useState("");
   const styles = themeStyles[theme];
-  const add = () => { if (!name.trim()) return; setMembers(m => [...m, { id: uid(), name: name.trim(), mssv: mssv.trim() }]); setName(""); setMssv(""); };
-  const handleKeyDown = (e) => { if (e.key === "Enter") add(); };
+  const add = () => { if (!name.trim()) return; setMembers((m: any[]) => [...m, { id: uid(), name: name.trim(), mssv: mssv.trim() }]); setName(""); setMssv(""); };
+  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === "Enter") add(); };
   return (
     <div className="two-columns" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
       <Card theme={theme}>
         <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THIẾT LẬP</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div><label style={lbl}>Tên dự án / môn học</label><Input value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing - Học kỳ 2" theme={theme} /></div>
-          <div><label style={lbl}>Trưởng nhóm</label><Select value={leader} onChange={setLeader} theme={theme}><option value="">Chọn trưởng nhóm...</option>{members.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
+          <div><label style={lbl}>Trưởng nhóm</label><Select value={leader} onChange={setLeader} theme={theme}><option value="">Chọn trưởng nhóm...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
         </div>
         <div style={{ marginTop: 20, padding: 16, background: styles.inputBg, borderRadius: 12, fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
@@ -353,7 +371,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" }}>
           {members.length === 0 && <div style={{ textAlign: "center", padding: 40, color: styles.textMuted, fontSize: 14 }}>Chưa có thành viên nào</div>}
-          {members.map((m, i) => (
+          {members.map((m: any, i: number) => (
             <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 12, background: styles.inputBg, borderRadius: 10, padding: "10px 14px", flexWrap: "wrap" }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: MEMBER_COLORS[i % MEMBER_COLORS.length] + "22", border: `2px solid ${MEMBER_COLORS[i % MEMBER_COLORS.length]}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: MEMBER_COLORS[i % MEMBER_COLORS.length], flexShrink: 0 }}>
                 {m.name.split(" ").pop().charAt(0)}
@@ -363,7 +381,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
                 {m.mssv && <div style={{ fontSize: 11, color: styles.textMuted }}>MSSV: {m.mssv}</div>}
               </div>
               {leader === m.id && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
-              <button onClick={() => setMembers(ms => ms.filter(x => x.id !== m.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+              <button onClick={() => setMembers((ms: any[]) => ms.filter((x: any) => x.id !== m.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
           ))}
         </div>
@@ -373,61 +391,91 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
 }
 
 // ─── TASK TAB ─────────────────────────────────────────────────────────────────
-function TaskTab({ members, tasks, setTasks, theme }) {
-  const [form, setForm] = useState({ name: "", assignees: [], deadline: "", complexity: 2 });
+function TaskTab({ members, tasks, setTasks, theme }: any) {
+  const [form, setForm] = useState({ name: "", assignees: [] as string[], deadline: "", complexity: 2 });
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const styles = themeStyles[theme];
-
-  const addTask = () => {
-    if (!form.name.trim() || form.assignees.length === 0) return;
-    setTasks(t => [...t, { id: uid(), name: form.name, assignees: form.assignees, deadline: form.deadline, complexity: form.complexity, status: "todo" }]);
-    setForm({ name: "", assignees: [], deadline: "", complexity: 2 });
-    setShowForm(false);
+  
+  const addTask = () => { 
+    if (!form.name.trim() || form.assignees.length === 0) return; 
+    setTasks((t: any[]) => [...t, { id: uid(), name: form.name, assignees: form.assignees, deadline: form.deadline, complexity: form.complexity, status: "todo" }]); 
+    setForm({ name: "", assignees: [], deadline: "", complexity: 2 }); 
+    setShowForm(false); 
+  };
+  
+  const toggleAssignee = (memberId: string) => {
+    setForm((f: any) => ({
+      ...f,
+      assignees: f.assignees.includes(memberId)
+        ? f.assignees.filter((id: string) => id !== memberId)
+        : [...f.assignees, memberId]
+    }));
   };
 
-  const toggleAssignee = (memberId) => {
-    setForm(f => ({ ...f, assignees: f.assignees.includes(memberId) ? f.assignees.filter(id => id !== memberId) : [...f.assignees, memberId] }));
+  const cycleStatus = (id: string) => { 
+    const order = ["todo", "doing", "done"]; 
+    setTasks((ts: any[]) => ts.map((t: any) => t.id !== id ? t : { ...t, status: order[(order.indexOf(t.status) + 1) % 3] })); 
   };
-
-  const cycleStatus = (id) => {
-    const order = ["todo", "doing", "done"];
-    setTasks(ts => ts.map(t => t.id !== id ? t : { ...t, status: order[(order.indexOf(t.status) + 1) % 3] }));
+  
+  const filtered = filter === "all" 
+    ? tasks 
+    : tasks.filter((t: any) => t.assignees?.includes(filter));
+  
+  const overdue = (t: any) => { 
+    if (!t.deadline || t.status === "done") return false; 
+    const today = new Date(); today.setHours(0,0,0,0); 
+    const dl = new Date(t.deadline + "T00:00:00"); 
+    return dl < today; 
   };
-
-  const filtered = filter === "all" ? tasks : tasks.filter(t => t.assignees?.includes(filter));
-  const overdue = (t) => { if (!t.deadline || t.status === "done") return false; const today = new Date(); today.setHours(0,0,0,0); return new Date(t.deadline + "T00:00:00") < today; };
+  
   const btnStyle = filterBtn(theme);
-
+  
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button onClick={() => setFilter("all")} style={{ ...btnStyle, ...(filter === "all" ? filterActive : {}) }}>Tất cả ({tasks.length})</button>
-          {members.map(m => (
+          {members.map((m: any) => (
             <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)} style={{ ...btnStyle, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "18" } : {}) }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], display: "inline-block" }} />
               <span className="hide-on-mobile">{m.name.split(" ").pop()}</span>
-              <span> ({tasks.filter(t => t.assignees?.includes(m.id)).length})</span>
+              <span> ({tasks.filter((t: any) => t.assignees?.includes(m.id)).length})</span>
             </button>
           ))}
         </div>
         <Btn onClick={() => setShowForm(true)} theme={theme}>+ Thêm công việc</Btn>
       </div>
-
+      
       {showForm && (
         <Card style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
           <div className="task-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
             <div>
               <label style={lbl}>Tên công việc *</label>
-              <Input value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." theme={theme} />
+              <Input value={form.name} onChange={v => setForm((f: any) => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." theme={theme} />
             </div>
             <div>
               <label style={lbl}>Giao cho * (chọn nhiều)</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px", maxHeight: 200, overflowY: "auto" }}>
                 {members.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13, padding: 8 }}>Chưa có thành viên nào</span>}
-                {members.map(m => (
-                  <button key={m.id} type="button" onClick={() => toggleAssignee(m.id)} style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${form.assignees.includes(m.id) ? "#22c55e" : styles.border}`, background: form.assignees.includes(m.id) ? "#22c55e22" : "transparent", color: form.assignees.includes(m.id) ? "#22c55e" : styles.text, cursor: "pointer", fontSize: 14, textAlign: "left", width: "100%", transition: "all 0.2s" }}>
+                {members.map((m: any) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleAssignee(m.id)}
+                    style={{
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: `1px solid ${form.assignees.includes(m.id) ? "#22c55e" : styles.border}`,
+                      background: form.assignees.includes(m.id) ? "#22c55e22" : "transparent",
+                      color: form.assignees.includes(m.id) ? "#22c55e" : styles.text,
+                      cursor: "pointer",
+                      fontSize: 14,
+                      textAlign: "left",
+                      width: "100%",
+                      transition: "all 0.2s"
+                    }}
+                  >
                     {form.assignees.includes(m.id) ? "✓ " : "○ "}{m.name}
                   </button>
                 ))}
@@ -435,13 +483,14 @@ function TaskTab({ members, tasks, setTasks, theme }) {
             </div>
             <div>
               <label style={lbl}>Hạn chót</label>
-              <Input type="date" value={form.deadline} onChange={v => setForm(f => ({ ...f, deadline: v }))} theme={theme} />
+              <Input type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} />
             </div>
             <div>
               <label style={lbl}>Độ khó</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {[1,2,3].map(v => (
-                  <button key={v} onClick={() => setForm(f => ({ ...f, complexity: v }))} style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v].color : styles.border}`, background: form.complexity === v ? COMPLEXITY[v].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v].color : styles.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  <button key={v} onClick={() => setForm((f: any) => ({ ...f, complexity: v }))} 
+                    style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.border}`, background: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                     Cấp {v}
                   </button>
                 ))}
@@ -454,7 +503,7 @@ function TaskTab({ members, tasks, setTasks, theme }) {
           </div>
         </Card>
       )}
-
+      
       {filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
@@ -463,27 +512,31 @@ function TaskTab({ members, tasks, setTasks, theme }) {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
-          {filtered.map(t => {
-            const assigneeMembers = members.filter(m => t.assignees?.includes(m.id));
-            const sc = STATUS[t.status];
+          {filtered.map((t: any) => {
+            const assigneeMembers = members.filter((m: any) => t.assignees?.includes(m.id));
+            const firstMember = assigneeMembers[0];
+            const mc = MEMBER_COLORS[members.indexOf(firstMember) % MEMBER_COLORS.length];
+            const sc = STATUS[t.status as keyof typeof STATUS];
             const od = overdue(t);
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {assigneeMembers.map(m => (
+                    {assigneeMembers.map((m: any) => (
                       <span key={m.id} style={{ background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "22", color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], border: `1px solid ${MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
                         {m.name.split(" ").pop()}
                       </span>
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <Tag color={COMPLEXITY[t.complexity].color}>Cấp {t.complexity}</Tag>
-                    <button onClick={() => setTasks(ts => ts.filter(x => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
+                    <Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag>
+                    <button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
                   </div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
-                <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>👥 {assigneeMembers.map(m => m.name).join(", ")}</div>
+                <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>
+                  👥 {assigneeMembers.map((m: any) => m.name).join(", ")}
+                </div>
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   {sc.label} → Nhấn để đổi
@@ -497,28 +550,45 @@ function TaskTab({ members, tasks, setTasks, theme }) {
   );
 }
 
-// ─── PEER TAB ─────────────────────────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }) {
+// ─── PEER TAB ─────────────────────────────────────────────────────────────
+function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const [reviewer, setReviewer] = useState("");
-  const [tempScores, setTempScores] = useState({});
+  const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const styles = themeStyles[theme];
-  const reviewees = members.filter(m => m.id !== reviewer);
+
+  const reviewees = members.filter((m: any) => m.id !== reviewer);
   const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
 
-  const setScore = (revieweeId, criterion, val) => {
-    setTempScores(prev => ({ ...prev, [revieweeId]: { ...(prev[revieweeId] || {}), [criterion]: val } }));
+  const setScore = (revieweeId: string, criterion: string, val: number) => {
+    setTempScores(prev => ({
+      ...prev,
+      [revieweeId]: {
+        ...(prev[revieweeId] || {}),
+        [criterion]: val
+      }
+    }));
   };
-  const getTempScore = (revieweeId, criterion) => tempScores[revieweeId]?.[criterion] ?? 0;
+
+  const getTempScore = (revieweeId: string, criterion: string) => {
+    return tempScores[revieweeId]?.[criterion] ?? 0;
+  };
 
   const submitAllReviews = () => {
     let allDone = true;
     reviewees.forEach(reviewee => {
-      PEER_CRITERIA.forEach(c => { if (getTempScore(reviewee.id, c) === 0) allDone = false; });
+      PEER_CRITERIA.forEach(c => {
+        if (getTempScore(reviewee.id, c) === 0) allDone = false;
+      });
     });
-    if (!allDone) { alert("Vui lòng đánh giá đầy đủ tất cả các tiêu chí cho tất cả thành viên!"); return; }
+    
+    if (!allDone) {
+      alert("Vui lòng đánh giá đầy đủ tất cả các tiêu chí cho tất cả thành viên!");
+      return;
+    }
 
-    setPeerScores(prev => {
+    setPeerScores((prev: any) => {
       const next = { ...prev };
+      
       reviewees.forEach(reviewee => {
         PEER_CRITERIA.forEach(criterion => {
           const score = getTempScore(reviewee.id, criterion);
@@ -529,16 +599,20 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }) {
           }
         });
       });
+      
       next[reviewer] = { ...next[reviewer], completed: true };
+      
       return next;
     });
 
     setTempScores({});
     setReviewer("");
-    alert("✅ Đã lưu đánh giá lên cloud! Các thành viên trên máy khác cần bấm '🔄 Tải dữ liệu mới nhất' để xem.");
+    alert("✅ Đã lưu đánh giá! Dữ liệu sẽ tự động đồng bộ lên Google Sheets.");
   };
 
-  const completedReviewers = Object.keys(peerScores).filter(key => peerScores[key]?.completed === true).length;
+  const completedReviewers = Object.keys(peerScores).filter(
+    (key) => peerScores[key]?.completed === true
+  ).length;
 
   if (members.length < 2) {
     return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
@@ -546,15 +620,12 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }) {
 
   return (
     <div>
-      <Card theme={theme} style={{ marginBottom: 20, background: "#0c2a1a", borderColor: "#166534" }}>
+      <Card theme={theme} style={{ marginBottom: 20, background: "#1e1b4b", borderColor: "#22c55e" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>☁️ LƯU TRỮ CLOUD</div>
-            <div style={{ fontSize: 12, color: styles.textMuted }}>Dữ liệu được lưu trên cloud theo Room ID. Mở cùng link trên máy khác để truy cập.</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>☁️ ĐỒNG BỘ GOOGLE SHEETS</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Dữ liệu tự động lưu trên cloud, đồng bộ mọi máy! Cập nhật sau 5 giây.</div>
           </div>
-          <Btn onClick={onRefresh} variant="success" theme={theme} style={{ padding: "10px 24px", fontSize: 14 }}>
-            🔄 Tải dữ liệu mới nhất
-          </Btn>
         </div>
       </Card>
 
@@ -562,12 +633,15 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }) {
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn là:</div>
           <div style={{ flex: 1, minWidth: 200 }}>
-            <Select value={reviewer} onChange={v => {
-              if (peerScores[v]?.completed) { alert("⚠️ Bạn đã đánh giá rồi! Mỗi người chỉ được đánh giá 1 lần."); return; }
+            <Select value={reviewer} onChange={(v: string) => {
+              if (peerScores[v]?.completed) {
+                alert("⚠️ Bạn đã đánh giá rồi! Mỗi người chỉ được đánh giá 1 lần.");
+                return;
+              }
               setReviewer(v);
             }} theme={theme}>
               <option value="">Chọn tên của bạn...</option>
-              {members.map(m => (
+              {members.map((m: any) => (
                 <option key={m.id} value={m.id} disabled={peerScores[m.id]?.completed === true}>
                   {m.name} {peerScores[m.id]?.completed ? "(✅ Đã đánh giá)" : ""}
                 </option>
@@ -595,15 +669,21 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }) {
           <Card theme={theme} style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
               <div>
-                <span style={{ fontSize: 14, color: "#a5b4fc" }}>👤 Đang đánh giá: </span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{members.find(m => m.id === reviewer)?.name}</span>
+                <span style={{ fontSize: 14, color: "#a5b4fc" }}>👤 Đang đánh giá với vai trò: </span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{members.find((m: any) => m.id === reviewer)?.name}</span>
               </div>
-              <Btn onClick={() => { setReviewer(""); setTempScores({}); }} variant="ghost" theme={theme}>↺ Thoát</Btn>
+              <Btn onClick={() => {
+                setReviewer("");
+                setTempScores({});
+              }} variant="ghost" theme={theme}>↺ Thoát</Btn>
+            </div>
+            <div style={{ fontSize: 13, color: styles.textMuted }}>
+              🔒 Sau khi bấm "Gửi đánh giá", tên bạn sẽ được ẩn danh hoàn toàn.
             </div>
           </Card>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {reviewees.map(reviewee => {
+            {reviewees.map((reviewee: any) => {
               const mc = MEMBER_COLORS[members.indexOf(reviewee) % MEMBER_COLORS.length];
               const isFilled = PEER_CRITERIA.every(c => getTempScore(reviewee.id, c) > 0);
               return (
@@ -642,104 +722,137 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }) {
 }
 
 // ─── LEADER TAB ───────────────────────────────────────────────────────────────
-function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }) {
-  const leaderMember = members.find(m => m.id === leader);
+function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: any) {
+  const leaderMember = members.find((m: any) => m.id === leader);
   const styles = themeStyles[theme];
-  const setScore = (memberId, criterion, val) => { setLeaderScores(ls => ({ ...ls, [memberId]: { ...(ls[memberId] || {}), [criterion]: val } })); };
-  const getScore = (memberId, criterion) => leaderScores?.[memberId]?.[criterion] ?? 0;
+  const setScore = (memberId: string, criterion: string, val: number) => { setLeaderScores((ls: any) => ({ ...ls, [memberId]: { ...(ls[memberId] || {}), [criterion]: val } })); };
+  const getScore = (memberId: string, criterion: string) => leaderScores?.[memberId]?.[criterion] ?? 0;
   if (!leader) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👑</div><div>Chưa chọn trưởng nhóm. Vào tab <b style={{ color: "#a5b4fc" }}>Thiết lập</b> để chọn.</div></div>;
-  const others = members.filter(m => m.id !== leader);
+  const others = members.filter((m: any) => m.id !== leader);
   if (others.length === 0) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Nhóm chỉ có trưởng nhóm, chưa có thành viên</div></div>;
   return (
     <div>
       <Card style={{ marginBottom: 20, borderColor: "#451a03" }} theme={theme}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 28 }}>👑</div>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Trưởng nhóm: {leaderMember?.name}</div>
-            <div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí</div>
-          </div>
-        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}><div style={{ fontSize: 28 }}>👑</div><div><div style={{ fontSize: 15, fontWeight: 700, color: "#fcd34d" }}>Trưởng nhóm: {leaderMember?.name}</div><div style={{ fontSize: 13, color: "#92400e" }}>Đánh giá {others.length} thành viên theo 3 tiêu chí</div></div></div>
       </Card>
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-        {others.map(m => {
-          const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
-          const mAvg = avg(LEADER_CRITERIA.map(c => getScore(m.id, c)).filter(s => s > 0));
-          return (
-            <Card key={m.id} style={{ borderColor: styles.border }} theme={theme}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
-                <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc }}>{m.name.split(" ").pop().charAt(0)}</div>
-                <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: styles.text }}>{m.name}</div>
-                {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {mAvg.toFixed(1)}</Tag>}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-                {LEADER_CRITERIA.map(c => (
-                  <div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} theme={theme} /></div>
-                ))}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      <div className="leader-grid" style={{ display: "flex", flexDirection: "column", gap: 14 }}>{others.map((m: any) => {
+        const mc = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
+        const mAvg = avg(LEADER_CRITERIA.map(c => getScore(m.id, c)).filter(s => s > 0));
+        return (
+          <Card key={m.id} style={{ borderColor: styles.border }} theme={theme}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16, flexWrap: "wrap" }}>
+              <div style={{ width: 38, height: 38, borderRadius: 9, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: mc }}>{m.name.split(" ").pop().charAt(0)}</div>
+              <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: styles.text }}>{m.name}</div>
+              {mAvg > 0 && <Tag color={mAvg >= 8 ? "#22c55e" : mAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {mAvg.toFixed(1)}</Tag>}
+            </div>
+            <div className="leader-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{LEADER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(m.id, c)} onChange={v => setScore(m.id, c, v)} theme={theme} /></div>))}</div>
+          </Card>
+        );
+      })}</div>
     </div>
   );
 }
 
 // ─── ANALYSIS TAB ─────────────────────────────────────────────────────────────
-function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }) {
+function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }: any) {
   const styles = themeStyles[theme];
-
-  const getMemberScores = (memberId) => {
-    const scores = { "Chất lượng công việc": [], "Chủ động & Đúng tiến độ": [], "Tinh thần hợp tác": [] };
-    PEER_CRITERIA.forEach(criterion => {
-      const criterionScores = peerScores[memberId]?.[criterion];
-      if (criterionScores && Array.isArray(criterionScores)) scores[criterion].push(...criterionScores);
+  
+  const getMemberScores = (memberId: string) => {
+    const scores: Record<string, number[]> = {
+      "Chất lượng công việc": [],
+      "Chủ động & Đúng tiến độ": [],
+      "Tinh thần hợp tác": []
+    };
+    
+    // Lấy đánh giá từ peerScores (người khác đánh giá memberId)
+    Object.keys(peerScores).forEach(reviewerId => {
+      if (reviewerId === memberId) return;
+      const reviewerData = peerScores[reviewerId];
+      if (reviewerData && reviewerData[memberId]) {
+        PEER_CRITERIA.forEach(criterion => {
+          const criterionScores = reviewerData[memberId][criterion];
+          if (criterionScores && Array.isArray(criterionScores)) {
+            scores[criterion].push(...criterionScores);
+          }
+        });
+      }
     });
+    
     if (leaderScores[memberId]) {
-      if (leaderScores[memberId]["Chủ động & Trách nhiệm"]) scores["Chủ động & Đúng tiến độ"].push(leaderScores[memberId]["Chủ động & Trách nhiệm"]);
-      if (leaderScores[memberId]["Chất lượng Output"]) scores["Chất lượng công việc"].push(leaderScores[memberId]["Chất lượng Output"]);
-      if (leaderScores[memberId]["Phối hợp Nhóm"]) scores["Tinh thần hợp tác"].push(leaderScores[memberId]["Phối hợp Nhóm"]);
+      if (leaderScores[memberId]["Chủ động & Trách nhiệm"]) {
+        scores["Chủ động & Đúng tiến độ"].push(leaderScores[memberId]["Chủ động & Trách nhiệm"]);
+      }
+      if (leaderScores[memberId]["Chất lượng Output"]) {
+        scores["Chất lượng công việc"].push(leaderScores[memberId]["Chất lượng Output"]);
+      }
+      if (leaderScores[memberId]["Phối hợp Nhóm"]) {
+        scores["Tinh thần hợp tác"].push(leaderScores[memberId]["Phối hợp Nhóm"]);
+      }
     }
-    const avgScores = {};
-    PEER_CRITERIA.forEach(criterion => { const arr = scores[criterion]; avgScores[criterion] = arr.length > 0 ? avg(arr) : 0; });
+    
+    const avgScores: Record<string, number> = {};
+    PEER_CRITERIA.forEach(criterion => {
+      const arr = scores[criterion];
+      avgScores[criterion] = arr.length > 0 ? avg(arr) : 0;
+    });
+    
     return avgScores;
   };
-
+  
   const teamAvgScores = useMemo(() => {
-    const totals = { "Chất lượng công việc": 0, "Chủ động & Đúng tiến độ": 0, "Tinh thần hợp tác": 0 };
-    const counts = { "Chất lượng công việc": 0, "Chủ động & Đúng tiến độ": 0, "Tinh thần hợp tác": 0 };
-    members.forEach(m => {
+    const totals: Record<string, number> = {
+      "Chất lượng công việc": 0,
+      "Chủ động & Đúng tiến độ": 0,
+      "Tinh thần hợp tác": 0
+    };
+    const counts: Record<string, number> = {
+      "Chất lượng công việc": 0,
+      "Chủ động & Đúng tiến độ": 0,
+      "Tinh thần hợp tác": 0
+    };
+    
+    members.forEach((m: any) => {
       const scores = getMemberScores(m.id);
-      PEER_CRITERIA.forEach(c => { if (scores[c] > 0) { totals[c] += scores[c]; counts[c]++; } });
+      PEER_CRITERIA.forEach(c => {
+        if (scores[c] > 0) {
+          totals[c] += scores[c];
+          counts[c]++;
+        }
+      });
     });
-    const avgs = {};
-    PEER_CRITERIA.forEach(c => { avgs[c] = counts[c] > 0 ? totals[c] / counts[c] : 0; });
+    
+    const avgs: Record<string, number> = {};
+    PEER_CRITERIA.forEach(c => {
+      avgs[c] = counts[c] > 0 ? totals[c] / counts[c] : 0;
+    });
     return avgs;
   }, [members, peerScores, leaderScores]);
-
-  const getScoreLevel = (score) => {
+  
+  const getScoreLevel = (score: number) => {
     if (score >= 8.5) return { text: "Xuất sắc", color: "#22c55e", icon: "⭐" };
     if (score >= 7) return { text: "Tốt", color: "#22c55e", icon: "🟢" };
     if (score >= 5) return { text: "Trung bình", color: "#f59e0b", icon: "🟡" };
     return { text: "Cần cải thiện", color: "#ef4444", icon: "🔴" };
   };
-
-  const getSuggestion = (criterion, score) => {
+  
+  const getSuggestion = (criterion: string, score: number) => {
     if (score >= 7) return null;
-    const suggestions = {
+    const suggestions: Record<string, string> = {
       "Chất lượng công việc": "📌 Review kỹ trước khi nộp, học hỏi từ người giỏi hơn, dành thêm thời gian kiểm tra lỗi",
-      "Chủ động & Đúng tiến độ": "📌 Báo cáo tiến độ thường xuyên, chia nhỏ công việc, đặt reminder hàng ngày",
+      "Chủ động & Đúng tiến độ": "📌 Báo cáo tiến độ thường xuyên, chia nhỏ công việc, đặt reminder hàng ngày, họp trạng thái nhanh",
       "Tinh thần hợp tác": "📌 Chủ động hỗ trợ đồng đội, phản hồi tin nhắn nhanh, tham gia đầy đủ các buổi họp nhóm"
     };
     return suggestions[criterion] || "📌 Cần cải thiện tiêu chí này";
   };
-
+  
   const weakestCriterion = Object.entries(teamAvgScores).reduce((a, b) => a[1] < b[1] ? a : b);
-
+  
   return (
     <div>
       <Card theme={theme} style={{ marginBottom: 24 }}>
-        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>📈 THỐNG KÊ CẢ NHÓM</h3>
+        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>
+          📈 THỐNG KÊ CẢ NHÓM
+        </h3>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
@@ -757,59 +870,110 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
                 return (
                   <tr key={c} style={{ borderBottom: `1px solid ${styles.border}` }}>
                     <td style={{ padding: 12 }}>{c}</td>
-                    <td style={{ textAlign: "center", padding: 12 }}><span style={{ fontWeight: 700, fontSize: 16 }}>{score.toFixed(1)}</span></td>
-                    <td style={{ textAlign: "center", padding: 12 }}><span style={{ color: level.color }}>{level.icon} {level.text}</span></td>
-                    <td style={{ textAlign: "center", padding: 12 }}>{score < 7 ? <span style={{ color: "#ef4444" }}>🔴 CẦN CẢI THIỆN</span> : <span style={{ color: "#22c55e" }}>✅ Giữ nguyên</span>}</td>
+                    <td style={{ textAlign: "center", padding: 12 }}>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{score.toFixed(1)}</span>
+                    </td>
+                    <td style={{ textAlign: "center", padding: 12 }}>
+                      <span style={{ color: level.color }}>{level.icon} {level.text}</span>
+                    </td>
+                    <td style={{ textAlign: "center", padding: 12 }}>
+                      {score < 7 ? (
+                        <span style={{ color: "#ef4444" }}>🔴 CẦN CẢI THIỆN</span>
+                      ) : (
+                        <span style={{ color: "#22c55e" }}>✅ Giữ nguyên</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+        
         {weakestCriterion[1] < 7 && (
           <div style={{ marginTop: 20, padding: 16, background: "#1e1b4b", borderRadius: 12 }}>
             <div style={{ fontWeight: 700, marginBottom: 8, color: "#fcd34d" }}>🎯 KHUYẾN NGHỊ CHO NHÓM</div>
-            <div style={{ fontSize: 14, color: styles.text }}>Nhóm cần cải thiện <b style={{ color: "#f59e0b" }}>"{weakestCriterion[0]}"</b> (điểm {weakestCriterion[1].toFixed(1)}/10)</div>
+            <div style={{ fontSize: 14, color: styles.text }}>
+              Nhóm cần cải thiện <b style={{ color: "#f59e0b" }}>"{weakestCriterion[0]}"</b> (điểm {weakestCriterion[1].toFixed(1)}/10)
+            </div>
+            <div style={{ fontSize: 13, color: styles.textMuted, marginTop: 8 }}>
+              💡 {weakestCriterion[0] === "Chủ động & Đúng tiến độ" ? "Họp nhanh đầu tuần, phân chia task rõ ràng, báo cáo tiến độ thường xuyên" :
+                  weakestCriterion[0] === "Chất lượng công việc" ? "Review chéo sản phẩm trước khi nộp, học hỏi từ thành viên có điểm cao" :
+                  "Tổ chức các buổi team building, khuyến khích hỗ trợ lẫn nhau"}
+            </div>
           </div>
         )}
       </Card>
-
-      <h3 style={{ fontSize: 15, color: "#a5b4fc", marginBottom: 16, fontFamily: "'Space Mono',monospace" }}>👤 PHÂN TÍCH TỪNG THÀNH VIÊN</h3>
+      
+      <h3 style={{ fontSize: 15, color: "#a5b4fc", marginBottom: 16, fontFamily: "'Space Mono',monospace" }}>
+        👤 PHÂN TÍCH TỪNG THÀNH VIÊN
+      </h3>
+      
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-        {members.map(m => {
+        {members.map((m: any) => {
           const scores = getMemberScores(m.id);
           const memberColors = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
+          
           const weaknesses = PEER_CRITERIA.filter(c => scores[c] < 7 && scores[c] > 0);
           const strengths = PEER_CRITERIA.filter(c => scores[c] >= 7 && scores[c] > 0);
-          const memberTasks = tasks.filter(t => t.assignees?.includes(m.id));
-          const completedTasks = memberTasks.filter(t => t.status === "done").length;
+          
+          const memberTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
+          const completedTasks = memberTasks.filter((t: any) => t.status === "done").length;
+          
           return (
             <Card key={m.id} style={{ borderColor: `${memberColors}44` }} theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: memberColors + "22", border: `2px solid ${memberColors}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: memberColors }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: memberColors + "22",
+                  border: `2px solid ${memberColors}44`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, fontWeight: 700, color: memberColors
+                }}>
                   {m.name.split(" ").pop().charAt(0)}
                 </div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: styles.text }}>{m.name}</div>
                 {m.id === leader && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
-                <div style={{ fontSize: 12, color: styles.textMuted, marginLeft: "auto" }}>📋 {completedTasks}/{memberTasks.length} công việc</div>
+                <div style={{ fontSize: 12, color: styles.textMuted, marginLeft: "auto" }}>
+                  📋 {completedTasks}/{memberTasks.length} công việc
+                </div>
               </div>
+              
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>✅ ĐIỂM MẠNH</div>
-                  {strengths.length > 0 ? strengths.map(c => {
-                    const level = getScoreLevel(scores[c]);
-                    return <div key={c} style={{ marginBottom: 8 }}><div style={{ fontSize: 13, color: styles.text }}>{c}</div><div style={{ fontSize: 12, color: level.color }}>{scores[c].toFixed(1)}/10 - {level.text}</div></div>;
-                  }) : <div style={{ fontSize: 13, color: styles.textMuted }}>Chưa có dữ liệu đánh giá</div>}
+                  {strengths.length > 0 ? (
+                    strengths.map(c => {
+                      const level = getScoreLevel(scores[c]);
+                      return (
+                        <div key={c} style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 13, color: styles.text }}>{c}</div>
+                          <div style={{ fontSize: 12, color: level.color }}>{scores[c].toFixed(1)}/10 - {level.text}</div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ fontSize: 13, color: styles.textMuted }}>Chưa có dữ liệu đánh giá</div>
+                  )}
                 </div>
+                
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 8 }}>⚠️ ĐIỂM YẾU & GỢI Ý</div>
-                  {weaknesses.length > 0 ? weaknesses.map(c => (
-                    <div key={c} style={{ marginBottom: 12 }}>
-                      <div style={{ fontSize: 13, color: styles.text }}>{c}</div>
-                      <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 4 }}>{scores[c].toFixed(1)}/10 - Cần cải thiện</div>
-                      <div style={{ fontSize: 12, color: "#818cf8", background: "#1e1b4b", padding: 6, borderRadius: 6 }}>{getSuggestion(c, scores[c])}</div>
+                  {weaknesses.length > 0 ? (
+                    weaknesses.map(c => (
+                      <div key={c} style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, color: styles.text }}>{c}</div>
+                        <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 4 }}>{scores[c].toFixed(1)}/10 - Cần cải thiện</div>
+                        <div style={{ fontSize: 12, color: "#818cf8", background: "#1e1b4b", padding: 6, borderRadius: 6 }}>
+                          {getSuggestion(c, scores[c])}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: 13, color: styles.textMuted }}>
+                      {scores[PEER_CRITERIA[0]] === 0 ? "Chưa có dữ liệu đánh giá" : "✅ Không có điểm yếu nào đáng kể!"}
                     </div>
-                  )) : <div style={{ fontSize: 13, color: styles.textMuted }}>{scores[PEER_CRITERIA[0]] === 0 ? "Chưa có dữ liệu đánh giá" : "✅ Không có điểm yếu nào đáng kể!"}</div>}
+                  )}
                 </div>
               </div>
             </Card>
@@ -821,52 +985,58 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
 }
 
 // ─── RESULT TAB ───────────────────────────────────────────────────────────────
-function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }) {
+function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
-
-  const getPeerScoreForMember = (memberId) => {
-    const allScores = [];
+  
+  const getPeerScoreForMember = (memberId: string) => {
+    const allScores: number[] = [];
+    
     Object.keys(peerScores).forEach(reviewerId => {
       if (reviewerId === memberId) return;
       const reviewerData = peerScores[reviewerId];
       if (reviewerData && reviewerData[memberId]) {
         PEER_CRITERIA.forEach(criterion => {
           const scores = reviewerData[memberId][criterion];
-          if (scores && Array.isArray(scores)) allScores.push(...scores);
+          if (scores && Array.isArray(scores)) {
+            allScores.push(...scores);
+          }
         });
       }
     });
+    
     if (allScores.length === 0) return null;
     return avg(allScores) * 10;
   };
 
   const results = useMemo(() => {
     if (members.length === 0) return [];
-    return members.map(m => {
-      const myTasks = tasks.filter(t => t.assignees?.includes(m.id));
+    return members.map((m: any) => {
+      const myTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
       let taskScore = 100;
       if (myTasks.length > 0) {
-        const totalPossible = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100, 0);
-        const earned = myTasks.reduce((s, t) => s + COMPLEXITY[t.complexity].pts * 100 * STATUS[t.status].pct, 0);
+        const totalPossible = myTasks.reduce((s: number, t: any) => s + COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].pts * 100, 0);
+        const earned = myTasks.reduce((s: number, t: any) => s + COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].pts * 100 * STATUS[t.status as keyof typeof STATUS].pct, 0);
         taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : 100;
       }
+      
       const peerScore = getPeerScoreForMember(m.id) ?? 100;
-      const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter(s => s > 0);
+      
+      const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter((s: number) => s > 0);
       const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 100;
       const isLeader = m.id === leader;
       const finalScore = isLeader ? taskScore * 0.4 + peerScore * 0.6 : taskScore * 0.4 + peerScore * 0.4 + leaderScore * 0.2;
-      return { ...m, taskScore, peerScore, leaderScore, finalScore, isLeader, myTasks: myTasks.length, doneTasks: myTasks.filter(t => t.status === "done").length };
+      return { ...m, taskScore, peerScore, leaderScore, finalScore, isLeader, myTasks: myTasks.length, doneTasks: myTasks.filter((t: any) => t.status === "done").length };
     });
   }, [members, tasks, peerScores, leaderScores, leader]);
 
-  const totalScore = results.reduce((s, r) => s + r.finalScore, 0);
+  const totalScore = results.reduce((s: number, r: any) => s + r.finalScore, 0);
   const sorted = [...results].sort((a, b) => b.finalScore - a.finalScore);
-  const maxFinal = Math.max(...results.map(r => r.finalScore), 1);
-  const teamAvg = avg(results.map(r => r.finalScore));
+  const maxFinal = Math.max(...results.map((r: any) => r.finalScore), 1);
+  const teamAvg = avg(results.map((r: any) => r.finalScore));
   const ts = parseFloat(teacherScore);
   const hasTeacherScore = !isNaN(ts) && ts >= 0 && ts <= 10;
-  const pctOf = (score) => totalScore > 0 ? (score / totalScore) * 100 : (100 / (members.length || 1));
-  const personalGrade = (score) => hasTeacherScore ? ts * (pctOf(score) / 100) * members.length : null;
+  const pctOf = (score: number) => totalScore > 0 ? (score / totalScore) * 100 : (100 / (members.length || 1));
+  const personalGrade = (score: number) => hasTeacherScore ? ts * (pctOf(score) / 100) * members.length : null;
 
   return (
     <div>
@@ -886,8 +1056,8 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
         {[
           { label: "Điểm trung bình hệ thống", value: teamAvg.toFixed(1), icon: "📊", color: "#6366f1", sub: "thang 100" },
           { label: hasTeacherScore ? "Điểm giảng viên" : "Chờ điểm giảng viên", value: hasTeacherScore ? ts.toFixed(1) : "—", icon: "🎓", color: "#3b82f6", sub: "thang 10" },
-          { label: "Điểm cá nhân cao nhất", value: hasTeacherScore && results.length ? Math.max(...results.map(r => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⭐", color: "#22c55e", sub: "thang 10" },
-          { label: "Điểm cá nhân thấp nhất", value: hasTeacherScore && results.length ? Math.min(...results.map(r => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⚠️", color: "#f59e0b", sub: "thang 10" },
+          { label: "Điểm cá nhân cao nhất", value: hasTeacherScore && results.length ? Math.max(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⭐", color: "#22c55e", sub: "thang 10" },
+          { label: "Điểm cá nhân thấp nhất", value: hasTeacherScore && results.length ? Math.min(...results.map((r: any) => personalGrade(r.finalScore))).toFixed(2) : "—", icon: "⚠️", color: "#f59e0b", sub: "thang 10" },
         ].map(s => (
           <Card key={s.label} style={{ textAlign: "center" }} theme={theme}>
             <div style={{ fontSize: 24 }}>{s.icon}</div>
@@ -909,8 +1079,8 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
             <span style={{ textAlign: "center" }}>% Đóng góp</span>
             <span style={{ textAlign: "center" }}>{hasTeacherScore ? "Điểm thực tế" : "Chờ điểm"}</span>
           </div>
-          {sorted.map(r => {
-            const memberIndex = members.findIndex(m => m.id === r.id);
+          {sorted.map((r: any) => {
+            const memberIndex = members.findIndex((m: any) => m.id === r.id);
             const mc = MEMBER_COLORS[memberIndex >= 0 ? memberIndex % MEMBER_COLORS.length : 0];
             const pct = pctOf(r.finalScore);
             const pg = personalGrade(r.finalScore);
@@ -943,16 +1113,18 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
                     <div style={{ background: pgColor + "18", border: `1px solid ${pgColor}44`, borderRadius: 10, padding: "6px 10px", display: "inline-block", minWidth: 70 }}>
                       <div style={{ fontSize: 16, fontWeight: 800, fontFamily: "'Space Mono',monospace", color: pgColor }}>{pg.toFixed(2)}</div>
                     </div>
-                  ) : <span style={{ color: styles.textMuted, fontSize: 20 }}>—</span>}
+                  ) : (
+                    <span style={{ color: styles.textMuted, fontSize: 20 }}>—</span>
+                  )}
                 </div>
               </div>
             );
           })}
           <div style={{ display: "grid", gridTemplateColumns: "minmax(150px,1fr) 80px 80px 80px 90px 110px 100px", padding: "14px 24px", background: styles.inputBg, alignItems: "center", gap: 8, borderTop: `2px solid ${styles.border}` }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: "#6366f1" }}>Trung bình nhóm</div>
-            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map(r => r.taskScore)).toFixed(1)}</div>
-            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map(r => r.peerScore)).toFixed(1)}</div>
-            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.filter(r => !r.isLeader).map(r => r.leaderScore)).toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.taskScore)).toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.map((r: any) => r.peerScore)).toFixed(1)}</div>
+            <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 12, color: "#6366f1" }}>{avg(results.filter((r: any) => !r.isLeader).map((r: any) => r.leaderScore)).toFixed(1)}</div>
             <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: "#a5b4fc" }}>{teamAvg.toFixed(1)}</div>
             <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 13, color: "#6366f1" }}>100%</div>
             <div style={{ textAlign: "center", fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 800, color: hasTeacherScore ? "#93c5fd" : styles.textMuted }}>{hasTeacherScore ? ts.toFixed(1) : "—"}</div>
@@ -974,68 +1146,89 @@ export default function App() {
   const [leaderScores, setLeaderScores] = useState({});
   const [teacherScore, setTeacherScore] = useState("");
   const [isCopied, setIsCopied] = useState(false);
-  const [isReady, setIsReady] = useState(false);
   const [hasGroup, setHasGroup] = useState(false);
-  const [theme, setTheme] = useState(getInitialTheme);
-  const [syncStatus, setSyncStatus] = useState("idle");
-  const [scheduleSlots, setScheduleSlots] = useState([]);
-  const [scheduleSelections, setScheduleSelections] = useState({});
-  const saveTimerRef = useRef(null);
-
+  const [isReady, setIsReady] = useState(false);
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [roomId, setRoomId] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get("room") || uid();
   });
+  
+  const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
+  const [scheduleSelections, setScheduleSelections] = useState<any>({});
 
-  // Load data từ cloud khi khởi động
+  // Polling từ Google Sheets mỗi 5 giây
   useEffect(() => {
-    const loadData = async () => {
-      const data = await cloudStorage.get(roomId);
+    if (!roomId || !isReady) return;
+    
+    let lastDataStr = "";
+    let isFirstLoad = true;
+    
+    const pollData = async () => {
+      const data = await loadFromSheet(roomId);
       if (data) {
-        if (data.projectName !== undefined) setProjectName(data.projectName);
-        if (data.leader !== undefined) setLeader(data.leader);
-        if (data.members) setMembers(data.members);
-        if (data.tasks) setTasks(data.tasks);
-        if (data.peerScores) setPeerScores(data.peerScores);
-        if (data.leaderScores) setLeaderScores(data.leaderScores);
-        if (data.teacherScore !== undefined) setTeacherScore(data.teacherScore);
-        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
-        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
+        const currentDataStr = JSON.stringify(data);
+        if (currentDataStr !== lastDataStr) {
+          if (!isFirstLoad) {
+            console.log("🔄 Phát hiện thay đổi từ Google Sheets, cập nhật...");
+            const toast = document.createElement("div");
+            toast.textContent = "🔄 Có cập nhật mới từ thành viên khác!";
+            toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;z-index:10000;animation:fadeOut 3s ease-in-out";
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          }
+          
+          if (data.projectName) setProjectName(data.projectName);
+          if (data.leader) setLeader(data.leader);
+          if (data.members) setMembers(data.members);
+          if (data.tasks) setTasks(data.tasks);
+          if (data.peerScores) setPeerScores(data.peerScores);
+          if (data.leaderScores) setLeaderScores(data.leaderScores);
+          if (data.teacherScore) setTeacherScore(data.teacherScore);
+          if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
+          if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
+          setHasGroup(true);
+          
+          lastDataStr = currentDataStr;
+          isFirstLoad = false;
+        }
+      } else {
         setHasGroup(true);
       }
       setIsReady(true);
     };
-    loadData();
+    
+    pollData();
+    const interval = setInterval(pollData, 5000);
+    return () => clearInterval(interval);
   }, [roomId]);
+
+  // Lưu lên Google Sheets khi state thay đổi
+  useEffect(() => {
+    if (!isReady || !roomId) return;
+    
+    const timer = setTimeout(() => {
+      const allData = { 
+        projectName, leader, members, tasks, peerScores, 
+        leaderScores, teacherScore, scheduleSlots, scheduleSelections 
+      };
+      saveToSheet(roomId, allData);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
 
   // Cập nhật URL với roomId
   useEffect(() => {
+    if (!isReady) return;
     const newUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
     window.history.replaceState(null, "", newUrl);
-  }, [roomId]);
-
-  // Auto-save lên cloud với debounce (tránh save quá nhiều)
-  useEffect(() => {
-    if (!isReady) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    setSyncStatus("saving");
-    saveTimerRef.current = setTimeout(async () => {
-      const allData = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
-      try {
-        await cloudStorage.set(roomId, allData);
-        setSyncStatus("saved");
-        setTimeout(() => setSyncStatus("idle"), 2000);
-      } catch (e) {
-        setSyncStatus("error");
-      }
-    }, 800); // debounce 800ms
-    return () => clearTimeout(saveTimerRef.current);
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
+  }, [roomId, isReady]);
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
-    try { localStorage.setItem("theme", newTheme); } catch(e) {}
+    localStorage.setItem("theme", newTheme);
   };
 
   const createNewGroup = () => {
@@ -1060,67 +1253,28 @@ export default function App() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Tải lại dữ liệu mới nhất từ cloud
-  const refreshData = async () => {
-    setSyncStatus("saving");
-    const data = await cloudStorage.get(roomId);
-    if (data) {
-      if (data.projectName !== undefined) setProjectName(data.projectName);
-      if (data.leader !== undefined) setLeader(data.leader);
-      if (data.members) setMembers(data.members);
-      if (data.tasks) setTasks(data.tasks);
-      if (data.peerScores) setPeerScores(data.peerScores);
-      if (data.leaderScores) setLeaderScores(data.leaderScores);
-      if (data.teacherScore !== undefined) setTeacherScore(data.teacherScore);
-      if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
-      if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
-      setSyncStatus("saved");
-      setTimeout(() => setSyncStatus("idle"), 2000);
-      showToast("✅ Đã tải dữ liệu mới nhất từ cloud!");
-    } else {
-      setSyncStatus("idle");
-      showToast("❌ Không tìm thấy dữ liệu cho Room này");
-    }
-  };
-
-  const showToast = (msg) => {
-    const toast = document.createElement("div");
-    toast.textContent = msg;
-    toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;z-index:10000;font-family:DM Sans,sans-serif;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3)";
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
-  };
-
   const styles = themeStyles[theme];
-  const peerCompletedCount = members.length >= 2 ? members.filter(m => peerScores[m.id]?.completed === true).length : null;
+  const peerCompletedCount = members.length >= 2 ? members.filter((m: any) => peerScores[m.id]?.completed === true).length : null;
 
   const tabBadge = {
     tasks: tasks.length || null,
     peer: peerCompletedCount !== null ? `${peerCompletedCount}/${members.length}` : null,
     schedule: scheduleSlots.length > 0 ? scheduleSlots.length : null,
+    analysis: null,
+    result: null,
   };
 
   if (!isReady) {
-    return (
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: styles.bg, color: styles.text, gap: 16 }}>
-        <div style={{ fontSize: 48 }}>☁️</div>
-        <div style={{ fontSize: 16, fontWeight: 600, color: "#a5b4fc" }}>Đang tải dữ liệu từ cloud...</div>
-        <div style={{ fontSize: 13, color: styles.textMuted }}>Room ID: {roomId}</div>
-      </div>
-    );
+    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: styles.bg, color: styles.text }}>Đang tải dữ liệu...</div>;
   }
 
   if (!hasGroup) {
     return (
       <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
         <Card style={{ textAlign: "center", maxWidth: 500, width: "100%" }} theme={theme}>
           <div style={{ fontSize: 64, marginBottom: 20 }}>🚀</div>
-          <h2 style={{ color: "#a5b4fc", marginBottom: 8, fontFamily: "'Space Mono',monospace" }}>TEAM EVAL</h2>
-          <p style={{ color: styles.textMuted, marginBottom: 8, lineHeight: 1.6 }}>Công cụ đánh giá nhóm học tập trực tuyến</p>
-          <div style={{ padding: 12, background: "#0c2a1a", borderRadius: 10, marginBottom: 20, fontSize: 13, color: "#86efac" }}>
-            ☁️ Dữ liệu lưu trên cloud — mở cùng link trên bất kỳ máy nào đều truy cập được
-          </div>
+          <h2 style={{ color: "#a5b4fc", marginBottom: 12 }}>TEAM EVAL</h2>
+          <p style={{ color: styles.textMuted, marginBottom: 24, lineHeight: 1.6 }}>Công cụ đánh giá nhóm học tập trực tuyến<br/>Tạo nhóm mới để bắt đầu</p>
           <Btn onClick={createNewGroup} variant="primary" theme={theme} style={{ padding: "12px 24px", fontSize: 16, width: "100%", maxWidth: 200 }}>➕ Tạo nhóm mới</Btn>
         </Card>
       </div>
@@ -1130,12 +1284,19 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text }}>
       <style>{`
+        @keyframes fadeOut {
+          0% { opacity: 1; }
+          70% { opacity: 1; }
+          100% { opacity: 0; display: none; }
+        }
         @media (max-width: 768px) {
           .two-columns { grid-template-columns: 1fr !important; gap: 16px !important; }
           .task-form-grid { grid-template-columns: 1fr !important; }
+          .peer-grid, .leader-grid { grid-template-columns: 1fr !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
           .result-table-wrapper { overflow-x: auto !important; }
           .schedule-form-grid { grid-template-columns: 1fr !important; }
+          .schedule-table-wrapper { overflow-x: auto !important; }
           .card { padding: 16px !important; }
           .hide-on-mobile { display: none; }
           .app-nav button span:last-child { display: none; }
@@ -1145,52 +1306,33 @@ export default function App() {
           .stats-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-
-      {/* HEADER */}
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
       <div style={{ background: styles.headerBg, borderBottom: `1px solid ${styles.border}`, padding: "0 16px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "12px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✦</div>
-            <div>
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
-              <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 1, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div>
-            </div>
+            <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
+            <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div></div>
           </div>
-
           <nav className="app-nav" style={{ display: "flex", gap: 4, background: styles.inputBg, borderRadius: 14, padding: 5, overflowX: "auto", flex: "1 1 auto", justifyContent: "center" }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                 <span>{t.icon}</span>
                 <span>{t.label}</span>
-                {tabBadge[t.id] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{tabBadge[t.id]}</span>}
+                {tabBadge[t.id as keyof typeof tabBadge] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{tabBadge[t.id as keyof typeof tabBadge]}</span>}
               </button>
             ))}
           </nav>
-
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <SyncStatus status={syncStatus} />
+          <div style={{ display: "flex", gap: 8 }}>
             <Btn onClick={toggleTheme} variant="ghost" theme={theme} style={{ padding: "8px 12px", fontSize: 18 }}>{theme === "dark" ? "☀️" : "🌙"}</Btn>
-            <Btn onClick={generateShareLink} variant={isCopied ? "success" : "primary"} theme={theme} style={{ padding: "8px 16px", fontSize: 12, whiteSpace: "nowrap" }}>
-              {isCopied ? "✓ Đã copy!" : "🔗 Chia sẻ link"}
-            </Btn>
+            <Btn onClick={generateShareLink} variant={isCopied ? "success" : "primary"} theme={theme} style={{ padding: "8px 16px", fontSize: 12, whiteSpace: "nowrap" }}>{isCopied ? "✓ Đã copy!" : "🔗 Chia sẻ"}</Btn>
           </div>
-        </div>
-
-        {/* Room info bar */}
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "6px 0 10px", display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 11, color: styles.textMuted }}>
-            🔑 Room: <code style={{ color: "#a5b4fc", background: styles.inputBg, padding: "2px 6px", borderRadius: 4 }}>{roomId}</code>
-          </div>
-          <div style={{ fontSize: 11, color: "#475569" }}>— Chia sẻ link để cả nhóm cùng truy cập và đồng bộ dữ liệu</div>
         </div>
       </div>
-
-      {/* CONTENT */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
+      <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
-        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} onRefresh={refreshData} />}
+        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
         {tab === "analysis" && <AnalysisTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} theme={theme} />}
@@ -1199,4 +1341,3 @@ export default function App() {
     </div>
   );
 }
-
