@@ -943,24 +943,31 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
   const styles = themeStyles[theme];
   
   const getPeerScoreForMember = (memberId: string) => {
-    const allScores: number[] = [];
+  const allScores: number[] = [];
+  
+  // Duyệt qua tất cả người đánh giá (reviewer)
+  Object.keys(peerScores).forEach(reviewerId => {
+    // Bỏ qua đánh giá của chính mình
+    if (reviewerId === memberId) return;
     
-    Object.keys(peerScores).forEach(reviewerId => {
-      if (reviewerId === memberId) return;
-      const reviewerData = peerScores[reviewerId];
-      if (reviewerData && reviewerData[memberId]) {
-        PEER_CRITERIA.forEach(criterion => {
-          const scores = reviewerData[memberId][criterion];
-          if (scores && Array.isArray(scores)) {
-            allScores.push(...scores);
-          }
-        });
-      }
-    });
+    const reviewerData = peerScores[reviewerId];
+    if (!reviewerData) return;
     
-    if (allScores.length === 0) return null;
-    return avg(allScores) * 10;
-  };
+    // Lấy đánh giá mà reviewer dành cho memberId
+    const scoresForMember = reviewerData[memberId];
+    if (scoresForMember) {
+      PEER_CRITERIA.forEach(criterion => {
+        const criterionScores = scoresForMember[criterion];
+        if (criterionScores && Array.isArray(criterionScores)) {
+          allScores.push(...criterionScores);
+        }
+      });
+    }
+  });
+  
+  if (allScores.length === 0) return null;
+  return (avg(allScores) / 10) * 10; // Điểm đã ở thang 10 từ RatingSelect
+};
 
   const results = useMemo(() => {
     if (members.length === 0) return [];
