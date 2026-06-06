@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
@@ -514,7 +514,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   );
 }
 
-// ─── PEER TAB (ẨN DANH HOÀN TOÀN - ĐÃ SỬA LỖI ĐỒNG BỘ) ─────────────────────────
+// ─── PEER TAB (ẨN DANH HOÀN TOÀN) ─────────────────────────────────────────────
 function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const [reviewer, setReviewer] = useState("");
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
@@ -567,14 +567,12 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
       
       next[reviewer] = { ...next[reviewer], completed: true };
       
-      console.log("✅ Peer scores saved:", Object.keys(next));
-      
       return next;
     });
 
     setTempScores({});
     setReviewer("");
-    alert("✅ Đã lưu đánh giá! Dữ liệu đã được lưu vào link.");
+    alert("✅ Đã lưu đánh giá!");
   };
 
   const completedReviewers = Object.keys(peerScores).filter(
@@ -1114,6 +1112,40 @@ export default function App() {
     localStorage.setItem("theme", newTheme);
   };
 
+  // === ĐỒNG BỘ REALTIME GIỮA CÁC TAB ===
+  // Lắng nghe sự kiện từ tab khác
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "team_eval_sync" && e.newValue) {
+        try {
+          const newData = JSON.parse(e.newValue);
+          console.log("🔄 Syncing from another tab");
+          
+          if (newData.projectName) setProjectName(newData.projectName);
+          if (newData.leader) setLeader(newData.leader);
+          if (newData.members) setMembers(newData.members);
+          if (newData.tasks) setTasks(newData.tasks);
+          if (newData.peerScores) setPeerScores(newData.peerScores);
+          if (newData.leaderScores) setLeaderScores(newData.leaderScores);
+          if (newData.teacherScore) setTeacherScore(newData.teacherScore);
+          if (newData.scheduleSlots) setScheduleSlots(newData.scheduleSlots);
+          if (newData.scheduleSelections) setScheduleSelections(newData.scheduleSelections);
+        } catch (err) {}
+      }
+    };
+    
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
+  
+  // Gửi dữ liệu sang tab khác mỗi khi state thay đổi
+  useEffect(() => {
+    if (!isReady) return;
+    const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
+    localStorage.setItem("team_eval_sync", JSON.stringify(data));
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, isReady]);
+  // === KẾT THÚC ĐỒNG BỘ ===
+
   // Load data từ URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1121,7 +1153,7 @@ export default function App() {
     if (encodedData) {
       try {
         const data = JSON.parse(decodeURIComponent(atob(encodedData)));
-        console.log("🔵 Loaded from URL - peerScores:", Object.keys(data.peerScores || {}));
+        console.log("🔵 Loaded from URL");
         
         if (data.projectName) setProjectName(data.projectName);
         if (data.leader) setLeader(data.leader);
@@ -1140,7 +1172,7 @@ export default function App() {
     setIsReady(true);
   }, []);
 
-  // Lưu dữ liệu vào URL (chạy mỗi khi state thay đổi)
+  // Lưu dữ liệu vào URL
   useEffect(() => {
     if (!isReady) return;
     if (!hasGroup && members.length === 0 && tasks.length === 0) return;
@@ -1154,7 +1186,7 @@ export default function App() {
       const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
       const newUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
       window.history.replaceState(null, "", newUrl);
-      console.log("🟢 Saved to URL - peerScores:", Object.keys(peerScores));
+      console.log("🟢 Saved to URL");
     } catch (e) {
       console.error("Failed to save data:", e);
     }
