@@ -234,7 +234,7 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                       <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn</th>
                       <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
                       <th style={{ textAlign: "center", padding: 12 }}></th>
-                    </td>
+                    </tr>
                   </thead>
                   <tbody>
                     {scheduleSlots.map((slot: any) => (
