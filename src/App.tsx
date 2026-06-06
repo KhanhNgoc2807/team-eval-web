@@ -513,14 +513,13 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   );
 }
 
-// ─── PEER TAB (ẨN DANH HOÀN TOÀN) ─────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }: any) {
+// ─── PEER TAB ─────────────────────────────────────────────────────────────
+function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh, broadcastChannel }: any) {
   const [reviewer, setReviewer] = useState("");
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const styles = themeStyles[theme];
 
   const reviewees = members.filter((m: any) => m.id !== reviewer);
-  
   const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
 
   const setScore = (revieweeId: string, criterion: string, val: number) => {
@@ -566,12 +565,17 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }: any) 
       
       next[reviewer] = { ...next[reviewer], completed: true };
       
+      // Gửi qua broadcast channel để đồng bộ realtime
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({ type: "PEER_UPDATE", data: next });
+      }
+      
       return next;
     });
 
     setTempScores({});
     setReviewer("");
-    alert("✅ Đã lưu đánh giá! Nhấn 'Làm mới dữ liệu' để xem kết quả tổng hợp.");
+    alert("✅ Đã lưu đánh giá! Các thành viên khác sẽ thấy ngay lập tức.");
   };
 
   const completedReviewers = Object.keys(peerScores).filter(
@@ -582,17 +586,16 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }: any) 
     return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
   }
 
-  // Hiển thị nút refresh to đùng
   return (
     <div>
-      <Card theme={theme} style={{ marginBottom: 20, background: "#1e1b4b", borderColor: "#6366f1" }}>
+      <Card theme={theme} style={{ marginBottom: 20, background: "#1e1b4b", borderColor: "#22c55e" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#a5b4fc" }}>🔄 ĐỒNG BỘ DỮ LIỆU</div>
-            <div style={{ fontSize: 12, color: styles.textMuted }}>Sau khi thành viên khác đánh giá, bấm nút này để cập nhật</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>🔄 ĐỒNG BỘ REAL-TIME</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Dữ liệu tự động cập nhật giữa các tab/máy! Không cần F5.</div>
           </div>
           <Btn onClick={onRefresh} variant="primary" theme={theme} style={{ padding: "10px 24px", fontSize: 14 }}>
-            🔄 LÀM MỚI DỮ LIỆU
+            🔄 LÀM MỚI THỦ CÔNG
           </Btn>
         </div>
       </Card>
@@ -951,12 +954,22 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
   
   const getPeerScoreForMember = (memberId: string) => {
     const allScores: number[] = [];
-    PEER_CRITERIA.forEach(criterion => {
-      const scores = peerScores[memberId]?.[criterion];
-      if (scores && Array.isArray(scores) && scores.length > 0) {
-        allScores.push(...scores);
+    
+    // Lấy tất cả đánh giá từ các reviewer khác
+    Object.keys(peerScores).forEach(reviewerId => {
+      if (reviewerId === memberId) return;
+      
+      const reviewerData = peerScores[reviewerId];
+      if (reviewerData && reviewerData[memberId]) {
+        PEER_CRITERIA.forEach(criterion => {
+          const scores = reviewerData[memberId][criterion];
+          if (scores && Array.isArray(scores)) {
+            allScores.push(...scores);
+          }
+        });
       }
     });
+    
     if (allScores.length === 0) return null;
     return avg(allScores) * 10;
   };
@@ -1102,9 +1115,74 @@ export default function App() {
   const [hasGroup, setHasGroup] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [roomId, setRoomId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("room") || uid();
+  });
   
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
   const [scheduleSelections, setScheduleSelections] = useState<any>({});
+
+  // BroadcastChannel để đồng bộ realtime giữa các tab/máy
+  const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel | null>(null);
+
+  // Khởi tạo BroadcastChannel
+  useEffect(() => {
+    const channel = new BroadcastChannel(`team_eval_${roomId}`);
+    setBroadcastChannel(channel);
+    
+    channel.onmessage = (event) => {
+      if (event.data.type === "PEER_UPDATE") {
+        console.log("📡 Nhận cập nhật realtime:", event.data.data);
+        setPeerScores(event.data.data);
+        // Hiển thị thông báo
+        const toast = document.createElement("div");
+        toast.textContent = "🔄 Có đánh giá mới từ thành viên khác!";
+        toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;z-index:10000;animation:fadeOut 3s ease-in-out";
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+    };
+    
+    return () => {
+      channel.close();
+    };
+  }, [roomId]);
+
+  // Lưu tất cả dữ liệu vào localStorage
+  useEffect(() => {
+    if (!isReady) return;
+    const allData = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
+    localStorage.setItem(`team_${roomId}`, JSON.stringify(allData));
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
+
+  // Load dữ liệu từ localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem(`team_${roomId}`);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.projectName) setProjectName(data.projectName);
+        if (data.leader) setLeader(data.leader);
+        if (data.members) setMembers(data.members);
+        if (data.tasks) setTasks(data.tasks);
+        if (data.peerScores) setPeerScores(data.peerScores);
+        if (data.leaderScores) setLeaderScores(data.leaderScores);
+        if (data.teacherScore) setTeacherScore(data.teacherScore);
+        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
+        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
+        setHasGroup(true);
+      } catch (e) {}
+    }
+    setIsReady(true);
+  }, [roomId]);
+
+  // Cập nhật URL với roomId
+  useEffect(() => {
+    if (!isReady) return;
+    const newUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+    window.history.replaceState(null, "", newUrl);
+  }, [roomId, isReady]);
 
   const toggleTheme = () => {
     const newTheme = theme === "dark" ? "light" : "dark";
@@ -1112,93 +1190,9 @@ export default function App() {
     localStorage.setItem("theme", newTheme);
   };
 
-  // Lưu state vào localStorage để đồng bộ
-  useEffect(() => {
-    localStorage.setItem("currentProjectName", projectName);
-    localStorage.setItem("currentLeader", leader);
-    localStorage.setItem("currentMembers", JSON.stringify(members));
-    localStorage.setItem("currentTasks", JSON.stringify(tasks));
-    localStorage.setItem("currentLeaderScores", JSON.stringify(leaderScores));
-    localStorage.setItem("currentTeacherScore", teacherScore);
-    localStorage.setItem("currentScheduleSlots", JSON.stringify(scheduleSlots));
-    localStorage.setItem("currentScheduleSelections", JSON.stringify(scheduleSelections));
-  }, [projectName, leader, members, tasks, leaderScores, teacherScore, scheduleSlots, scheduleSelections]);
-
-  // Lưu dữ liệu vào URL
-  const saveToUrl = useCallback(() => {
-    const data = { 
-      projectName, leader, members, tasks, 
-      peerScores, leaderScores, teacherScore, 
-      scheduleSlots, scheduleSelections 
-    };
-    try {
-      const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
-      const newUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
-      window.history.replaceState(null, "", newUrl);
-      console.log("✅ Đã lưu vào URL");
-    } catch (e) {
-      console.error("Lỗi lưu URL:", e);
-    }
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections]);
-
-  // Tự động lưu khi state thay đổi
-  useEffect(() => {
-    if (!isReady) return;
-    if (!hasGroup && members.length === 0 && tasks.length === 0) return;
-    saveToUrl();
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, hasGroup, isReady, saveToUrl]);
-
-  // Load dữ liệu từ URL
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const encodedData = params.get("data");
-    if (encodedData) {
-      try {
-        const data = JSON.parse(decodeURIComponent(atob(encodedData)));
-        console.log("📥 Đã tải dữ liệu từ URL");
-        
-        if (data.projectName) setProjectName(data.projectName);
-        if (data.leader) setLeader(data.leader);
-        if (data.members) setMembers(data.members || []);
-        if (data.tasks) setTasks(data.tasks || []);
-        if (data.peerScores) setPeerScores(data.peerScores || {});
-        if (data.leaderScores) setLeaderScores(data.leaderScores || {});
-        if (data.teacherScore) setTeacherScore(data.teacherScore || "");
-        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots || []);
-        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections || {});
-        setHasGroup(true);
-      } catch (e) {
-        console.error("Lỗi tải dữ liệu:", e);
-      }
-    }
-    setIsReady(true);
-  }, []);
-
-  // Hàm refresh dữ liệu từ URL
-  const refreshData = () => {
-    const params = new URLSearchParams(window.location.search);
-    const encodedData = params.get("data");
-    if (encodedData) {
-      try {
-        const data = JSON.parse(decodeURIComponent(atob(encodedData)));
-        console.log("🔄 Refresh dữ liệu từ URL");
-        
-        if (data.peerScores) setPeerScores(data.peerScores);
-        if (data.leaderScores) setLeaderScores(data.leaderScores);
-        if (data.tasks) setTasks(data.tasks || []);
-        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections || {});
-        
-        const completedCount = Object.keys(data.peerScores || {}).filter((id: string) => data.peerScores[id]?.completed === true).length;
-        alert(`✅ Đã cập nhật dữ liệu!\nHiện có ${completedCount}/${members.length} người đã đánh giá.`);
-      } catch (e) {
-        alert("Không thể cập nhật dữ liệu");
-      }
-    } else {
-      alert("Không tìm thấy dữ liệu trong URL");
-    }
-  };
-
   const createNewGroup = () => {
+    const newRoomId = uid();
+    setRoomId(newRoomId);
     setProjectName("");
     setLeader("");
     setMembers([]);
@@ -1209,13 +1203,26 @@ export default function App() {
     setScheduleSlots([]);
     setScheduleSelections({});
     setHasGroup(true);
-    window.history.replaceState(null, "", window.location.pathname);
   };
 
   const generateShareLink = () => {
-    navigator.clipboard.writeText(window.location.href);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomId}`;
+    navigator.clipboard.writeText(shareUrl);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const refreshData = () => {
+    const saved = localStorage.getItem(`team_${roomId}`);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        if (data.peerScores) setPeerScores(data.peerScores);
+        if (data.leaderScores) setLeaderScores(data.leaderScores);
+        if (data.tasks) setTasks(data.tasks);
+        alert("✅ Đã cập nhật dữ liệu mới nhất!");
+      } catch (e) {}
+    }
   };
 
   const styles = themeStyles[theme];
@@ -1249,6 +1256,11 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text }}>
       <style>{`
+        @keyframes fadeOut {
+          0% { opacity: 1; }
+          70% { opacity: 1; }
+          100% { opacity: 0; display: none; }
+        }
         @media (max-width: 768px) {
           .two-columns { grid-template-columns: 1fr !important; gap: 16px !important; }
           .task-form-grid { grid-template-columns: 1fr !important; }
@@ -1292,7 +1304,7 @@ export default function App() {
       <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
-        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} onRefresh={refreshData} />}
+        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} onRefresh={refreshData} broadcastChannel={broadcastChannel} />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
         {tab === "analysis" && <AnalysisTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} theme={theme} />}
