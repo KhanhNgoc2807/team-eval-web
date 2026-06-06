@@ -100,12 +100,11 @@ function ProgressBar({ value, max, color = "#6366f1" }: { value: number; max: nu
   return <div style={{ height: 8, background: "#1e2235", borderRadius: 4, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg,${color},${color}99)`, borderRadius: 4, transition: "width .5s ease" }} /></div>;
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
 const filterBtn = (theme: Theme) => ({ padding: "6px 14px", borderRadius: 20, border: `1px solid ${themeStyles[theme].border}`, background: "transparent", color: themeStyles[theme].textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" });
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
 
-// ─── SCHEDULE TAB (LỊCH HỌP NHÓM) ─────────────────────────────────────────────
+// ─── SCHEDULE TAB ─────────────────────────────────────────────────────────────
 function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme }: any) {
   const styles = themeStyles[theme];
   const [newSlotDate, setNewSlotDate] = useState("");
@@ -515,7 +514,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
 }
 
 // ─── PEER TAB (ẨN DANH HOÀN TOÀN) ─────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
+function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh }: any) {
   const [reviewer, setReviewer] = useState("");
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const styles = themeStyles[theme];
@@ -572,7 +571,7 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
 
     setTempScores({});
     setReviewer("");
-    alert("✅ Đã lưu đánh giá!");
+    alert("✅ Đã lưu đánh giá! Nhấn 'Làm mới dữ liệu' để xem kết quả tổng hợp.");
   };
 
   const completedReviewers = Object.keys(peerScores).filter(
@@ -583,108 +582,109 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
     return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
   }
 
-  if (!reviewer || hasCompleted) {
-    return (
-      <div>
-        <Card style={{ marginBottom: 20 }} theme={theme}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn là:</div>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <Select value={reviewer} onChange={(v: string) => {
-                if (peerScores[v]?.completed) {
-                  alert("⚠️ Bạn đã đánh giá rồi! Mỗi người chỉ được đánh giá 1 lần.");
-                  return;
-                }
-                setReviewer(v);
-              }} theme={theme}>
-                <option value="">Chọn tên của bạn...</option>
-                {members.map((m: any) => (
-                  <option key={m.id} value={m.id} disabled={peerScores[m.id]?.completed === true}>
-                    {m.name} {peerScores[m.id]?.completed ? "(✅ Đã đánh giá)" : ""}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div style={{ fontSize: 13, color: styles.textMuted }}>
-              📊 Đã có <b style={{ color: "#22c55e" }}>{completedReviewers}</b>/{members.length} người tham gia
-            </div>
-          </div>
-          <div style={{ marginTop: 16, padding: 12, background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>
-            🔒 <b>Ẩn danh hoàn toàn</b>: Sau khi đánh giá xong, tên bạn sẽ biến mất. Không ai biết ai đã đánh giá ai.
-          </div>
-        </Card>
-
-        {completedReviewers === members.length && members.length > 0 && (
-          <Card theme={theme} style={{ textAlign: "center", background: "#0c2a1a", borderColor: "#166534" }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "#86efac", marginBottom: 8 }}>Tất cả thành viên đã đánh giá xong!</div>
-          </Card>
-        )}
-      </div>
-    );
-  }
-
-  const reviewerName = members.find((m: any) => m.id === reviewer)?.name;
-  const allFilled = reviewees.every(reviewee =>
-    PEER_CRITERIA.every(c => getTempScore(reviewee.id, c) > 0)
-  );
-
+  // Hiển thị nút refresh to đùng
   return (
     <div>
-      <Card theme={theme} style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+      <Card theme={theme} style={{ marginBottom: 20, background: "#1e1b4b", borderColor: "#6366f1" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <span style={{ fontSize: 14, color: "#a5b4fc" }}>👤 Đang đánh giá với vai trò: </span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{reviewerName}</span>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#a5b4fc" }}>🔄 ĐỒNG BỘ DỮ LIỆU</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Sau khi thành viên khác đánh giá, bấm nút này để cập nhật</div>
           </div>
-          <Btn onClick={() => {
-            setReviewer("");
-            setTempScores({});
-          }} variant="ghost" theme={theme}>↺ Thoát</Btn>
-        </div>
-        <div style={{ fontSize: 13, color: styles.textMuted }}>
-          🔒 Sau khi bấm "Gửi đánh giá", tên bạn sẽ được ẩn danh hoàn toàn.
+          <Btn onClick={onRefresh} variant="primary" theme={theme} style={{ padding: "10px 24px", fontSize: 14 }}>
+            🔄 LÀM MỚI DỮ LIỆU
+          </Btn>
         </div>
       </Card>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {reviewees.map((reviewee: any) => {
-          const mc = MEMBER_COLORS[members.indexOf(reviewee) % MEMBER_COLORS.length];
-          const isFilled = PEER_CRITERIA.every(c => getTempScore(reviewee.id, c) > 0);
-          return (
-            <Card key={reviewee.id} style={{ borderColor: isFilled ? "#22c55e44" : styles.border }} theme={theme}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc }}>
-                  {reviewee.name.split(" ").pop().charAt(0)}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: styles.text }}>{reviewee.name}</div>
-                  {isFilled && <div style={{ fontSize: 11, color: "#22c55e" }}>✓ Đã đánh giá</div>}
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
-                {PEER_CRITERIA.map(c => (
-                  <div key={c}>
-                    <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div>
-                    <RatingSelect value={getTempScore(reviewee.id, c)} onChange={v => setScore(reviewee.id, c, v)} theme={theme} />
-                  </div>
-                ))}
-              </div>
-            </Card>
-          );
-        })}
-      </div>
-
-      <div style={{ textAlign: "center", marginTop: 24 }}>
-        <Btn onClick={submitAllReviews} variant="success" theme={theme} disabled={!allFilled} style={{ padding: "12px 32px", fontSize: 16 }}>
-          🔒 Gửi đánh giá (ẩn danh) {allFilled ? "✅" : "⚠️"}
-        </Btn>
-        {!allFilled && (
-          <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 8 }}>
-            Vui lòng đánh giá đủ tất cả các tiêu chí cho tất cả thành viên
+      <Card style={{ marginBottom: 20 }} theme={theme}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn là:</div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <Select value={reviewer} onChange={(v: string) => {
+              if (peerScores[v]?.completed) {
+                alert("⚠️ Bạn đã đánh giá rồi! Mỗi người chỉ được đánh giá 1 lần.");
+                return;
+              }
+              setReviewer(v);
+            }} theme={theme}>
+              <option value="">Chọn tên của bạn...</option>
+              {members.map((m: any) => (
+                <option key={m.id} value={m.id} disabled={peerScores[m.id]?.completed === true}>
+                  {m.name} {peerScores[m.id]?.completed ? "(✅ Đã đánh giá)" : ""}
+                </option>
+              ))}
+            </Select>
           </div>
-        )}
-      </div>
+          <div style={{ fontSize: 13, color: styles.textMuted }}>
+            📊 Đã có <b style={{ color: "#22c55e" }}>{completedReviewers}</b>/{members.length} người tham gia
+          </div>
+        </div>
+        <div style={{ marginTop: 16, padding: 12, background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>
+          🔒 <b>Ẩn danh hoàn toàn</b>: Sau khi đánh giá xong, tên bạn sẽ biến mất. Không ai biết ai đã đánh giá ai.
+        </div>
+      </Card>
+
+      {completedReviewers === members.length && members.length > 0 && (
+        <Card theme={theme} style={{ textAlign: "center", background: "#0c2a1a", borderColor: "#166534" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#86efac", marginBottom: 8 }}>Tất cả thành viên đã đánh giá xong!</div>
+        </Card>
+      )}
+
+      {reviewer && !hasCompleted && (
+        <>
+          <Card theme={theme} style={{ marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <span style={{ fontSize: 14, color: "#a5b4fc" }}>👤 Đang đánh giá với vai trò: </span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{members.find((m: any) => m.id === reviewer)?.name}</span>
+              </div>
+              <Btn onClick={() => {
+                setReviewer("");
+                setTempScores({});
+              }} variant="ghost" theme={theme}>↺ Thoát</Btn>
+            </div>
+            <div style={{ fontSize: 13, color: styles.textMuted }}>
+              🔒 Sau khi bấm "Gửi đánh giá", tên bạn sẽ được ẩn danh hoàn toàn.
+            </div>
+          </Card>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {reviewees.map((reviewee: any) => {
+              const mc = MEMBER_COLORS[members.indexOf(reviewee) % MEMBER_COLORS.length];
+              const isFilled = PEER_CRITERIA.every(c => getTempScore(reviewee.id, c) > 0);
+              return (
+                <Card key={reviewee.id} style={{ borderColor: isFilled ? "#22c55e44" : styles.border }} theme={theme}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc }}>
+                      {reviewee.name.split(" ").pop().charAt(0)}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: styles.text }}>{reviewee.name}</div>
+                      {isFilled && <div style={{ fontSize: 11, color: "#22c55e" }}>✓ Đã đánh giá</div>}
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+                    {PEER_CRITERIA.map(c => (
+                      <div key={c}>
+                        <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div>
+                        <RatingSelect value={getTempScore(reviewee.id, c)} onChange={v => setScore(reviewee.id, c, v)} theme={theme} />
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          <div style={{ textAlign: "center", marginTop: 24 }}>
+            <Btn onClick={submitAllReviews} variant="success" theme={theme} disabled={!reviewees.every(r => PEER_CRITERIA.every(c => getTempScore(r.id, c) > 0))} style={{ padding: "12px 32px", fontSize: 16 }}>
+              🔒 Gửi đánh giá (ẩn danh)
+            </Btn>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -734,7 +734,7 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
     
     PEER_CRITERIA.forEach(criterion => {
       const criterionScores = peerScores[memberId]?.[criterion];
-      if (criterionScores && criterionScores.length > 0) {
+      if (criterionScores && Array.isArray(criterionScores) && criterionScores.length > 0) {
         scores[criterion].push(...criterionScores);
       }
     });
@@ -953,7 +953,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
     const allScores: number[] = [];
     PEER_CRITERIA.forEach(criterion => {
       const scores = peerScores[memberId]?.[criterion];
-      if (scores && scores.length > 0) {
+      if (scores && Array.isArray(scores) && scores.length > 0) {
         allScores.push(...scores);
       }
     });
@@ -1112,48 +1112,50 @@ export default function App() {
     localStorage.setItem("theme", newTheme);
   };
 
-  // === ĐỒNG BỘ REALTIME GIỮA CÁC TAB ===
-  // Lắng nghe sự kiện từ tab khác
+  // Lưu state vào localStorage để đồng bộ
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "team_eval_sync" && e.newValue) {
-        try {
-          const newData = JSON.parse(e.newValue);
-          console.log("🔄 Syncing from another tab");
-          
-          if (newData.projectName) setProjectName(newData.projectName);
-          if (newData.leader) setLeader(newData.leader);
-          if (newData.members) setMembers(newData.members);
-          if (newData.tasks) setTasks(newData.tasks);
-          if (newData.peerScores) setPeerScores(newData.peerScores);
-          if (newData.leaderScores) setLeaderScores(newData.leaderScores);
-          if (newData.teacherScore) setTeacherScore(newData.teacherScore);
-          if (newData.scheduleSlots) setScheduleSlots(newData.scheduleSlots);
-          if (newData.scheduleSelections) setScheduleSelections(newData.scheduleSelections);
-        } catch (err) {}
-      }
+    localStorage.setItem("currentProjectName", projectName);
+    localStorage.setItem("currentLeader", leader);
+    localStorage.setItem("currentMembers", JSON.stringify(members));
+    localStorage.setItem("currentTasks", JSON.stringify(tasks));
+    localStorage.setItem("currentLeaderScores", JSON.stringify(leaderScores));
+    localStorage.setItem("currentTeacherScore", teacherScore);
+    localStorage.setItem("currentScheduleSlots", JSON.stringify(scheduleSlots));
+    localStorage.setItem("currentScheduleSelections", JSON.stringify(scheduleSelections));
+  }, [projectName, leader, members, tasks, leaderScores, teacherScore, scheduleSlots, scheduleSelections]);
+
+  // Lưu dữ liệu vào URL
+  const saveToUrl = useCallback(() => {
+    const data = { 
+      projectName, leader, members, tasks, 
+      peerScores, leaderScores, teacherScore, 
+      scheduleSlots, scheduleSelections 
     };
-    
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, []);
-  
-  // Gửi dữ liệu sang tab khác mỗi khi state thay đổi
+    try {
+      const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
+      const newUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
+      window.history.replaceState(null, "", newUrl);
+      console.log("✅ Đã lưu vào URL");
+    } catch (e) {
+      console.error("Lỗi lưu URL:", e);
+    }
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections]);
+
+  // Tự động lưu khi state thay đổi
   useEffect(() => {
     if (!isReady) return;
-    const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
-    localStorage.setItem("team_eval_sync", JSON.stringify(data));
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, isReady]);
-  // === KẾT THÚC ĐỒNG BỘ ===
+    if (!hasGroup && members.length === 0 && tasks.length === 0) return;
+    saveToUrl();
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, hasGroup, isReady, saveToUrl]);
 
-  // Load data từ URL
+  // Load dữ liệu từ URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedData = params.get("data");
     if (encodedData) {
       try {
         const data = JSON.parse(decodeURIComponent(atob(encodedData)));
-        console.log("🔵 Loaded from URL");
+        console.log("📥 Đã tải dữ liệu từ URL");
         
         if (data.projectName) setProjectName(data.projectName);
         if (data.leader) setLeader(data.leader);
@@ -1166,31 +1168,35 @@ export default function App() {
         if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections || {});
         setHasGroup(true);
       } catch (e) {
-        console.error("Failed to load data:", e);
+        console.error("Lỗi tải dữ liệu:", e);
       }
     }
     setIsReady(true);
   }, []);
 
-  // Lưu dữ liệu vào URL
-  useEffect(() => {
-    if (!isReady) return;
-    if (!hasGroup && members.length === 0 && tasks.length === 0) return;
-    
-    const data = { 
-      projectName, leader, members, tasks, 
-      peerScores, leaderScores, teacherScore, 
-      scheduleSlots, scheduleSelections 
-    };
-    try {
-      const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
-      const newUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
-      window.history.replaceState(null, "", newUrl);
-      console.log("🟢 Saved to URL");
-    } catch (e) {
-      console.error("Failed to save data:", e);
+  // Hàm refresh dữ liệu từ URL
+  const refreshData = () => {
+    const params = new URLSearchParams(window.location.search);
+    const encodedData = params.get("data");
+    if (encodedData) {
+      try {
+        const data = JSON.parse(decodeURIComponent(atob(encodedData)));
+        console.log("🔄 Refresh dữ liệu từ URL");
+        
+        if (data.peerScores) setPeerScores(data.peerScores);
+        if (data.leaderScores) setLeaderScores(data.leaderScores);
+        if (data.tasks) setTasks(data.tasks || []);
+        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections || {});
+        
+        const completedCount = Object.keys(data.peerScores || {}).filter((id: string) => data.peerScores[id]?.completed === true).length;
+        alert(`✅ Đã cập nhật dữ liệu!\nHiện có ${completedCount}/${members.length} người đã đánh giá.`);
+      } catch (e) {
+        alert("Không thể cập nhật dữ liệu");
+      }
+    } else {
+      alert("Không tìm thấy dữ liệu trong URL");
     }
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, hasGroup, isReady]);
+  };
 
   const createNewGroup = () => {
     setProjectName("");
@@ -1213,10 +1219,7 @@ export default function App() {
   };
 
   const styles = themeStyles[theme];
-  const peerCompletedCount = members.length >= 2 ? members.filter((m: any) => {
-    if (!peerScores[m.id]) return false;
-    return members.filter((x: any) => x.id !== m.id).every((r: any) => PEER_CRITERIA.every(c => (peerScores[m.id][r.id]?.[c] ?? 0) > 0));
-  }).length : null;
+  const peerCompletedCount = members.length >= 2 ? members.filter((m: any) => peerScores[m.id]?.completed === true).length : null;
 
   const tabBadge = {
     tasks: tasks.length || null,
@@ -1276,7 +1279,7 @@ export default function App() {
               <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                 <span>{t.icon}</span>
                 <span>{t.label}</span>
-                {tabBadge[t.id] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{tabBadge[t.id]}</span>}
+                {tabBadge[t.id as keyof typeof tabBadge] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{tabBadge[t.id as keyof typeof tabBadge]}</span>}
               </button>
             ))}
           </nav>
@@ -1289,7 +1292,7 @@ export default function App() {
       <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
-        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} />}
+        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} onRefresh={refreshData} />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
         {tab === "analysis" && <AnalysisTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} theme={theme} />}
