@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
@@ -354,7 +354,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
   );
 }
 
-// ─── TASK TAB (GIAO CHO NHIỀU THÀNH VIÊN) ─────────────────────────────────────
+// ─── TASK TAB ─────────────────────────────────────────────────────────────────
 function TaskTab({ members, tasks, setTasks, theme }: any) {
   const [form, setForm] = useState({ name: "", assignees: [] as string[], deadline: "", complexity: 2 });
   const [filter, setFilter] = useState("all");
@@ -514,7 +514,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   );
 }
 
-// ─── PEER TAB (ẨN DANH HOÀN TOÀN) ─────────────────────────────────────────────
+// ─── PEER TAB (ẨN DANH HOÀN TOÀN - ĐÃ SỬA LỖI ĐỒNG BỘ) ─────────────────────────
 function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const [reviewer, setReviewer] = useState("");
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
@@ -567,12 +567,14 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
       
       next[reviewer] = { ...next[reviewer], completed: true };
       
+      console.log("✅ Peer scores saved:", Object.keys(next));
+      
       return next;
     });
 
     setTempScores({});
     setReviewer("");
-    alert("✅ Đã lưu đánh giá! Kết quả của bạn đã được ẩn danh.");
+    alert("✅ Đã lưu đánh giá! Dữ liệu đã được lưu vào link.");
   };
 
   const completedReviewers = Object.keys(peerScores).filter(
@@ -721,7 +723,7 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   );
 }
 
-// ─── ANALYSIS TAB (PHÂN TÍCH & CẢI THIỆN) ─────────────────────────────────────
+// ─── ANALYSIS TAB ─────────────────────────────────────────────────────────────
 function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }: any) {
   const styles = themeStyles[theme];
   
@@ -945,7 +947,7 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
   );
 }
 
-// ─── RESULT TAB (ĐÃ SỬA TÊN CỘT) ──────────────────────────────────────────────
+// ─── RESULT TAB ───────────────────────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
   
@@ -1112,36 +1114,50 @@ export default function App() {
     localStorage.setItem("theme", newTheme);
   };
 
+  // Load data từ URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const encodedData = params.get("data");
     if (encodedData) {
       try {
         const data = JSON.parse(decodeURIComponent(atob(encodedData)));
+        console.log("🔵 Loaded from URL - peerScores:", Object.keys(data.peerScores || {}));
+        
         if (data.projectName) setProjectName(data.projectName);
         if (data.leader) setLeader(data.leader);
-        if (data.members) setMembers(data.members);
-        if (data.tasks) setTasks(data.tasks);
-        if (data.peerScores) setPeerScores(data.peerScores);
-        if (data.leaderScores) setLeaderScores(data.leaderScores);
-        if (data.teacherScore) setTeacherScore(data.teacherScore);
-        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
-        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
+        if (data.members) setMembers(data.members || []);
+        if (data.tasks) setTasks(data.tasks || []);
+        if (data.peerScores) setPeerScores(data.peerScores || {});
+        if (data.leaderScores) setLeaderScores(data.leaderScores || {});
+        if (data.teacherScore) setTeacherScore(data.teacherScore || "");
+        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots || []);
+        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections || {});
         setHasGroup(true);
-      } catch (e) {}
+      } catch (e) {
+        console.error("Failed to load data:", e);
+      }
     }
     setIsReady(true);
   }, []);
 
+  // Lưu dữ liệu vào URL (chạy mỗi khi state thay đổi)
   useEffect(() => {
     if (!isReady) return;
     if (!hasGroup && members.length === 0 && tasks.length === 0) return;
-    const data = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
+    
+    const data = { 
+      projectName, leader, members, tasks, 
+      peerScores, leaderScores, teacherScore, 
+      scheduleSlots, scheduleSelections 
+    };
     try {
       const encoded = btoa(encodeURIComponent(JSON.stringify(data)));
       const newUrl = `${window.location.origin}${window.location.pathname}?data=${encoded}`;
       window.history.replaceState(null, "", newUrl);
-    } catch (e) {}
+      console.log("🟢 Saved to URL - peerScores:", Object.keys(peerScores));
+    } catch (e) {
+      console.error("Failed to save data:", e);
+    }
   }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, hasGroup, isReady]);
 
   const createNewGroup = () => {
