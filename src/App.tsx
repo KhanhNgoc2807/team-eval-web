@@ -353,61 +353,158 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
   );
 }
 
-// ─── TASK TAB ─────────────────────────────────────────────────────────────────
+// ─── TASK TAB (ĐÃ SỬA: GIAO CHO NHIỀU THÀNH VIÊN) ─────────────────────────────
 function TaskTab({ members, tasks, setTasks, theme }: any) {
-  const [form, setForm] = useState({ name: "", assignee: "", deadline: "", complexity: 2 });
+  const [form, setForm] = useState({ name: "", assignees: [] as string[], deadline: "", complexity: 2 });
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const styles = themeStyles[theme];
-  const addTask = () => { if (!form.name.trim() || !form.assignee) return; setTasks((t: any[]) => [...t, { id: uid(), ...form, status: "todo" }]); setForm({ name: "", assignee: "", deadline: "", complexity: 2 }); setShowForm(false); };
-  const cycleStatus = (id: string) => { const order = ["todo", "doing", "done"]; setTasks((ts: any[]) => ts.map((t: any) => t.id !== id ? t : { ...t, status: order[(order.indexOf(t.status) + 1) % 3] })); };
-  const filtered = filter === "all" ? tasks : tasks.filter((t: any) => t.assignee === filter);
-  const overdue = (t: any) => { if (!t.deadline || t.status === "done") return false; const today = new Date(); today.setHours(0,0,0,0); const dl = new Date(t.deadline + "T00:00:00"); return dl < today; };
+  
+  const addTask = () => { 
+    if (!form.name.trim() || form.assignees.length === 0) return; 
+    setTasks((t: any[]) => [...t, { id: uid(), name: form.name, assignees: form.assignees, deadline: form.deadline, complexity: form.complexity, status: "todo" }]); 
+    setForm({ name: "", assignees: [], deadline: "", complexity: 2 }); 
+    setShowForm(false); 
+  };
+  
+  const toggleAssignee = (memberId: string) => {
+    setForm((f: any) => ({
+      ...f,
+      assignees: f.assignees.includes(memberId)
+        ? f.assignees.filter((id: string) => id !== memberId)
+        : [...f.assignees, memberId]
+    }));
+  };
+
+  const cycleStatus = (id: string) => { 
+    const order = ["todo", "doing", "done"]; 
+    setTasks((ts: any[]) => ts.map((t: any) => t.id !== id ? t : { ...t, status: order[(order.indexOf(t.status) + 1) % 3] })); 
+  };
+  
+  // Lọc task: nếu filter là "all" thì hiện tất cả, nếu filter là member id thì hiện task có chứa member đó
+  const filtered = filter === "all" 
+    ? tasks 
+    : tasks.filter((t: any) => t.assignees?.includes(filter));
+  
+  const overdue = (t: any) => { 
+    if (!t.deadline || t.status === "done") return false; 
+    const today = new Date(); today.setHours(0,0,0,0); 
+    const dl = new Date(t.deadline + "T00:00:00"); 
+    return dl < today; 
+  };
+  
   const btnStyle = filterBtn(theme);
+  
+  // Tính điểm task cho mỗi thành viên (dùng trong ResultTab)
+  // Mỗi task đóng góp điểm cho tất cả người được giao
+  
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button onClick={() => setFilter("all")} style={{ ...btnStyle, ...(filter === "all" ? filterActive : {}) }}>Tất cả ({tasks.length})</button>
-          {members.filter((m: any) => tasks.some((t: any) => t.assignee === m.id)).map((m: any) => (
+          {members.map((m: any) => (
             <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)} style={{ ...btnStyle, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "18" } : {}) }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], display: "inline-block" }} />
               <span className="hide-on-mobile">{m.name.split(" ").pop()}</span>
-              <span> ({tasks.filter((t: any) => t.assignee === m.id).length})</span>
+              <span> ({tasks.filter((t: any) => t.assignees?.includes(m.id)).length})</span>
             </button>
           ))}
         </div>
         <Btn onClick={() => setShowForm(true)} theme={theme}>+ Thêm công việc</Btn>
       </div>
+      
       {showForm && (
         <Card style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
           <div className="task-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
-            <div><label style={lbl}>Tên công việc *</label><Input value={form.name} onChange={v => setForm((f: any) => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." theme={theme} /></div>
-            <div><label style={lbl}>Giao cho *</label><Select value={form.assignee} onChange={v => setForm((f: any) => ({ ...f, assignee: v }))} theme={theme}><option value="">Chọn thành viên...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
-            <div><label style={lbl}>Hạn chót</label><Input type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} /></div>
-            <div><label style={lbl}>Độ khó</label><div style={{ display: "flex", gap: 6 }}>{[1,2,3].map(v => (<button key={v} onClick={() => setForm((f: any) => ({ ...f, complexity: v }))} style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.border}`, background: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Cấp {v}</button>))}</div></div>
+            <div>
+              <label style={lbl}>Tên công việc *</label>
+              <Input value={form.name} onChange={v => setForm((f: any) => ({ ...f, name: v }))} placeholder="Mô tả ngắn công việc..." theme={theme} />
+            </div>
+            <div>
+              <label style={lbl}>Giao cho * (chọn nhiều)</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px", minHeight: 50 }}>
+                {members.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13 }}>Chưa có thành viên nào</span>}
+                {members.map((m: any) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleAssignee(m.id)}
+                    style={{
+                      padding: "5px 12px",
+                      borderRadius: 20,
+                      border: `1px solid ${form.assignees.includes(m.id) ? "#22c55e" : styles.border}`,
+                      background: form.assignees.includes(m.id) ? "#22c55e22" : "transparent",
+                      color: form.assignees.includes(m.id) ? "#22c55e" : styles.text,
+                      cursor: "pointer",
+                      fontSize: 13
+                    }}
+                  >
+                    {form.assignees.includes(m.id) ? "✓ " : "○ "}{m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label style={lbl}>Hạn chót</label>
+              <Input type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} />
+            </div>
+            <div>
+              <label style={lbl}>Độ khó</label>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[1,2,3].map(v => (
+                  <button key={v} onClick={() => setForm((f: any) => ({ ...f, complexity: v }))} 
+                    style={{ flex: 1, padding: "10px 4px", borderRadius: 8, border: `1px solid ${form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.border}`, background: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color + "22" : "transparent", color: form.complexity === v ? COMPLEXITY[v as keyof typeof COMPLEXITY].color : styles.textMuted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                    Cấp {v}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 10, marginTop: 14 }}><Btn onClick={() => setShowForm(false)} variant="ghost" theme={theme}>Hủy</Btn><Btn onClick={addTask} theme={theme}>✓ Thêm công việc</Btn></div>
+          <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+            <Btn onClick={() => setShowForm(false)} variant="ghost" theme={theme}>Hủy</Btn>
+            <Btn onClick={addTask} theme={theme}>✓ Thêm công việc</Btn>
+          </div>
         </Card>
       )}
+      
       {filtered.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có công việc nào</div><div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu</div></div>
+        <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có công việc nào</div>
+          <div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu</div>
+        </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
-            const member = members.find((m: any) => m.id === t.assignee);
-            const mc = MEMBER_COLORS[members.indexOf(member) % MEMBER_COLORS.length];
+            const assigneeMembers = members.filter((m: any) => t.assignees?.includes(m.id));
+            const firstMember = assigneeMembers[0];
+            const mc = MEMBER_COLORS[members.indexOf(firstMember) % MEMBER_COLORS.length];
             const sc = STATUS[t.status as keyof typeof STATUS];
             const od = overdue(t);
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-                  <span style={{ background: mc + "22", color: mc, border: `1px solid ${mc}44`, borderRadius: 6, padding: "3px 10px", fontSize: 12, fontWeight: 600 }}>{member?.name.split(" ").pop()}</span>
-                  <div style={{ display: "flex", gap: 6 }}><Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag><button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button></div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {assigneeMembers.map((m: any, idx: number) => (
+                      <span key={m.id} style={{ background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "22", color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], border: `1px solid ${MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
+                        {m.name.split(" ").pop()}
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag>
+                    <button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
+                  </div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
+                <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>
+                  👥 {assigneeMembers.map((m: any) => m.name).join(", ")}
+                </div>
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
-                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>{sc.label} → Nhấn để đổi</button>
+                <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  {sc.label} → Nhấn để đổi
+                </button>
               </div>
             );
           })}
@@ -491,13 +588,14 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   );
 }
 
-// ─── RESULT TAB ───────────────────────────────────────────────────────────────
+// ─── RESULT TAB (ĐÃ SỬA: TÍNH ĐIỂM TASK CHO NHIỀU NGƯỜI) ──────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
   const results = useMemo(() => {
     if (members.length === 0) return [];
     return members.map((m: any) => {
-      const myTasks = tasks.filter((t: any) => t.assignee === m.id);
+      // Task Score: lấy tất cả task có chứa member này
+      const myTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
       let taskScore = 100;
       if (myTasks.length > 0) {
         const totalPossible = myTasks.reduce((s: number, t: any) => s + COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].pts * 100, 0);
