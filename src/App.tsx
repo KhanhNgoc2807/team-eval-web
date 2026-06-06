@@ -423,11 +423,19 @@ export default function App() {
   const [scheduleSelections, setScheduleSelections] = useState({});
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
   const [isReady, setIsReady] = useState(false);
-  const [roomId, setRoomId] = useState(() => new URLSearchParams(window.location.search).get("room") || uid());
+  
+  // roomId có thể là null (khi chưa có nhóm)
+  const [roomId, setRoomId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("room") || null;
+  });
 
-  // Firebase Realtime
+  // Firebase Realtime - chỉ chạy khi có roomId
   useEffect(() => {
-    if (!roomId) return;
+    if (!roomId) {
+      setIsReady(true);
+      return;
+    }
     const dbRef = ref(database, `teams/${roomId}`);
     const unsubscribe = onValue(dbRef, (snapshot) => {
       const data = snapshot.val();
@@ -447,9 +455,9 @@ export default function App() {
     return () => unsubscribe();
   }, [roomId]);
 
-  // Auto save to Firebase
+  // Auto save to Firebase - chỉ khi có roomId
   useEffect(() => {
-    if (!isReady) return;
+    if (!isReady || !roomId) return;
     const dbRef = ref(database, `teams/${roomId}`);
     set(dbRef, { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections });
   }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
@@ -457,7 +465,11 @@ export default function App() {
   // Update URL
   useEffect(() => {
     if (!isReady) return;
-    window.history.replaceState(null, "", `?room=${roomId}`);
+    if (roomId) {
+      window.history.replaceState(null, "", `?room=${roomId}`);
+    } else {
+      window.history.replaceState(null, "", window.location.pathname);
+    }
   }, [roomId, isReady]);
 
   const toggleTheme = () => {
@@ -467,8 +479,17 @@ export default function App() {
   };
 
   const createNewGroup = () => {
-    setRoomId(uid());
-    setProjectName(""); setLeader(""); setMembers([]); setTasks([]); setPeerScores({}); setLeaderScores({}); setTeacherScore(""); setScheduleSlots([]); setScheduleSelections({});
+    const newRoomId = uid();
+    setRoomId(newRoomId);
+    setProjectName(""); 
+    setLeader(""); 
+    setMembers([]); 
+    setTasks([]); 
+    setPeerScores({}); 
+    setLeaderScores({}); 
+    setTeacherScore(""); 
+    setScheduleSlots([]); 
+    setScheduleSelections({});
   };
 
   const copyLink = () => {
@@ -481,6 +502,26 @@ export default function App() {
 
   if (!isReady) return <div style={{ background: styles.bg, color: styles.text, textAlign: "center", padding: 50 }}>Đang tải...</div>;
 
+  // Màn hình tạo nhóm mới (khi chưa có roomId)
+  if (!roomId) {
+    return (
+      <div style={{ fontFamily: "'DM Sans', sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+        <Card style={{ textAlign: "center", maxWidth: 500, width: "100%" }} theme={theme}>
+          <div style={{ fontSize: 64, marginBottom: 20 }}>🚀</div>
+          <h2 style={{ color: "#a5b4fc", marginBottom: 12 }}>TEAM EVAL</h2>
+          <p style={{ color: styles.textMuted, marginBottom: 24, lineHeight: 1.6 }}>
+            Công cụ đánh giá nhóm học tập trực tuyến<br />
+            Tạo nhóm mới để bắt đầu
+          </p>
+          <Btn onClick={createNewGroup} variant="primary" theme={theme} style={{ padding: "12px 24px", fontSize: 16, width: "100%", maxWidth: 200 }}>
+            ➕ Tạo nhóm mới
+          </Btn>
+        </Card>
+      </div>
+    );
+  }
+
+  // Giao diện chính (khi đã có nhóm) - không có nút tạo nhóm mới
   return (
     <div style={{ background: styles.bg, color: styles.text, minHeight: "100vh", fontFamily: "system-ui" }}>
       <div style={{ background: styles.headerBg, padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" }}>
@@ -488,7 +529,6 @@ export default function App() {
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={toggleTheme} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}>{theme === "dark" ? "☀️" : "🌙"}</button>
           <button onClick={copyLink} style={{ background: "#6366f1", border: "none", borderRadius: 8, padding: "4px 12px", color: "#fff", cursor: "pointer" }}>🔗 Copy link</button>
-          <button onClick={createNewGroup} style={{ background: "#ef4444", border: "none", borderRadius: 8, padding: "4px 12px", color: "#fff", cursor: "pointer" }}>🔄 Nhóm mới</button>
         </div>
       </div>
       <div style={{ display: "flex", gap: 4, background: styles.inputBg, padding: 8, overflowX: "auto", justifyContent: "center" }}>
