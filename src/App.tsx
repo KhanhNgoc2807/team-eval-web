@@ -514,7 +514,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   );
 }
 
-// ─── PEER TAB (ẨN DANH) ─────────────────────────────────────────────────────
+// ─── PEER TAB (ĐÃ SỬA - LƯU ĐÚNG CẤU TRÚC) ─────────────────────────────────────
 function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const [reviewer, setReviewer] = useState("");
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
@@ -557,9 +557,11 @@ function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
         PEER_CRITERIA.forEach(criterion => {
           const score = getTempScore(reviewee.id, criterion);
           if (score > 0) {
-            if (!next[reviewee.id]) next[reviewee.id] = {};
-            if (!next[reviewee.id][criterion]) next[reviewee.id][criterion] = [];
-            next[reviewee.id][criterion].push(score);
+            // CẤU TRÚC ĐÚNG: next[reviewer][reviewee.id][criterion] = [scores]
+            if (!next[reviewer]) next[reviewer] = {};
+            if (!next[reviewer][reviewee.id]) next[reviewer][reviewee.id] = {};
+            if (!next[reviewer][reviewee.id][criterion]) next[reviewer][reviewee.id][criterion] = [];
+            next[reviewer][reviewee.id][criterion].push(score);
           }
         });
       });
@@ -721,10 +723,15 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
     // Lấy đánh giá từ peerScores (người khác đánh giá memberId)
     Object.keys(peerScores).forEach(reviewerId => {
       if (reviewerId === memberId) return;
+      if (reviewerId === "completed") return;
+      
       const reviewerData = peerScores[reviewerId];
-      if (reviewerData && reviewerData[memberId]) {
+      if (!reviewerData) return;
+      
+      const scoresForMember = reviewerData[memberId];
+      if (scoresForMember) {
         PEER_CRITERIA.forEach(criterion => {
-          const criterionScores = reviewerData[memberId][criterion];
+          const criterionScores = scoresForMember[criterion];
           if (criterionScores && Array.isArray(criterionScores)) {
             scores[criterion].push(...criterionScores);
           }
@@ -938,36 +945,36 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
   );
 }
 
-// ─── RESULT TAB ───────────────────────────────────────────────────────────────
+// ─── RESULT TAB (ĐÃ SỬA - ĐỌC ĐÚNG CẤU TRÚC) ─────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
   
   const getPeerScoreForMember = (memberId: string) => {
-  const allScores: number[] = [];
-  
-  // Duyệt qua tất cả người đánh giá (reviewer)
-  Object.keys(peerScores).forEach(reviewerId => {
-    // Bỏ qua đánh giá của chính mình
-    if (reviewerId === memberId) return;
+    const allScores: number[] = [];
     
-    const reviewerData = peerScores[reviewerId];
-    if (!reviewerData) return;
+    // Duyệt qua tất cả người đánh giá (reviewer)
+    Object.keys(peerScores).forEach(reviewerId => {
+      if (reviewerId === memberId) return; // Bỏ qua đánh giá của chính mình
+      if (reviewerId === "completed") return; // Bỏ qua field completed
+      
+      const reviewerData = peerScores[reviewerId];
+      if (!reviewerData) return;
+      
+      // Lấy đánh giá mà reviewer dành cho memberId
+      const scoresForMember = reviewerData[memberId];
+      if (scoresForMember) {
+        PEER_CRITERIA.forEach(criterion => {
+          const scores = scoresForMember[criterion];
+          if (scores && Array.isArray(scores)) {
+            allScores.push(...scores);
+          }
+        });
+      }
+    });
     
-    // Lấy đánh giá mà reviewer dành cho memberId
-    const scoresForMember = reviewerData[memberId];
-    if (scoresForMember) {
-      PEER_CRITERIA.forEach(criterion => {
-        const criterionScores = scoresForMember[criterion];
-        if (criterionScores && Array.isArray(criterionScores)) {
-          allScores.push(...criterionScores);
-        }
-      });
-    }
-  });
-  
-  if (allScores.length === 0) return null;
-  return (avg(allScores) / 10) * 10; // Điểm đã ở thang 10 từ RatingSelect
-};
+    if (allScores.length === 0) return null;
+    return avg(allScores) * 10;
+  };
 
   const results = useMemo(() => {
     if (members.length === 0) return [];
@@ -980,10 +987,10 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
         taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : 100;
       }
       
-      const peerScore = getPeerScoreForMember(m.id) ?? 100;
+      const peerScore = getPeerScoreForMember(m.id) ?? 0;
       
       const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter((s: number) => s > 0);
-      const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 100;
+      const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 0;
       const isLeader = m.id === leader;
       const finalScore = isLeader ? taskScore * 0.4 + peerScore * 0.6 : taskScore * 0.4 + peerScore * 0.4 + leaderScore * 0.2;
       return { ...m, taskScore, peerScore, leaderScore, finalScore, isLeader, myTasks: myTasks.length, doneTasks: myTasks.filter((t: any) => t.status === "done").length };
