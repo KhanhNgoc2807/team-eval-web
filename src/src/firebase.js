@@ -1,18 +1,17 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, onValue, child } from "firebase/database";
+import { getDatabase, ref, set, onValue, get, child } from "firebase/database";
 
-// PASTE firebaseConfig của mày vào đây
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  databaseURL: "YOUR_DATABASE_URL",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyCKVN3QEG5Ls5QfzbkHuApqKp69_AinJso",
+  authDomain: "team-aa2b2.firebaseapp.com",
+  databaseURL: "https://team-aa2b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "team-aa2b2",
+  storageBucket: "team-aa2b2.firebasestorage.app",
+  messagingSenderId: "741645081687",
+  appId: "1:741645081687:web:54ccb88f0080e4d6ea5712"
 };
 
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-export { database, ref, set, get, onValue, child };
+export { database, ref, set, onValue, get, child };
