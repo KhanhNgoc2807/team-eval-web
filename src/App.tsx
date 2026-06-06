@@ -353,7 +353,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
   );
 }
 
-// ─── TASK TAB (ĐÃ SỬA: GIAO CHO NHIỀU THÀNH VIÊN) ─────────────────────────────
+// ─── TASK TAB (ĐÃ SỬA: GIAO CHO NHIỀU THÀNH VIÊN - MỖI NGƯỜI 1 DÒNG) ────────────
 function TaskTab({ members, tasks, setTasks, theme }: any) {
   const [form, setForm] = useState({ name: "", assignees: [] as string[], deadline: "", complexity: 2 });
   const [filter, setFilter] = useState("all");
@@ -381,7 +381,6 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
     setTasks((ts: any[]) => ts.map((t: any) => t.id !== id ? t : { ...t, status: order[(order.indexOf(t.status) + 1) % 3] })); 
   };
   
-  // Lọc task: nếu filter là "all" thì hiện tất cả, nếu filter là member id thì hiện task có chứa member đó
   const filtered = filter === "all" 
     ? tasks 
     : tasks.filter((t: any) => t.assignees?.includes(filter));
@@ -394,9 +393,6 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   };
   
   const btnStyle = filterBtn(theme);
-  
-  // Tính điểm task cho mỗi thành viên (dùng trong ResultTab)
-  // Mỗi task đóng góp điểm cho tất cả người được giao
   
   return (
     <div>
@@ -423,21 +419,24 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
             </div>
             <div>
               <label style={lbl}>Giao cho * (chọn nhiều)</label>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px", minHeight: 50 }}>
-                {members.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13 }}>Chưa có thành viên nào</span>}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px", maxHeight: 200, overflowY: "auto" }}>
+                {members.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13, padding: 8 }}>Chưa có thành viên nào</span>}
                 {members.map((m: any) => (
                   <button
                     key={m.id}
                     type="button"
                     onClick={() => toggleAssignee(m.id)}
                     style={{
-                      padding: "5px 12px",
-                      borderRadius: 20,
+                      padding: "10px 12px",
+                      borderRadius: 8,
                       border: `1px solid ${form.assignees.includes(m.id) ? "#22c55e" : styles.border}`,
                       background: form.assignees.includes(m.id) ? "#22c55e22" : "transparent",
                       color: form.assignees.includes(m.id) ? "#22c55e" : styles.text,
                       cursor: "pointer",
-                      fontSize: 13
+                      fontSize: 14,
+                      textAlign: "left",
+                      width: "100%",
+                      transition: "all 0.2s"
                     }}
                   >
                     {form.assignees.includes(m.id) ? "✓ " : "○ "}{m.name}
@@ -588,13 +587,12 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   );
 }
 
-// ─── RESULT TAB (ĐÃ SỬA: TÍNH ĐIỂM TASK CHO NHIỀU NGƯỜI) ──────────────────────
+// ─── RESULT TAB ───────────────────────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
   const results = useMemo(() => {
     if (members.length === 0) return [];
     return members.map((m: any) => {
-      // Task Score: lấy tất cả task có chứa member này
       const myTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
       let taskScore = 100;
       if (myTasks.length > 0) {
