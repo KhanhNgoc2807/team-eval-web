@@ -56,7 +56,7 @@ const themeStyles = {
 };
 
 // ─── GOOGLE SHEETS API (ĐÃ GẮN LINK CỦA BẠN) ─────────────────────────────────
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznrcCQId8ar8lOExDo8F-y6LP__E1AYr5wLDrvO5OwremWJ-HBwbM6RLRRPIUan2EF/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyoVOTH_CVIwBo62aAFvoauRV6yErW_hOSxKSJrruu906Flk4_fZtygN9R7NR9RseMw/exec2EF/exec";
 
 const saveToSheet = async (roomId: string, data: any) => {
   try {
