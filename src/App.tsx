@@ -55,6 +55,42 @@ const themeStyles = {
   }
 };
 
+// ─── GOOGLE SHEETS API (ĐÃ GẮN LINK CỦA BẠN) ─────────────────────────────────
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbznrcCQId8ar8lOExDo8F-y6LP__E1AYr5wLDrvO5OwremWJ-HBwbM6RLRRPIUan2EF/exec";
+
+const saveToSheet = async (roomId: string, data: any) => {
+  try {
+    await fetch(`${SCRIPT_URL}?action=save`, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId, data })
+    });
+    console.log("✅ Saved to Google Sheet");
+  } catch (error) {
+    console.error("Save error:", error);
+  }
+};
+
+const loadFromSheet = async (roomId: string) => {
+  try {
+    const response = await fetch(`${SCRIPT_URL}?action=load`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId })
+    });
+    const result = await response.json();
+    if (result.success && result.data) {
+      console.log("📥 Loaded from Google Sheet");
+      return result.data;
+    }
+    return null;
+  } catch (error) {
+    console.error("Load error:", error);
+    return null;
+  }
+};
+
 // ─── SUB COMPONENTS ───────────────────────────────────────────────────────────
 function Tag({ color, children, style = {} }: { color: string; children: React.ReactNode; style?: React.CSSProperties }) {
   return <span style={{ background: color + "22", color, border: `1px solid ${color}44`, borderRadius: 6, padding: "2px 10px", fontSize: 12, fontWeight: 700, ...style }}>{children}</span>;
@@ -514,7 +550,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
 }
 
 // ─── PEER TAB ─────────────────────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh, broadcastChannel }: any) {
+function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const [reviewer, setReviewer] = useState("");
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const styles = themeStyles[theme];
@@ -565,17 +601,12 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh, broadca
       
       next[reviewer] = { ...next[reviewer], completed: true };
       
-      // Gửi qua broadcast channel để đồng bộ realtime
-      if (broadcastChannel) {
-        broadcastChannel.postMessage({ type: "PEER_UPDATE", data: next });
-      }
-      
       return next;
     });
 
     setTempScores({});
     setReviewer("");
-    alert("✅ Đã lưu đánh giá! Các thành viên khác sẽ thấy ngay lập tức.");
+    alert("✅ Đã lưu đánh giá! Dữ liệu đã được đồng bộ lên cloud.");
   };
 
   const completedReviewers = Object.keys(peerScores).filter(
@@ -591,12 +622,9 @@ function PeerTab({ members, peerScores, setPeerScores, theme, onRefresh, broadca
       <Card theme={theme} style={{ marginBottom: 20, background: "#1e1b4b", borderColor: "#22c55e" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>🔄 ĐỒNG BỘ REAL-TIME</div>
-            <div style={{ fontSize: 12, color: styles.textMuted }}>Dữ liệu tự động cập nhật giữa các tab/máy! Không cần F5.</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>☁️ ĐỒNG BỘ CLOUD (GOOGLE SHEETS)</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Dữ liệu tự động lưu trên cloud, đồng bộ mọi máy mọi trình duyệt! Cập nhật sau 5 giây.</div>
           </div>
-          <Btn onClick={onRefresh} variant="primary" theme={theme} style={{ padding: "10px 24px", fontSize: 14 }}>
-            🔄 LÀM MỚI THỦ CÔNG
-          </Btn>
         </div>
       </Card>
 
@@ -735,10 +763,17 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }
       "Tinh thần hợp tác": []
     };
     
-    PEER_CRITERIA.forEach(criterion => {
-      const criterionScores = peerScores[memberId]?.[criterion];
-      if (criterionScores && Array.isArray(criterionScores) && criterionScores.length > 0) {
-        scores[criterion].push(...criterionScores);
+    // Lấy đánh giá từ peerScores (người khác đánh giá memberId)
+    Object.keys(peerScores).forEach(reviewerId => {
+      if (reviewerId === memberId) return;
+      const reviewerData = peerScores[reviewerId];
+      if (reviewerData && reviewerData[memberId]) {
+        PEER_CRITERIA.forEach(criterion => {
+          const criterionScores = reviewerData[memberId][criterion];
+          if (criterionScores && Array.isArray(criterionScores)) {
+            scores[criterion].push(...criterionScores);
+          }
+        });
       }
     });
     
@@ -955,10 +990,8 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
   const getPeerScoreForMember = (memberId: string) => {
     const allScores: number[] = [];
     
-    // Lấy tất cả đánh giá từ các reviewer khác
     Object.keys(peerScores).forEach(reviewerId => {
       if (reviewerId === memberId) return;
-      
       const reviewerData = peerScores[reviewerId];
       if (reviewerData && reviewerData[memberId]) {
         PEER_CRITERIA.forEach(criterion => {
@@ -1123,59 +1156,66 @@ export default function App() {
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
   const [scheduleSelections, setScheduleSelections] = useState<any>({});
 
-  // BroadcastChannel để đồng bộ realtime giữa các tab/máy
-  const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel | null>(null);
-
-  // Khởi tạo BroadcastChannel
+  // Polling từ Google Sheets mỗi 5 giây
   useEffect(() => {
-    const channel = new BroadcastChannel(`team_eval_${roomId}`);
-    setBroadcastChannel(channel);
+    if (!roomId || !isReady) return;
     
-    channel.onmessage = (event) => {
-      if (event.data.type === "PEER_UPDATE") {
-        console.log("📡 Nhận cập nhật realtime:", event.data.data);
-        setPeerScores(event.data.data);
-        // Hiển thị thông báo
-        const toast = document.createElement("div");
-        toast.textContent = "🔄 Có đánh giá mới từ thành viên khác!";
-        toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;z-index:10000;animation:fadeOut 3s ease-in-out";
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-      }
-    };
+    let lastDataStr = "";
+    let isFirstLoad = true;
     
-    return () => {
-      channel.close();
-    };
-  }, [roomId]);
-
-  // Lưu tất cả dữ liệu vào localStorage
-  useEffect(() => {
-    if (!isReady) return;
-    const allData = { projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections };
-    localStorage.setItem(`team_${roomId}`, JSON.stringify(allData));
-  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
-
-  // Load dữ liệu từ localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem(`team_${roomId}`);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.projectName) setProjectName(data.projectName);
-        if (data.leader) setLeader(data.leader);
-        if (data.members) setMembers(data.members);
-        if (data.tasks) setTasks(data.tasks);
-        if (data.peerScores) setPeerScores(data.peerScores);
-        if (data.leaderScores) setLeaderScores(data.leaderScores);
-        if (data.teacherScore) setTeacherScore(data.teacherScore);
-        if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
-        if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
+    const pollData = async () => {
+      const data = await loadFromSheet(roomId);
+      if (data) {
+        const currentDataStr = JSON.stringify(data);
+        if (currentDataStr !== lastDataStr) {
+          if (!isFirstLoad) {
+            console.log("🔄 Phát hiện thay đổi từ Google Sheets, cập nhật...");
+            const toast = document.createElement("div");
+            toast.textContent = "🔄 Có cập nhật mới từ thành viên khác!";
+            toast.style.cssText = "position:fixed;bottom:20px;right:20px;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;z-index:10000;animation:fadeOut 3s ease-in-out";
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          }
+          
+          if (data.projectName) setProjectName(data.projectName);
+          if (data.leader) setLeader(data.leader);
+          if (data.members) setMembers(data.members);
+          if (data.tasks) setTasks(data.tasks);
+          if (data.peerScores) setPeerScores(data.peerScores);
+          if (data.leaderScores) setLeaderScores(data.leaderScores);
+          if (data.teacherScore) setTeacherScore(data.teacherScore);
+          if (data.scheduleSlots) setScheduleSlots(data.scheduleSlots);
+          if (data.scheduleSelections) setScheduleSelections(data.scheduleSelections);
+          setHasGroup(true);
+          
+          lastDataStr = currentDataStr;
+          isFirstLoad = false;
+        }
+      } else {
         setHasGroup(true);
-      } catch (e) {}
-    }
-    setIsReady(true);
+      }
+      setIsReady(true);
+    };
+    
+    pollData();
+    const interval = setInterval(pollData, 5000);
+    return () => clearInterval(interval);
   }, [roomId]);
+
+  // Lưu lên Google Sheets khi state thay đổi
+  useEffect(() => {
+    if (!isReady || !roomId) return;
+    
+    const timer = setTimeout(() => {
+      const allData = { 
+        projectName, leader, members, tasks, peerScores, 
+        leaderScores, teacherScore, scheduleSlots, scheduleSelections 
+      };
+      saveToSheet(roomId, allData);
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [projectName, leader, members, tasks, peerScores, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
 
   // Cập nhật URL với roomId
   useEffect(() => {
@@ -1210,19 +1250,6 @@ export default function App() {
     navigator.clipboard.writeText(shareUrl);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
-  };
-
-  const refreshData = () => {
-    const saved = localStorage.getItem(`team_${roomId}`);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.peerScores) setPeerScores(data.peerScores);
-        if (data.leaderScores) setLeaderScores(data.leaderScores);
-        if (data.tasks) setTasks(data.tasks);
-        alert("✅ Đã cập nhật dữ liệu mới nhất!");
-      } catch (e) {}
-    }
   };
 
   const styles = themeStyles[theme];
@@ -1304,7 +1331,7 @@ export default function App() {
       <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
         {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
-        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} onRefresh={refreshData} broadcastChannel={broadcastChannel} />}
+        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
         {tab === "analysis" && <AnalysisTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} theme={theme} />}
