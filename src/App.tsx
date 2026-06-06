@@ -353,7 +353,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
   );
 }
 
-// ─── TASK TAB (ĐÃ SỬA: GIAO CHO NHIỀU THÀNH VIÊN - MỖI NGƯỜI 1 DÒNG) ────────────
+// ─── TASK TAB (GIAO CHO NHIỀU THÀNH VIÊN) ─────────────────────────────────────
 function TaskTab({ members, tasks, setTasks, theme }: any) {
   const [form, setForm] = useState({ name: "", assignees: [] as string[], deadline: "", complexity: 2 });
   const [filter, setFilter] = useState("all");
@@ -485,7 +485,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {assigneeMembers.map((m: any, idx: number) => (
+                    {assigneeMembers.map((m: any) => (
                       <span key={m.id} style={{ background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "22", color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], border: `1px solid ${MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
                         {m.name.split(" ").pop()}
                       </span>
@@ -513,44 +513,178 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   );
 }
 
-// ─── PEER TAB ─────────────────────────────────────────────────────────────────
+// ─── PEER TAB (ẨN DANH HOÀN TOÀN) ─────────────────────────────────────────────
 function PeerTab({ members, peerScores, setPeerScores, theme }: any) {
   const [reviewer, setReviewer] = useState("");
+  const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const styles = themeStyles[theme];
-  const setScore = (reviewee: string, criterion: string, val: number) => { setPeerScores((ps: any) => { const next = { ...ps }; if (!next[reviewer]) next[reviewer] = {}; if (!next[reviewer][reviewee]) next[reviewer][reviewee] = {}; next[reviewer][reviewee][criterion] = val; return next; }); };
-  const getScore = (reviewee: string, criterion: string) => peerScores?.[reviewer]?.[reviewee]?.[criterion] ?? 0;
+
   const reviewees = members.filter((m: any) => m.id !== reviewer);
-  const reviewerMember = members.find((m: any) => m.id === reviewer);
-  const completedCount = members.filter((m: any) => { if (!peerScores[m.id]) return false; return members.filter((x: any) => x.id !== m.id).every((reviewee: any) => PEER_CRITERIA.every(c => (peerScores[m.id][reviewee.id]?.[c] ?? 0) > 0)); }).length;
-  if (members.length < 2) return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
+  
+  // Kiểm tra xem reviewer đã đánh giá xong chưa
+  const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
+
+  const setScore = (revieweeId: string, criterion: string, val: number) => {
+    setTempScores(prev => ({
+      ...prev,
+      [revieweeId]: {
+        ...(prev[revieweeId] || {}),
+        [criterion]: val
+      }
+    }));
+  };
+
+  const getTempScore = (revieweeId: string, criterion: string) => {
+    return tempScores[revieweeId]?.[criterion] ?? 0;
+  };
+
+  const submitAllReviews = () => {
+    let allDone = true;
+    reviewees.forEach(reviewee => {
+      PEER_CRITERIA.forEach(c => {
+        if (getTempScore(reviewee.id, c) === 0) allDone = false;
+      });
+    });
+    
+    if (!allDone) {
+      alert("Vui lòng đánh giá đầy đủ tất cả các tiêu chí cho tất cả thành viên!");
+      return;
+    }
+
+    setPeerScores((prev: any) => {
+      const next = { ...prev };
+      
+      reviewees.forEach(reviewee => {
+        PEER_CRITERIA.forEach(criterion => {
+          const score = getTempScore(reviewee.id, criterion);
+          if (score > 0) {
+            if (!next[reviewee.id]) next[reviewee.id] = {};
+            if (!next[reviewee.id][criterion]) next[reviewee.id][criterion] = [];
+            next[reviewee.id][criterion].push(score);
+          }
+        });
+      });
+      
+      next[reviewer] = { ...next[reviewer], completed: true };
+      
+      return next;
+    });
+
+    setTempScores({});
+    setReviewer("");
+    alert("✅ Đã lưu đánh giá! Kết quả của bạn đã được ẩn danh.");
+  };
+
+  const completedReviewers = Object.keys(peerScores).filter(
+    (key) => peerScores[key]?.completed === true
+  ).length;
+
+  if (members.length < 2) {
+    return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
+  }
+
+  if (!reviewer || hasCompleted) {
+    return (
+      <div>
+        <Card style={{ marginBottom: 20 }} theme={theme}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn là:</div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <Select value={reviewer} onChange={(v: string) => {
+                if (peerScores[v]?.completed) {
+                  alert("⚠️ Bạn đã đánh giá rồi! Mỗi người chỉ được đánh giá 1 lần.");
+                  return;
+                }
+                setReviewer(v);
+              }} theme={theme}>
+                <option value="">Chọn tên của bạn...</option>
+                {members.map((m: any) => (
+                  <option key={m.id} value={m.id} disabled={peerScores[m.id]?.completed === true}>
+                    {m.name} {peerScores[m.id]?.completed ? "(✅ Đã đánh giá)" : ""}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div style={{ fontSize: 13, color: styles.textMuted }}>
+              📊 Đã có <b style={{ color: "#22c55e" }}>{completedReviewers}</b>/{members.length} người tham gia
+            </div>
+          </div>
+          <div style={{ marginTop: 16, padding: 12, background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>
+            🔒 <b>Ẩn danh hoàn toàn</b>: Sau khi đánh giá xong, tên bạn sẽ biến mất. Không ai biết ai đã đánh giá ai.
+          </div>
+        </Card>
+
+        {completedReviewers === members.length && members.length > 0 && (
+          <Card theme={theme} style={{ textAlign: "center", background: "#0c2a1a", borderColor: "#166534" }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#86efac", marginBottom: 8 }}>Tất cả thành viên đã đánh giá xong!</div>
+          </Card>
+        )}
+      </div>
+    );
+  }
+
+  const reviewerName = members.find((m: any) => m.id === reviewer)?.name;
+  const allFilled = reviewees.every(reviewee =>
+    PEER_CRITERIA.every(c => getTempScore(reviewee.id, c) > 0)
+  );
+
   return (
     <div>
-      <Card style={{ marginBottom: 20 }} theme={theme}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn đang đánh giá với vai trò:</div>
-          <div style={{ flex: 1, minWidth: 200 }}><Select value={reviewer} onChange={setReviewer} theme={theme}><option value="">Chọn tên của bạn...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Select></div>
-          {members.length >= 2 && <div style={{ fontSize: 13, color: styles.textMuted }}>✅ Đã hoàn thành: <b style={{ color: "#22c55e" }}>{completedCount}</b>/{members.length}</div>}
+      <Card theme={theme} style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <span style={{ fontSize: 14, color: "#a5b4fc" }}>👤 Đang đánh giá với vai trò: </span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{reviewerName}</span>
+          </div>
+          <Btn onClick={() => {
+            setReviewer("");
+            setTempScores({});
+          }} variant="ghost" theme={theme}>↺ Thoát</Btn>
         </div>
-        {reviewer && <div style={{ marginTop: 14, padding: "10px 14px", background: "#1e1b4b", borderRadius: 10, fontSize: 13, color: "#818cf8" }}>Chào <b>{reviewerMember?.name}</b>! Hãy đánh giá {reviewees.length} thành viên còn lại.</div>}
+        <div style={{ fontSize: 13, color: styles.textMuted }}>
+          🔒 Sau khi bấm "Gửi đánh giá", tên bạn sẽ được ẩn danh hoàn toàn.
+        </div>
       </Card>
-      {!reviewer ? (
-        <div style={{ textAlign: "center", padding: 60, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👆</div><div>Chọn tên của bạn để bắt đầu đánh giá</div></div>
-      ) : (
-        <div className="peer-grid" style={{ display: "flex", flexDirection: "column", gap: 16 }}>{reviewees.map((r: any) => {
-          const mc = MEMBER_COLORS[members.indexOf(r) % MEMBER_COLORS.length];
-          const rowAvg = avg(PEER_CRITERIA.map(c => getScore(r.id, c)).filter(s => s > 0));
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {reviewees.map((reviewee: any) => {
+          const mc = MEMBER_COLORS[members.indexOf(reviewee) % MEMBER_COLORS.length];
+          const isFilled = PEER_CRITERIA.every(c => getTempScore(reviewee.id, c) > 0);
           return (
-            <Card key={r.id} style={{ borderColor: styles.border }} theme={theme}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
-                <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc }}>{r.name.split(" ").pop().charAt(0)}</div>
-                <div style={{ flex: 1 }}><div style={{ fontSize: 15, fontWeight: 700, color: styles.text }}>{r.name}</div></div>
-                {rowAvg > 0 && <Tag color={rowAvg >= 8 ? "#22c55e" : rowAvg >= 6 ? "#f59e0b" : "#ef4444"}>TB: {rowAvg.toFixed(1)}</Tag>}
+            <Card key={reviewee.id} style={{ borderColor: isFilled ? "#22c55e44" : styles.border }} theme={theme}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: mc + "22", border: `2px solid ${mc}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, color: mc }}>
+                  {reviewee.name.split(" ").pop().charAt(0)}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: styles.text }}>{reviewee.name}</div>
+                  {isFilled && <div style={{ fontSize: 11, color: "#22c55e" }}>✓ Đã đánh giá</div>}
+                </div>
               </div>
-              <div className="peer-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>{PEER_CRITERIA.map(c => (<div key={c}><div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div><RatingSelect value={getScore(r.id, c)} onChange={v => setScore(r.id, c, v)} theme={theme} /></div>))}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14 }}>
+                {PEER_CRITERIA.map(c => (
+                  <div key={c}>
+                    <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>{c}</div>
+                    <RatingSelect value={getTempScore(reviewee.id, c)} onChange={v => setScore(reviewee.id, c, v)} theme={theme} />
+                  </div>
+                ))}
+              </div>
             </Card>
           );
-        })}<div style={{ textAlign: "center", paddingTop: 8 }}><Btn onClick={() => setReviewer("")} variant="success" theme={theme}>✓ Đã đánh giá xong — Thoát</Btn></div></div>
-      )}
+        })}
+      </div>
+
+      <div style={{ textAlign: "center", marginTop: 24 }}>
+        <Btn onClick={submitAllReviews} variant="success" theme={theme} disabled={!allFilled} style={{ padding: "12px 32px", fontSize: 16 }}>
+          🔒 Gửi đánh giá (ẩn danh) {allFilled ? "✅" : "⚠️"}
+        </Btn>
+        {!allFilled && (
+          <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 8 }}>
+            Vui lòng đánh giá đủ tất cả các tiêu chí cho tất cả thành viên
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -590,6 +724,19 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
 // ─── RESULT TAB ───────────────────────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
+  
+  const getPeerScoreForMember = (memberId: string) => {
+    const allScores: number[] = [];
+    PEER_CRITERIA.forEach(criterion => {
+      const scores = peerScores[memberId]?.[criterion];
+      if (scores && scores.length > 0) {
+        allScores.push(...scores);
+      }
+    });
+    if (allScores.length === 0) return null;
+    return avg(allScores) * 10;
+  };
+
   const results = useMemo(() => {
     if (members.length === 0) return [];
     return members.map((m: any) => {
@@ -600,8 +747,9 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
         const earned = myTasks.reduce((s: number, t: any) => s + COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].pts * 100 * STATUS[t.status as keyof typeof STATUS].pct, 0);
         taskScore = totalPossible > 0 ? (earned / totalPossible) * 100 : 100;
       }
-      const receivedScores: number[] = []; members.forEach((r: any) => { if (r.id === m.id) return; PEER_CRITERIA.forEach(c => { const s = peerScores?.[r.id]?.[m.id]?.[c] ?? 0; if (s > 0) receivedScores.push(s); }); });
-      const peerScore = receivedScores.length > 0 ? avg(receivedScores) * 10 : 100;
+      
+      const peerScore = getPeerScoreForMember(m.id) ?? 100;
+      
       const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter((s: number) => s > 0);
       const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 100;
       const isLeader = m.id === leader;
