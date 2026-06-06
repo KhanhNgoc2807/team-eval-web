@@ -20,6 +20,7 @@ const TABS = [
   { id: "peer", icon: "👥", label: "Đánh giá đồng đội" },
   { id: "leader", icon: "👑", label: "Đánh giá trưởng nhóm" },
   { id: "schedule", icon: "📅", label: "Họp nhóm" },
+  { id: "analysis", icon: "📊", label: "Phân tích" },
   { id: "result", icon: "🏆", label: "Kết quả" },
 ];
 const uid = () => Math.random().toString(36).substring(2, 9);
@@ -233,12 +234,12 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                       <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn</th>
                       <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
                       <th style={{ textAlign: "center", padding: 12 }}></th>
-                    <tr>
+                    </td>
                   </thead>
                   <tbody>
                     {scheduleSlots.map((slot: any) => (
                       <tr key={slot.id} style={{ borderBottom: `1px solid ${styles.border}` }}>
-                        <td style={{ padding: 12 }}>{slot.label}</tr>
+                        <td style={{ padding: 12 }}>{slot.label}</td>
                         <td style={{ textAlign: "center", padding: 12 }}>
                           <button
                             onClick={() => toggleSelection(slot.id)}
@@ -720,6 +721,230 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   );
 }
 
+// ─── ANALYSIS TAB (PHÂN TÍCH & CẢI THIỆN) ─────────────────────────────────────
+function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, theme }: any) {
+  const styles = themeStyles[theme];
+  
+  const getMemberScores = (memberId: string) => {
+    const scores: Record<string, number[]> = {
+      "Chất lượng công việc": [],
+      "Chủ động & Đúng tiến độ": [],
+      "Tinh thần hợp tác": []
+    };
+    
+    PEER_CRITERIA.forEach(criterion => {
+      const criterionScores = peerScores[memberId]?.[criterion];
+      if (criterionScores && criterionScores.length > 0) {
+        scores[criterion].push(...criterionScores);
+      }
+    });
+    
+    if (leaderScores[memberId]) {
+      if (leaderScores[memberId]["Chủ động & Trách nhiệm"]) {
+        scores["Chủ động & Đúng tiến độ"].push(leaderScores[memberId]["Chủ động & Trách nhiệm"]);
+      }
+      if (leaderScores[memberId]["Chất lượng Output"]) {
+        scores["Chất lượng công việc"].push(leaderScores[memberId]["Chất lượng Output"]);
+      }
+      if (leaderScores[memberId]["Phối hợp Nhóm"]) {
+        scores["Tinh thần hợp tác"].push(leaderScores[memberId]["Phối hợp Nhóm"]);
+      }
+    }
+    
+    const avgScores: Record<string, number> = {};
+    PEER_CRITERIA.forEach(criterion => {
+      const arr = scores[criterion];
+      avgScores[criterion] = arr.length > 0 ? avg(arr) : 0;
+    });
+    
+    return avgScores;
+  };
+  
+  const teamAvgScores = useMemo(() => {
+    const totals: Record<string, number> = {
+      "Chất lượng công việc": 0,
+      "Chủ động & Đúng tiến độ": 0,
+      "Tinh thần hợp tác": 0
+    };
+    const counts: Record<string, number> = {
+      "Chất lượng công việc": 0,
+      "Chủ động & Đúng tiến độ": 0,
+      "Tinh thần hợp tác": 0
+    };
+    
+    members.forEach((m: any) => {
+      const scores = getMemberScores(m.id);
+      PEER_CRITERIA.forEach(c => {
+        if (scores[c] > 0) {
+          totals[c] += scores[c];
+          counts[c]++;
+        }
+      });
+    });
+    
+    const avgs: Record<string, number> = {};
+    PEER_CRITERIA.forEach(c => {
+      avgs[c] = counts[c] > 0 ? totals[c] / counts[c] : 0;
+    });
+    return avgs;
+  }, [members, peerScores, leaderScores]);
+  
+  const getScoreLevel = (score: number) => {
+    if (score >= 8.5) return { text: "Xuất sắc", color: "#22c55e", icon: "⭐" };
+    if (score >= 7) return { text: "Tốt", color: "#22c55e", icon: "🟢" };
+    if (score >= 5) return { text: "Trung bình", color: "#f59e0b", icon: "🟡" };
+    return { text: "Cần cải thiện", color: "#ef4444", icon: "🔴" };
+  };
+  
+  const getSuggestion = (criterion: string, score: number) => {
+    if (score >= 7) return null;
+    const suggestions: Record<string, string> = {
+      "Chất lượng công việc": "📌 Review kỹ trước khi nộp, học hỏi từ người giỏi hơn, dành thêm thời gian kiểm tra lỗi",
+      "Chủ động & Đúng tiến độ": "📌 Báo cáo tiến độ thường xuyên, chia nhỏ công việc, đặt reminder hàng ngày, họp trạng thái nhanh",
+      "Tinh thần hợp tác": "📌 Chủ động hỗ trợ đồng đội, phản hồi tin nhắn nhanh, tham gia đầy đủ các buổi họp nhóm"
+    };
+    return suggestions[criterion] || "📌 Cần cải thiện tiêu chí này";
+  };
+  
+  const weakestCriterion = Object.entries(teamAvgScores).reduce((a, b) => a[1] < b[1] ? a : b);
+  
+  return (
+    <div>
+      <Card theme={theme} style={{ marginBottom: 24 }}>
+        <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>
+          📈 THỐNG KÊ CẢ NHÓM
+        </h3>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${styles.border}` }}>
+                <th style={{ textAlign: "left", padding: 12 }}>Tiêu chí</th>
+                <th style={{ textAlign: "center", padding: 12 }}>Điểm TB</th>
+                <th style={{ textAlign: "center", padding: 12 }}>Đánh giá</th>
+                <th style={{ textAlign: "center", padding: 12 }}>Cần cải thiện?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {PEER_CRITERIA.map(c => {
+                const score = teamAvgScores[c];
+                const level = getScoreLevel(score);
+                return (
+                  <tr key={c} style={{ borderBottom: `1px solid ${styles.border}` }}>
+                    <td style={{ padding: 12 }}>{c}</td>
+                    <td style={{ textAlign: "center", padding: 12 }}>
+                      <span style={{ fontWeight: 700, fontSize: 16 }}>{score.toFixed(1)}</span>
+                    </td>
+                    <td style={{ textAlign: "center", padding: 12 }}>
+                      <span style={{ color: level.color }}>{level.icon} {level.text}</span>
+                    </td>
+                    <td style={{ textAlign: "center", padding: 12 }}>
+                      {score < 7 ? (
+                        <span style={{ color: "#ef4444" }}>🔴 CẦN CẢI THIỆN</span>
+                      ) : (
+                        <span style={{ color: "#22c55e" }}>✅ Giữ nguyên</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        
+        {weakestCriterion[1] < 7 && (
+          <div style={{ marginTop: 20, padding: 16, background: "#1e1b4b", borderRadius: 12 }}>
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "#fcd34d" }}>🎯 KHUYẾN NGHỊ CHO NHÓM</div>
+            <div style={{ fontSize: 14, color: styles.text }}>
+              Nhóm cần cải thiện <b style={{ color: "#f59e0b" }}>"{weakestCriterion[0]}"</b> (điểm {weakestCriterion[1].toFixed(1)}/10)
+            </div>
+            <div style={{ fontSize: 13, color: styles.textMuted, marginTop: 8 }}>
+              💡 {weakestCriterion[0] === "Chủ động & Đúng tiến độ" ? "Họp nhanh đầu tuần, phân chia task rõ ràng, báo cáo tiến độ thường xuyên" :
+                  weakestCriterion[0] === "Chất lượng công việc" ? "Review chéo sản phẩm trước khi nộp, học hỏi từ thành viên có điểm cao" :
+                  "Tổ chức các buổi team building, khuyến khích hỗ trợ lẫn nhau"}
+            </div>
+          </div>
+        )}
+      </Card>
+      
+      <h3 style={{ fontSize: 15, color: "#a5b4fc", marginBottom: 16, fontFamily: "'Space Mono',monospace" }}>
+        👤 PHÂN TÍCH TỪNG THÀNH VIÊN
+      </h3>
+      
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        {members.map((m: any) => {
+          const scores = getMemberScores(m.id);
+          const memberColors = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
+          
+          const weaknesses = PEER_CRITERIA.filter(c => scores[c] < 7 && scores[c] > 0);
+          const strengths = PEER_CRITERIA.filter(c => scores[c] >= 7 && scores[c] > 0);
+          
+          const memberTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
+          const completedTasks = memberTasks.filter((t: any) => t.status === "done").length;
+          
+          return (
+            <Card key={m.id} style={{ borderColor: `${memberColors}44` }} theme={theme}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: memberColors + "22",
+                  border: `2px solid ${memberColors}44`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, fontWeight: 700, color: memberColors
+                }}>
+                  {m.name.split(" ").pop().charAt(0)}
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: styles.text }}>{m.name}</div>
+                {m.id === leader && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
+                <div style={{ fontSize: 12, color: styles.textMuted, marginLeft: "auto" }}>
+                  📋 {completedTasks}/{memberTasks.length} công việc
+                </div>
+              </div>
+              
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>✅ ĐIỂM MẠNH</div>
+                  {strengths.length > 0 ? (
+                    strengths.map(c => {
+                      const level = getScoreLevel(scores[c]);
+                      return (
+                        <div key={c} style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 13, color: styles.text }}>{c}</div>
+                          <div style={{ fontSize: 12, color: level.color }}>{scores[c].toFixed(1)}/10 - {level.text}</div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ fontSize: 13, color: styles.textMuted }}>Chưa có dữ liệu đánh giá</div>
+                  )}
+                </div>
+                
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 8 }}>⚠️ ĐIỂM YẾU & GỢI Ý</div>
+                  {weaknesses.length > 0 ? (
+                    weaknesses.map(c => (
+                      <div key={c} style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 13, color: styles.text }}>{c}</div>
+                        <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 4 }}>{scores[c].toFixed(1)}/10 - Cần cải thiện</div>
+                        <div style={{ fontSize: 12, color: "#818cf8", background: "#1e1b4b", padding: 6, borderRadius: 6 }}>
+                          {getSuggestion(c, scores[c])}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ fontSize: 13, color: styles.textMuted }}>
+                      {scores[PEER_CRITERIA[0]] === 0 ? "Chưa có dữ liệu đánh giá" : "✅ Không có điểm yếu nào đáng kể!"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── RESULT TAB (ĐÃ SỬA TÊN CỘT) ──────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
@@ -949,6 +1174,7 @@ export default function App() {
     tasks: tasks.length || null,
     peer: peerCompletedCount !== null ? `${peerCompletedCount}/${members.length}` : null,
     schedule: scheduleSlots.length > 0 ? scheduleSlots.length : null,
+    analysis: null,
     result: null,
   };
 
@@ -1018,6 +1244,7 @@ export default function App() {
         {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} theme={theme} />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
+        {tab === "analysis" && <AnalysisTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} theme={theme} />}
         {tab === "result" && <ResultTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} theme={theme} />}
       </div>
     </div>
