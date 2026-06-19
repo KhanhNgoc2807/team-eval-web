@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
-import { database, ref, set, onValue } from "./firebase";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import { database, ref, set, onValue, push, get, child, update, remove } from "./firebase";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const COMPLEXITY = { 1: { label: "Nhẹ", color: "#22c55e", pts: 1 }, 2: { label: "Trung bình", color: "#f59e0b", pts: 2 }, 3: { label: "Nặng", color: "#ef4444", pts: 3 } };
@@ -104,6 +104,182 @@ function ProgressBar({ value, max, color = "#6366f1" }: { value: number; max: nu
 const lbl = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" };
 const filterBtn = (theme: Theme) => ({ padding: "6px 14px", borderRadius: 20, border: `1px solid ${themeStyles[theme].border}`, background: "transparent", color: themeStyles[theme].textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" });
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
+
+// ─── CHAT BOX ─────────────────────────────────────────────────────────────────
+function ChatBox({ chatMessages, setChatMessages, members, theme }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const styles = themeStyles[theme];
+  const [currentMember, setCurrentMember] = useState(() => {
+    const saved = localStorage.getItem("currentReviewer");
+    return saved || "";
+  });
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatMessages]);
+
+  useEffect(() => {
+    if (isOpen) setUnreadCount(0);
+  }, [isOpen]);
+
+  const sendMessage = () => {
+    if (!message.trim()) return;
+    if (!currentMember) {
+      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi chat!");
+      return;
+    }
+    const member = members.find((m: any) => m.id === currentMember);
+    const newMsg = {
+      id: uid(),
+      authorId: currentMember,
+      authorName: member?.name || "Khách",
+      content: message.trim(),
+      timestamp: new Date().toISOString()
+    };
+    setChatMessages((prev: any) => [...(prev || []), newMsg]);
+    setMessage("");
+  };
+
+  const displayMessages = (chatMessages || []).slice(-50);
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          position: "fixed",
+          bottom: 20,
+          right: 20,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+          border: "none",
+          color: "white",
+          fontSize: 24,
+          cursor: "pointer",
+          boxShadow: "0 4px 12px rgba(99,102,241,0.4)",
+          zIndex: 1000,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          position: "relative"
+        }}
+      >
+        💬
+        {unreadCount > 0 && !isOpen && (
+          <span style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            background: "#ef4444",
+            color: "white",
+            borderRadius: "50%",
+            width: 20,
+            height: 20,
+            fontSize: 11,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}>
+            {unreadCount}
+          </span>
+        )}
+      </button>
+      
+      {isOpen && (
+        <div style={{
+          position: "fixed",
+          bottom: 84,
+          right: 20,
+          width: 360,
+          maxHeight: 480,
+          background: styles.cardBg,
+          border: `1px solid ${styles.border}`,
+          borderRadius: 16,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+          zIndex: 1000,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          fontFamily: "'DM Sans', sans-serif"
+        }}>
+          <div style={{
+            padding: "12px 16px",
+            background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
+            color: "white",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+            <span style={{ fontWeight: 700, fontSize: 14 }}>💬 Chat nhóm</span>
+            <button
+              onClick={() => setIsOpen(false)}
+              style={{ background: "none", border: "none", color: "white", fontSize: 18, cursor: "pointer" }}
+            >
+              ✕
+            </button>
+          </div>
+          
+          <div style={{
+            flex: 1,
+            padding: "12px 16px",
+            overflowY: "auto",
+            maxHeight: 340,
+            minHeight: 200
+          }}>
+            {displayMessages.length === 0 ? (
+              <div style={{ textAlign: "center", color: styles.textMuted, padding: 20, fontSize: 13 }}>
+                Chưa có tin nhắn nào
+              </div>
+            ) : (
+              displayMessages.map((msg: any) => (
+                <div key={msg.id} style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                    <span style={{ fontWeight: 600, fontSize: 12, color: "#6366f1" }}>
+                      {msg.authorName}
+                    </span>
+                    <span style={{ fontSize: 10, color: styles.textMuted }}>
+                      {new Date(msg.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: styles.text, wordBreak: "break-word" }}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))
+            )}
+            <div ref={chatEndRef} />
+          </div>
+          
+          <div style={{
+            padding: "12px 16px",
+            borderTop: `1px solid ${styles.border}`,
+            display: "flex",
+            gap: 8
+          }}>
+            <Input
+              value={message}
+              onChange={setMessage}
+              placeholder="Nhập tin nhắn..."
+              theme={theme}
+              onKeyDown={(e: any) => e.key === "Enter" && sendMessage()}
+              style={{ flex: 1 }}
+            />
+            <Btn onClick={sendMessage} theme={theme} style={{ padding: "10px 16px" }}>
+              Gửi
+            </Btn>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 // ─── SCHEDULE TAB ─────────────────────────────────────────────────────────────
 function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme }: any) {
@@ -322,7 +498,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
         </div>
         <div style={{ marginTop: 20, padding: 16, background: styles.inputBg, borderRadius: 12, fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
-          <div>Thành viên = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 40%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá trưởng nhóm × 20%</b></div>
+          <div>Thành viên = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 30%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá đóng góp task × 20%</b> + <b style={{ color: "#ef4444" }}>Đánh giá trưởng nhóm × 10%</b></div>
           <div>Trưởng nhóm = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 60%</b></div>
         </div>
       </Card>
@@ -355,15 +531,45 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
 }
 
 // ─── TASK TAB ─────────────────────────────────────────────────────────────────
-function TaskTab({ members, tasks, setTasks, theme }: any) {
-  const [form, setForm] = useState({ name: "", assignees: [] as string[], deadline: "", complexity: 2, productLink: "" });
+function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, taskContributionScores, setTaskContributionScores, theme, leader, currentReviewer }: any) {
+  const [form, setForm] = useState({ 
+    name: "", 
+    assignees: [] as any[], 
+    deadline: "", 
+    complexity: 2, 
+    productLink: "" 
+  });
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [commentTarget, setCommentTarget] = useState("");
+  const [commentTaskId, setCommentTaskId] = useState("");
+  const [showCommentForm, setShowCommentForm] = useState<string | null>(null);
+  const [usefulFeedback, setUsefulFeedback] = useState<Record<string, string>>({});
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  
   const styles = themeStyles[theme];
+  
+  // Reset comment form when switching tasks
+  const resetCommentForm = () => {
+    setCommentText("");
+    setCommentTarget("");
+    setCommentTaskId("");
+    setShowCommentForm(null);
+  };
   
   const addTask = () => { 
     if (!form.name.trim() || form.assignees.length === 0) return; 
-    setTasks((t: any[]) => [...t, { id: uid(), name: form.name, assignees: form.assignees, deadline: form.deadline, complexity: form.complexity, status: "todo", productLink: form.productLink.trim() || "" }]); 
+    setTasks((t: any[]) => [...t, { 
+      id: uid(), 
+      name: form.name, 
+      assignees: form.assignees.map((a: any) => ({ memberId: a.memberId, role: a.role || "", status: "pending" })),
+      deadline: form.deadline, 
+      complexity: form.complexity, 
+      status: "todo", 
+      productLink: form.productLink.trim() || "",
+      createdAt: new Date().toISOString()
+    }]); 
     setForm({ name: "", assignees: [], deadline: "", complexity: 2, productLink: "" }); 
     setShowForm(false); 
   };
@@ -371,9 +577,18 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   const toggleAssignee = (memberId: string) => {
     setForm((f: any) => ({
       ...f,
-      assignees: f.assignees.includes(memberId)
-        ? f.assignees.filter((id: string) => id !== memberId)
-        : [...f.assignees, memberId]
+      assignees: f.assignees.find((a: any) => a.memberId === memberId)
+        ? f.assignees.filter((a: any) => a.memberId !== memberId)
+        : [...f.assignees, { memberId, role: "" }]
+    }));
+  };
+  
+  const updateAssigneeRole = (memberId: string, role: string) => {
+    setForm((f: any) => ({
+      ...f,
+      assignees: f.assignees.map((a: any) => 
+        a.memberId === memberId ? { ...a, role } : a
+      )
     }));
   };
 
@@ -384,7 +599,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   
   const filtered = filter === "all" 
     ? tasks 
-    : tasks.filter((t: any) => t.assignees?.includes(filter));
+    : tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === filter));
   
   const overdue = (t: any) => { 
     if (!t.deadline || t.status === "done") return false; 
@@ -394,7 +609,171 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   };
   
   const btnStyle = filterBtn(theme);
-  
+
+  // --- Task Comment Functions ---
+  const submitComment = (taskId: string) => {
+    if (!commentText.trim()) return;
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi góp ý!");
+      return;
+    }
+    if (!commentTarget) {
+      alert("Vui lòng chọn người nhận góp ý!");
+      return;
+    }
+    
+    const isShort = commentText.trim().split(/\s+/).length < 10;
+    
+    setTaskComments((prev: any) => ({
+      ...prev,
+      [taskId]: [
+        ...(prev[taskId] || []),
+        {
+          id: uid(),
+          authorId: currentReviewer,
+          targetMemberId: commentTarget,
+          content: commentText.trim(),
+          timestamp: new Date().toISOString(),
+          usefulness: null,
+          usefulnessReason: null,
+          isReported: false,
+          isHidden: false,
+          isShort: isShort,
+          replies: []
+        }
+      ]
+    }));
+    setCommentText("");
+    setCommentTarget("");
+    setCommentTaskId("");
+    setShowCommentForm(null);
+  };
+
+  const markUsefulness = (taskId: string, commentId: string, useful: boolean, reason?: string) => {
+    if (useful === false && !reason) {
+      alert("Vui lòng cho biết lý do vì sao góp ý này không hữu ích!");
+      return;
+    }
+    
+    setTaskComments((prev: any) => {
+      const comments = prev[taskId] || [];
+      const updated = comments.map((c: any) => 
+        c.id === commentId 
+          ? { 
+              ...c, 
+              usefulness: useful ? "useful" : "not_useful",
+              usefulnessReason: useful ? null : (reason || null)
+            } 
+          : c
+      );
+      return { ...prev, [taskId]: updated };
+    });
+    setUsefulFeedback({ ...usefulFeedback, [commentId]: "" });
+  };
+
+  const submitReply = (taskId: string, commentId: string) => {
+    const reply = replyText[commentId];
+    if (!reply?.trim()) return;
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi phản hồi!");
+      return;
+    }
+    
+    setTaskComments((prev: any) => {
+      const comments = prev[taskId] || [];
+      const updated = comments.map((c: any) => 
+        c.id === commentId 
+          ? { 
+              ...c, 
+              replies: [
+                ...(c.replies || []),
+                {
+                  id: uid(),
+                  authorId: currentReviewer,
+                  content: reply.trim(),
+                  timestamp: new Date().toISOString()
+                }
+              ]
+            } 
+          : c
+      );
+      return { ...prev, [taskId]: updated };
+    });
+    setReplyText({ ...replyText, [commentId]: "" });
+  };
+
+  const reportComment = (taskId: string, commentId: string) => {
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trước khi báo cáo!");
+      return;
+    }
+    if (window.confirm("Bạn có chắc chắn muốn báo cáo góp ý này? Leader sẽ xem xét và xử lý.")) {
+      setTaskComments((prev: any) => {
+        const comments = prev[taskId] || [];
+        const updated = comments.map((c: any) => 
+          c.id === commentId ? { ...c, isReported: true } : c
+        );
+        return { ...prev, [taskId]: updated };
+      });
+      alert("✅ Đã gửi báo cáo! Leader sẽ xem xét.");
+    }
+  };
+
+  // --- Task Contribution Score Functions ---
+  const submitContributionScore = (taskId: string, revieweeId: string, score: number, comment: string) => {
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi đánh giá!");
+      return;
+    }
+    if (score === 0) {
+      alert("Vui lòng chọn điểm đánh giá!");
+      return;
+    }
+    
+    setTaskContributionScores((prev: any) => {
+      const reviewerScores = prev[currentReviewer] || {};
+      const revieweeScores = reviewerScores[revieweeId] || {};
+      
+      return {
+        ...prev,
+        [currentReviewer]: {
+          ...reviewerScores,
+          [revieweeId]: {
+            ...revieweeScores,
+            [taskId]: {
+              score,
+              comment: comment.trim() || "",
+              usefulness: null,
+              reply: null
+            }
+          }
+        }
+      };
+    });
+    alert("✅ Đã lưu đánh giá đóng góp task!");
+  };
+
+  // Get task contribution score from a specific reviewer
+  const getContributionScore = (reviewerId: string, revieweeId: string, taskId: string) => {
+    return taskContributionScores[reviewerId]?.[revieweeId]?.[taskId];
+  };
+
+  // Get member name
+  const getMemberName = (memberId: string) => {
+    const member = members.find((m: any) => m.id === memberId);
+    return member ? member.name : "Unknown";
+  };
+
+  // Check if user can comment on a task (must be in the task)
+  const canComment = (task: any) => {
+    return task.assignees?.some((a: any) => a.memberId === currentReviewer);
+  };
+
+  // Check if user can rate contribution (must be in the task and not self)
+  const canRateContribution = (task: any, targetId: string) => {
+    return task.assignees?.some((a: any) => a.memberId === currentReviewer) && currentReviewer !== targetId;
+  };
+
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
@@ -404,7 +783,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
             <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)} style={{ ...btnStyle, ...(filter === m.id ? { borderColor: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "18" } : {}) }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], display: "inline-block" }} />
               <span className="hide-on-mobile">{m.name.split(" ").pop()}</span>
-              <span> ({tasks.filter((t: any) => t.assignees?.includes(m.id)).length})</span>
+              <span> ({tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === m.id)).length})</span>
             </button>
           ))}
         </div>
@@ -430,9 +809,9 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
                     style={{
                       padding: "10px 12px",
                       borderRadius: 8,
-                      border: `1px solid ${form.assignees.includes(m.id) ? "#22c55e" : styles.border}`,
-                      background: form.assignees.includes(m.id) ? "#22c55e22" : "transparent",
-                      color: form.assignees.includes(m.id) ? "#22c55e" : styles.text,
+                      border: `1px solid ${form.assignees.find((a: any) => a.memberId === m.id) ? "#22c55e" : styles.border}`,
+                      background: form.assignees.find((a: any) => a.memberId === m.id) ? "#22c55e22" : "transparent",
+                      color: form.assignees.find((a: any) => a.memberId === m.id) ? "#22c55e" : styles.text,
                       cursor: "pointer",
                       fontSize: 14,
                       textAlign: "left",
@@ -440,7 +819,7 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
                       transition: "all 0.2s"
                     }}
                   >
-                    {form.assignees.includes(m.id) ? "✓ " : "○ "}{m.name}
+                    {form.assignees.find((a: any) => a.memberId === m.id) ? "✓ " : "○ "}{m.name}
                   </button>
                 ))}
               </div>
@@ -461,6 +840,30 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
               </div>
             </div>
           </div>
+          <div style={{ marginTop: 14 }}>
+            <label style={lbl}>Link sản phẩm</label>
+            <Input 
+              value={form.productLink} 
+              onChange={v => setForm((f: any) => ({ ...f, productLink: v }))} 
+              placeholder="https://docs.google.com/... hoặc link sản phẩm bất kỳ" 
+              theme={theme} 
+            />
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <label style={lbl}>Phần việc cho từng người</label>
+            {members.filter(m => form.assignees.find((a: any) => a.memberId === m.id)).map((m: any) => (
+              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, minWidth: 120 }}>{m.name}:</span>
+                <Input 
+                  value={form.assignees.find((a: any) => a.memberId === m.id)?.role || ""}
+                  onChange={v => updateAssigneeRole(m.id, v)}
+                  placeholder="VD: Số liệu và bảng biểu"
+                  theme={theme}
+                  style={{ flex: 1 }}
+                />
+              </div>
+            ))}
+          </div>
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
             <Btn onClick={() => setShowForm(false)} variant="ghost" theme={theme}>Hủy</Btn>
             <Btn onClick={addTask} theme={theme}>✓ Thêm công việc</Btn>
@@ -475,22 +878,31 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
           <div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(380px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
-            const assigneeMembers = members.filter((m: any) => t.assignees?.includes(m.id));
+            const assigneeMembers = members.filter((m: any) => t.assignees?.some((a: any) => a.memberId === m.id));
             const firstMember = assigneeMembers[0];
             const mc = MEMBER_COLORS[members.indexOf(firstMember) % MEMBER_COLORS.length];
             const sc = STATUS[t.status as keyof typeof STATUS];
             const od = overdue(t);
+            const taskCommentsList = taskComments[t.id] || [];
+            const isLeader = (memberId: string) => leader === memberId;
+            
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {assigneeMembers.map((m: any) => (
-                      <span key={m.id} style={{ background: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length] + "22", color: MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length], border: `1px solid ${MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}44`, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>
-                        {m.name.split(" ").pop()}
-                      </span>
-                    ))}
+                    {assigneeMembers.map((m: any) => {
+                      const assignee = t.assignees.find((a: any) => a.memberId === m.id);
+                      return (
+                        <Tag 
+                          key={m.id} 
+                          color={assignee?.status === "accepted" ? "#22c55e" : MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}
+                        >
+                          {m.name.split(" ").pop()} {assignee?.role ? `(${assignee.role})` : ""} {assignee?.status === "pending" && "⏳"}
+                        </Tag>
+                      );
+                    })}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     <Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag>
@@ -498,9 +910,31 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
                   </div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
+                
+                {/* Phần việc chi tiết */}
                 <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>
-                  👥 {assigneeMembers.map((m: any) => m.name).join(", ")}
+                  {t.assignees.map((a: any) => {
+                    const member = members.find((m: any) => m.id === a.memberId);
+                    return (
+                      <div key={a.memberId} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontWeight: 600, color: MEMBER_COLORS[members.indexOf(member) % MEMBER_COLORS.length] }}>
+                          {member?.name || "Unknown"}
+                        </span>
+                        <span>→</span>
+                        <span style={{ color: a.role ? styles.text : styles.textMuted }}>
+                          {a.role || "Chưa có phần việc"}
+                        </span>
+                        {a.status === "pending" && (
+                          <span style={{ fontSize: 10, color: "#f59e0b", marginLeft: 4 }}>(Chờ nhận)</span>
+                        )}
+                        {a.status === "accepted" && (
+                          <span style={{ fontSize: 10, color: "#22c55e", marginLeft: 4 }}>✅</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
+                
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 {t.productLink && (
                   <div style={{ marginBottom: 12 }}>
@@ -514,6 +948,304 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
                     </a>
                   </div>
                 )}
+                
+                {/* Phần nhận việc */}
+                {currentReviewer && t.assignees?.some((a: any) => a.memberId === currentReviewer && a.status === "pending") && (
+                  <div style={{ marginBottom: 12 }}>
+                    <button 
+                      onClick={() => {
+                        setTasks((prev: any) => prev.map((task: any) => 
+                          task.id === t.id 
+                            ? { 
+                                ...task, 
+                                assignees: task.assignees.map((a: any) => 
+                                  a.memberId === currentReviewer ? { ...a, status: "accepted" } : a
+                                ) 
+                              } 
+                            : task
+                        ));
+                      }}
+                      style={{ 
+                        padding: "4px 12px", 
+                        borderRadius: 6, 
+                        border: "1px solid #22c55e", 
+                        background: "#22c55e22", 
+                        color: "#22c55e", 
+                        fontSize: 12, 
+                        cursor: "pointer",
+                        fontWeight: 600
+                      }}
+                    >
+                      ✅ Nhận phần việc: {t.assignees.find((a: any) => a.memberId === currentReviewer)?.role || "Chưa có phần việc"}
+                    </button>
+                    {isLeader(currentReviewer) && (
+                      <button 
+                        onClick={() => {
+                          setTasks((prev: any) => prev.map((task: any) => 
+                            task.id === t.id 
+                              ? { 
+                                  ...task, 
+                                  assignees: task.assignees.map((a: any) => 
+                                    a.memberId === currentReviewer ? { ...a, status: "accepted" } : a
+                                  ) 
+                                } 
+                              : task
+                          ));
+                        }}
+                        style={{ 
+                          marginLeft: 8,
+                          padding: "4px 12px", 
+                          borderRadius: 6, 
+                          border: "1px solid #6366f1", 
+                          background: "#6366f122", 
+                          color: "#6366f1", 
+                          fontSize: 12, 
+                          cursor: "pointer",
+                          fontWeight: 600
+                        }}
+                      >
+                        👑 Chỉ định
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {/* Phần đánh giá đóng góp task */}
+                {currentReviewer && t.assignees?.some((a: any) => a.memberId === currentReviewer) && (
+                  <div style={{ marginBottom: 12, padding: 10, background: styles.inputBg, borderRadius: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
+                      📊 Đánh giá đóng góp task
+                    </div>
+                    {t.assignees.filter((a: any) => a.memberId !== currentReviewer).map((a: any) => {
+                      const existingScore = getContributionScore(currentReviewer, a.memberId, t.id);
+                      const [score, setScore] = useState(existingScore?.score || 0);
+                      const [scoreComment, setScoreComment] = useState(existingScore?.comment || "");
+                      
+                      return (
+                        <div key={a.memberId} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${styles.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, minWidth: 80 }}>
+                              {getMemberName(a.memberId)}
+                            </span>
+                            <RatingSelect 
+                              value={existingScore?.score || 0}
+                              onChange={(v: number) => {
+                                setScore(v);
+                                submitContributionScore(t.id, a.memberId, v, scoreComment);
+                              }}
+                              theme={theme}
+                              style={{ width: 120 }}
+                            />
+                            <Input
+                              value={existingScore?.comment || ""}
+                              onChange={(v: string) => {
+                                setScoreComment(v);
+                                if (existingScore?.score > 0) {
+                                  submitContributionScore(t.id, a.memberId, existingScore.score, v);
+                                }
+                              }}
+                              placeholder="Nhận xét (tùy chọn)"
+                              theme={theme}
+                              style={{ flex: 1, minWidth: 120 }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {/* Phần góp ý sản phẩm */}
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc" }}>
+                      💬 Góp ý sản phẩm ({taskCommentsList.filter((c: any) => !c.isHidden).length})
+                    </div>
+                    {canComment(t) && (
+                      <Btn 
+                        onClick={() => {
+                          if (showCommentForm === t.id) {
+                            resetCommentForm();
+                          } else {
+                            setShowCommentForm(t.id);
+                            setCommentTaskId(t.id);
+                          }
+                        }} 
+                        variant="ghost" 
+                        theme={theme} 
+                        style={{ padding: "2px 10px", fontSize: 11 }}
+                      >
+                        {showCommentForm === t.id ? "✖ Đóng" : "+ Góp ý"}
+                      </Btn>
+                    )}
+                  </div>
+                  
+                  {/* Danh sách góp ý */}
+                  {taskCommentsList.filter((c: any) => !c.isHidden).map((comment: any) => (
+                    <div key={comment.id} style={{ fontSize: 13, color: styles.text, background: styles.inputBg, padding: "10px 12px", borderRadius: 8, marginBottom: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                        <div>
+                          <span style={{ fontSize: 11, color: styles.textMuted, fontStyle: "italic" }}>
+                            Góp ý cho {getMemberName(comment.targetMemberId)} 
+                          </span>
+                          <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
+                            {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
+                          </span>
+                          {comment.isShort && (
+                            <Tag color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</Tag>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {comment.authorId !== currentReviewer && (
+                            <button 
+                              onClick={() => reportComment(t.id, comment.id)}
+                              style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
+                              title="Báo cáo góp ý xấu"
+                            >
+                              ⚠️
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div style={{ fontSize: 13, color: styles.text, marginBottom: 6 }}>
+                        {comment.content}
+                      </div>
+                      
+                      {/* Đánh giá hữu ích (cho người nhận) */}
+                      {comment.targetMemberId === currentReviewer && comment.usefulness === null && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
+                          <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
+                          <button 
+                            onClick={() => markUsefulness(t.id, comment.id, true)}
+                            style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #22c55e", background: "#22c55e22", color: "#22c55e", cursor: "pointer", fontSize: 11 }}
+                          >
+                            ✅ Hữu ích
+                          </button>
+                          <button 
+                            onClick={() => {
+                              const reason = prompt("Vui lòng cho biết lý do vì sao góp ý này không hữu ích:");
+                              if (reason !== null) {
+                                markUsefulness(t.id, comment.id, false, reason);
+                              }
+                            }}
+                            style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef444422", color: "#ef4444", cursor: "pointer", fontSize: 11 }}
+                          >
+                            ❌ Không hữu ích
+                          </button>
+                        </div>
+                      )}
+                      
+                      {/* Hiển thị đánh giá hữu ích */}
+                      {comment.usefulness === "useful" && (
+                        <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>✅ Được đánh giá là hữu ích</div>
+                      )}
+                      {comment.usefulness === "not_useful" && (
+                        <div style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>
+                          ❌ Được đánh giá là không hữu ích
+                          {comment.usefulnessReason && (
+                            <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 2 }}>
+                              Lý do: {comment.usefulnessReason}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Phản hồi */}
+                      {(comment.replies || []).map((reply: any) => (
+                        <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                            <span style={{ fontWeight: 600, fontSize: 11, color: "#6366f1" }}>
+                              Phản hồi
+                            </span>
+                            <span style={{ fontSize: 10, color: styles.textMuted }}>
+                              {new Date(reply.timestamp).toLocaleDateString("vi-VN")}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: 12, color: styles.text }}>
+                            {reply.content}
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {/* Form phản hồi */}
+                      {currentReviewer && comment.targetMemberId === currentReviewer && (
+                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                          <Input
+                            value={replyText[comment.id] || ""}
+                            onChange={(v: string) => setReplyText({ ...replyText, [comment.id]: v })}
+                            placeholder="Phản hồi góp ý (ẩn danh)..."
+                            theme={theme}
+                            style={{ flex: 1, fontSize: 12, padding: "4px 10px" }}
+                            onKeyDown={(e: any) => e.key === "Enter" && submitReply(t.id, comment.id)}
+                          />
+                          <Btn 
+                            onClick={() => submitReply(t.id, comment.id)} 
+                            theme={theme} 
+                            style={{ padding: "4px 12px", fontSize: 11 }}
+                          >
+                            Gửi
+                          </Btn>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  
+                  {/* Form thêm góp ý */}
+                  {showCommentForm === t.id && (
+                    <div style={{ marginTop: 8 }}>
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ fontSize: 11, color: styles.textMuted, display: "block", marginBottom: 4 }}>
+                          Đánh giá cho:
+                        </label>
+                        <Select 
+                          value={commentTarget} 
+                          onChange={setCommentTarget} 
+                          theme={theme}
+                          style={{ width: "100%" }}
+                        >
+                          <option value="">Chọn người nhận...</option>
+                          {members.filter((m: any) => t.assignees?.some((a: any) => a.memberId === m.id) && m.id !== currentReviewer).map((m: any) => (
+                            <option key={m.id} value={m.id}>{m.name}</option>
+                          ))}
+                        </Select>
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <label style={{ fontSize: 11, color: styles.textMuted, display: "block", marginBottom: 4 }}>
+                          Góp ý (nên viết 1 điểm tốt + 1 điểm cần cải thiện)
+                        </label>
+                        <Input
+                          value={commentText}
+                          onChange={setCommentText}
+                          placeholder="VD: Phần số liệu tốt, nhưng thiếu phân tích thị trường..."
+                          theme={theme}
+                          style={{ width: "100%" }}
+                        />
+                        {commentText.trim().split(/\s+/).length > 0 && commentText.trim().split(/\s+/).length < 10 && (
+                          <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
+                            ⚠️ Góp ý quá ngắn (dưới 10 từ), sẽ không được cộng điểm thưởng
+                          </div>
+                        )}
+                        {commentText.trim().split(/\s+/).length >= 10 && (
+                          <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                            ✅ Góp ý có giá trị, sẽ được cộng điểm nếu người nhận đánh giá "Hữu ích"
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Btn onClick={() => submitComment(t.id)} theme={theme}>
+                          Gửi góp ý
+                        </Btn>
+                        <Btn onClick={() => {
+                          resetCommentForm();
+                          setShowCommentForm(null);
+                        }} variant="ghost" theme={theme}>
+                          Hủy
+                        </Btn>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
                 <button onClick={() => cycleStatus(t.id)} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${sc.color}44`, background: sc.color + "18", color: sc.color, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                   {sc.label} → Nhấn để đổi
                 </button>
@@ -526,15 +1258,24 @@ function TaskTab({ members, tasks, setTasks, theme }: any) {
   );
 }
 
-// ─── PEER TAB ─────────────────────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComments, theme }: any) {
-  const [reviewer, setReviewer] = useState("");
+// ─── PEER TAB ─────────────────────────────────────────────────────────────────
+function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComments, theme, setCurrentReviewer }: any) {
+  const [reviewer, setReviewer] = useState(() => {
+    const saved = localStorage.getItem("currentReviewer");
+    return saved || "";
+  });
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const [tempComments, setTempComments] = useState<Record<string, string>>({});
   const styles = themeStyles[theme];
 
   const reviewees = members.filter((m: any) => m.id !== reviewer);
   const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
+
+  // Update current reviewer for chat and other components
+  useEffect(() => {
+    setCurrentReviewer(reviewer);
+    localStorage.setItem("currentReviewer", reviewer);
+  }, [reviewer, setCurrentReviewer]);
 
   const setScore = (revieweeId: string, criterion: string, val: number) => {
     setTempScores(prev => ({
@@ -773,12 +1514,12 @@ function LeaderTab({ members, leader, leaderScores, setLeaderScores, theme }: an
   );
 }
 
-// ─── ANALYSIS TAB (KHÓA ĐẾN KHI ALL ĐÁNH GIÁ XONG) ──────────────────────────
-function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerComments, theme }: any) {
+// ─── ANALYSIS TAB ─────────────────────────────────────────────────────────────
+function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
   
   const completedReviewers = Object.keys(peerScores).filter(
-    (key) => peerScores[key]?.completed === true
+    (key) => key !== "completed" && peerScores[key]?.completed === true
   ).length;
 
   if (members.length > 0 && completedReviewers < members.length) {
@@ -797,6 +1538,22 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
       </Card>
     );
   }
+  
+  // Get average contribution score for a member across all tasks
+  const getAvgContributionScore = (memberId: string) => {
+    const allScores: number[] = [];
+    Object.keys(taskContributionScores).forEach(reviewerId => {
+      const reviewerData = taskContributionScores[reviewerId];
+      if (reviewerData && reviewerData[memberId]) {
+        Object.values(reviewerData[memberId]).forEach((scoreData: any) => {
+          if (scoreData && scoreData.score) {
+            allScores.push(scoreData.score);
+          }
+        });
+      }
+    });
+    return allScores.length > 0 ? avg(allScores) * 10 : 0;
+  };
   
   const getMemberScores = (memberId: string) => {
     const scores: Record<string, number[]> = {
@@ -969,12 +1726,13 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
       <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
         {members.map((m: any) => {
           const scores = getMemberScores(m.id);
+          const contributionScore = getAvgContributionScore(m.id);
           const memberColors = MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length];
           
           const weaknesses = PEER_CRITERIA.filter(c => scores[c] < 7 && scores[c] > 0);
           const strengths = PEER_CRITERIA.filter(c => scores[c] >= 7 && scores[c] > 0);
           
-          const memberTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
+          const memberTasks = tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === m.id));
           const completedTasks = memberTasks.filter((t: any) => t.status === "done").length;
 
           const comments = getMemberComments(m.id);
@@ -995,6 +1753,7 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
                 {m.id === leader && <Tag color="#f59e0b">Trưởng nhóm</Tag>}
                 <div style={{ fontSize: 12, color: styles.textMuted, marginLeft: "auto" }}>
                   📋 {completedTasks}/{memberTasks.length} công việc
+                  {contributionScore > 0 && ` | 📊 ${contributionScore.toFixed(0)}/10`}
                 </div>
               </div>
               
@@ -1064,12 +1823,12 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
   );
 }
 
-// ─── RESULT TAB (KHÓA ĐẾN KHI ALL ĐÁNH GIÁ XONG) ────────────────────────────
+// ─── RESULT TAB ───────────────────────────────────────────────────────────────
 function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
   
   const completedReviewers = Object.keys(peerScores).filter(
-    (key) => peerScores[key]?.completed === true
+    (key) => key !== "completed" && peerScores[key]?.completed === true
   ).length;
 
   if (members.length > 0 && completedReviewers < members.length) {
@@ -1117,7 +1876,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
   const results = useMemo(() => {
     if (members.length === 0) return [];
     return members.map((m: any) => {
-      const myTasks = tasks.filter((t: any) => t.assignees?.includes(m.id));
+      const myTasks = tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === m.id));
       let taskScore = 100;
       if (myTasks.length > 0) {
         const totalPossible = myTasks.reduce((s: number, t: any) => s + COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].pts * 100, 0);
@@ -1130,7 +1889,7 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
       const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter((s: number) => s > 0);
       const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 0;
       const isLeader = m.id === leader;
-      const finalScore = isLeader ? taskScore * 0.4 + peerScore * 0.6 : taskScore * 0.4 + peerScore * 0.4 + leaderScore * 0.2;
+      const finalScore = isLeader ? taskScore * 0.4 + peerScore * 0.6 : taskScore * 0.4 + peerScore * 0.3 + leaderScore * 0.1;
       return { ...m, taskScore, peerScore, leaderScore, finalScore, isLeader, myTasks: myTasks.length, doneTasks: myTasks.filter((t: any) => t.status === "done").length };
     });
   }, [members, tasks, peerScores, leaderScores, leader]);
@@ -1256,9 +2015,13 @@ export default function App() {
   const [hasGroup, setHasGroup] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [currentReviewer, setCurrentReviewer] = useState("");
   
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
   const [scheduleSelections, setScheduleSelections] = useState<any>({});
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [taskComments, setTaskComments] = useState<any>({});
+  const [taskContributionScores, setTaskContributionScores] = useState<any>({});
   
   const [roomId, setRoomId] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1284,6 +2047,9 @@ export default function App() {
         setTeacherScore(data.teacherScore || "");
         setScheduleSlots(data.scheduleSlots || []);
         setScheduleSelections(data.scheduleSelections || {});
+        setChatMessages(data.chatMessages || []);
+        setTaskComments(data.taskComments || {});
+        setTaskContributionScores(data.taskContributionScores || {});
         setHasGroup(true);
       } else {
         setHasGroup(true);
@@ -1296,8 +2062,14 @@ export default function App() {
   useEffect(() => {
     if (!isReady || !roomId) return;
     const dbRef = ref(database, `teams/${roomId}`);
-    set(dbRef, { projectName, leader, members, tasks, peerScores, peerComments, leaderScores, teacherScore, scheduleSlots, scheduleSelections });
-  }, [projectName, leader, members, tasks, peerScores, peerComments, leaderScores, teacherScore, scheduleSlots, scheduleSelections, roomId, isReady]);
+    set(dbRef, { 
+      projectName, leader, members, tasks, 
+      peerScores, peerComments, leaderScores, 
+      teacherScore, scheduleSlots, scheduleSelections,
+      chatMessages, taskComments, taskContributionScores
+    });
+  }, [projectName, leader, members, tasks, peerScores, peerComments, leaderScores, teacherScore, 
+      scheduleSlots, scheduleSelections, chatMessages, taskComments, taskContributionScores, roomId, isReady]);
 
   useEffect(() => {
     if (!isReady) return;
@@ -1327,6 +2099,9 @@ export default function App() {
     setTeacherScore("");
     setScheduleSlots([]);
     setScheduleSelections({});
+    setChatMessages([]);
+    setTaskComments({});
+    setTaskContributionScores({});
     setHasGroup(true);
   };
 
@@ -1413,13 +2188,43 @@ export default function App() {
       </div>
       <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {tab === "setup" && <SetupTab members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
-        {tab === "tasks" && <TaskTab members={members} tasks={tasks} setTasks={setTasks} theme={theme} />}
-        {tab === "peer" && <PeerTab members={members} peerScores={peerScores} setPeerScores={setPeerScores} peerComments={peerComments} setPeerComments={setPeerComments} theme={theme} />}
+        {tab === "tasks" && <TaskTab 
+          members={members} 
+          tasks={tasks} 
+          setTasks={setTasks} 
+          taskComments={taskComments}
+          setTaskComments={setTaskComments}
+          taskContributionScores={taskContributionScores}
+          setTaskContributionScores={setTaskContributionScores}
+          theme={theme}
+          leader={leader}
+          currentReviewer={currentReviewer}
+        />}
+        {tab === "peer" && <PeerTab 
+          members={members} 
+          peerScores={peerScores} 
+          setPeerScores={setPeerScores}
+          peerComments={peerComments}
+          setPeerComments={setPeerComments}
+          theme={theme}
+          setCurrentReviewer={setCurrentReviewer}
+        />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
-        {tab === "analysis" && <AnalysisTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} peerComments={peerComments} theme={theme} />}
+        {tab === "analysis" && <AnalysisTab 
+          members={members} 
+          tasks={tasks} 
+          peerScores={peerScores}
+          leaderScores={leaderScores}
+          leader={leader}
+          peerComments={peerComments}
+          taskComments={taskComments}
+          taskContributionScores={taskContributionScores}
+          theme={theme}
+        />}
         {tab === "result" && <ResultTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} theme={theme} />}
       </div>
+      <ChatBox chatMessages={chatMessages} setChatMessages={setChatMessages} members={members} theme={theme} />
     </div>
   );
 }
