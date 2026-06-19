@@ -106,16 +106,17 @@ const filterBtn = (theme: Theme) => ({ padding: "6px 14px", borderRadius: 20, bo
 const filterActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
 
 // ─── CHAT BOX ─────────────────────────────────────────────────────────────────
-function ChatBox({ chatMessages, setChatMessages, members, theme }: any) {
+function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewer }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const styles = themeStyles[theme];
-  const [currentMember, setCurrentMember] = useState(() => {
-    const saved = localStorage.getItem("currentReviewer");
-    return saved || "";
-  });
+
+  const getMemberName = (id: string) => {
+    const m = members.find((m: any) => m.id === id);
+    return m ? m.name : "Khách";
+  };
 
   useEffect(() => {
     if (chatEndRef.current) {
@@ -129,15 +130,14 @@ function ChatBox({ chatMessages, setChatMessages, members, theme }: any) {
 
   const sendMessage = () => {
     if (!message.trim()) return;
-    if (!currentMember) {
-      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi chat!");
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi chat!");
       return;
     }
-    const member = members.find((m: any) => m.id === currentMember);
     const newMsg = {
       id: uid(),
-      authorId: currentMember,
-      authorName: member?.name || "Khách",
+      authorId: currentReviewer,
+      authorName: getMemberName(currentReviewer),
       content: message.trim(),
       timestamp: new Date().toISOString()
     };
@@ -499,7 +499,7 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
         <div style={{ marginTop: 20, padding: 16, background: styles.inputBg, borderRadius: 12, fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
           <div>Thành viên = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 30%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá đóng góp task × 20%</b> + <b style={{ color: "#ef4444" }}>Đánh giá trưởng nhóm × 10%</b></div>
-          <div>Trưởng nhóm = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 60%</b></div>
+          <div>Trưởng nhóm = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 30%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá đóng góp task × 30%</b></div>
         </div>
       </Card>
       <Card theme={theme}>
@@ -534,10 +534,9 @@ function SetupTab({ members, setMembers, projectName, setProjectName, leader, se
 function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, taskContributionScores, setTaskContributionScores, theme, leader, currentReviewer }: any) {
   const [form, setForm] = useState({ 
     name: "", 
-    assignees: [] as any[], 
+    assignees: [] as string[], 
     deadline: "", 
-    complexity: 2, 
-    productLink: "" 
+    complexity: 2
   });
   const [filter, setFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
@@ -545,50 +544,39 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
   const [commentTarget, setCommentTarget] = useState("");
   const [commentTaskId, setCommentTaskId] = useState("");
   const [showCommentForm, setShowCommentForm] = useState<string | null>(null);
-  const [usefulFeedback, setUsefulFeedback] = useState<Record<string, string>>({});
+  const [roleInput, setRoleInput] = useState<Record<string, string>>({});
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   
   const styles = themeStyles[theme];
   
-  // Reset comment form when switching tasks
-  const resetCommentForm = () => {
-    setCommentText("");
-    setCommentTarget("");
-    setCommentTaskId("");
-    setShowCommentForm(null);
-  };
-  
   const addTask = () => { 
     if (!form.name.trim() || form.assignees.length === 0) return; 
-    setTasks((t: any[]) => [...t, { 
+    const newTask = { 
       id: uid(), 
       name: form.name, 
-      assignees: form.assignees.map((a: any) => ({ memberId: a.memberId, role: a.role || "", status: "pending" })),
+      assignees: form.assignees.map((id: string) => ({ 
+        memberId: id, 
+        role: "", 
+        status: "pending" 
+      })),
       deadline: form.deadline, 
       complexity: form.complexity, 
       status: "todo", 
-      productLink: form.productLink.trim() || "",
+      productLink: "",
+      submittedBy: "",
       createdAt: new Date().toISOString()
-    }]); 
-    setForm({ name: "", assignees: [], deadline: "", complexity: 2, productLink: "" }); 
+    };
+    setTasks((t: any[]) => [...t, newTask]); 
+    setForm({ name: "", assignees: [], deadline: "", complexity: 2 }); 
     setShowForm(false); 
   };
   
   const toggleAssignee = (memberId: string) => {
     setForm((f: any) => ({
       ...f,
-      assignees: f.assignees.find((a: any) => a.memberId === memberId)
-        ? f.assignees.filter((a: any) => a.memberId !== memberId)
-        : [...f.assignees, { memberId, role: "" }]
-    }));
-  };
-  
-  const updateAssigneeRole = (memberId: string, role: string) => {
-    setForm((f: any) => ({
-      ...f,
-      assignees: f.assignees.map((a: any) => 
-        a.memberId === memberId ? { ...a, role } : a
-      )
+      assignees: f.assignees.includes(memberId)
+        ? f.assignees.filter((id: string) => id !== memberId)
+        : [...f.assignees, memberId]
     }));
   };
 
@@ -610,11 +598,40 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
   
   const btnStyle = filterBtn(theme);
 
-  // --- Task Comment Functions ---
+  const getMemberName = (memberId: string) => {
+    const member = members.find((m: any) => m.id === memberId);
+    return member ? member.name : "Unknown";
+  };
+
+  // Task Role Functions
+  const acceptRole = (taskId: string, role: string) => {
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi nhận việc!");
+      return;
+    }
+    if (!role.trim()) {
+      alert("Vui lòng nhập phần việc bạn muốn nhận!");
+      return;
+    }
+    setTasks((prev: any[]) => prev.map((task: any) => 
+      task.id === taskId 
+        ? { 
+            ...task, 
+            assignees: task.assignees.map((a: any) => 
+              a.memberId === currentReviewer ? { ...a, role: role.trim(), status: "accepted" } : a
+            ) 
+          } 
+        : task
+    ));
+    setRoleInput({ ...roleInput, [taskId]: "" });
+    alert("✅ Bạn đã nhận phần việc!");
+  };
+
+  // Task Comment Functions
   const submitComment = (taskId: string) => {
     if (!commentText.trim()) return;
     if (!currentReviewer) {
-      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi góp ý!");
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi góp ý!");
       return;
     }
     if (!commentTarget) {
@@ -668,14 +685,13 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
       );
       return { ...prev, [taskId]: updated };
     });
-    setUsefulFeedback({ ...usefulFeedback, [commentId]: "" });
   };
 
   const submitReply = (taskId: string, commentId: string) => {
     const reply = replyText[commentId];
     if (!reply?.trim()) return;
     if (!currentReviewer) {
-      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi phản hồi!");
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi phản hồi!");
       return;
     }
     
@@ -719,10 +735,10 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
     }
   };
 
-  // --- Task Contribution Score Functions ---
+  // Task Contribution Score Functions
   const submitContributionScore = (taskId: string, revieweeId: string, score: number, comment: string) => {
     if (!currentReviewer) {
-      alert("Vui lòng chọn tên của bạn ở tab 'Đánh giá & Nhận xét' trước khi đánh giá!");
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi đánh giá!");
       return;
     }
     if (score === 0) {
@@ -753,25 +769,54 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
     alert("✅ Đã lưu đánh giá đóng góp task!");
   };
 
-  // Get task contribution score from a specific reviewer
   const getContributionScore = (reviewerId: string, revieweeId: string, taskId: string) => {
     return taskContributionScores[reviewerId]?.[revieweeId]?.[taskId];
   };
 
-  // Get member name
-  const getMemberName = (memberId: string) => {
-    const member = members.find((m: any) => m.id === memberId);
-    return member ? member.name : "Unknown";
-  };
-
-  // Check if user can comment on a task (must be in the task)
   const canComment = (task: any) => {
     return task.assignees?.some((a: any) => a.memberId === currentReviewer);
   };
 
-  // Check if user can rate contribution (must be in the task and not self)
   const canRateContribution = (task: any, targetId: string) => {
     return task.assignees?.some((a: any) => a.memberId === currentReviewer) && currentReviewer !== targetId;
+  };
+
+  // Check if member has accepted the task
+  const hasAccepted = (task: any) => {
+    return task.assignees?.some((a: any) => a.memberId === currentReviewer && a.status === "accepted");
+  };
+
+  // Check if a member is pending
+  const isPending = (task: any, memberId: string) => {
+    return task.assignees?.some((a: any) => a.memberId === memberId && a.status === "pending");
+  };
+
+  // Get pending members for leader to assign
+  const getPendingMembers = (task: any) => {
+    return task.assignees?.filter((a: any) => a.status === "pending").map((a: any) => a.memberId) || [];
+  };
+
+  // Leader assign role to a member
+  const leaderAssignRole = (taskId: string, memberId: string, role: string) => {
+    if (leader !== currentReviewer) {
+      alert("Chỉ trưởng nhóm mới có thể chỉ định!");
+      return;
+    }
+    if (!role.trim()) {
+      alert("Vui lòng nhập phần việc!");
+      return;
+    }
+    setTasks((prev: any[]) => prev.map((task: any) => 
+      task.id === taskId 
+        ? { 
+            ...task, 
+            assignees: task.assignees.map((a: any) => 
+              a.memberId === memberId ? { ...a, role: role.trim(), status: "accepted" } : a
+            ) 
+          } 
+        : task
+    ));
+    alert("✅ Đã chỉ định phần việc cho thành viên!");
   };
 
   return (
@@ -787,10 +832,12 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
             </button>
           ))}
         </div>
-        <Btn onClick={() => setShowForm(true)} theme={theme}>+ Thêm công việc</Btn>
+        {leader === currentReviewer && (
+          <Btn onClick={() => setShowForm(true)} theme={theme}>+ Thêm công việc</Btn>
+        )}
       </div>
       
-      {showForm && (
+      {showForm && leader === currentReviewer && (
         <Card style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
           <div className="task-form-grid" style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
             <div>
@@ -809,9 +856,9 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                     style={{
                       padding: "10px 12px",
                       borderRadius: 8,
-                      border: `1px solid ${form.assignees.find((a: any) => a.memberId === m.id) ? "#22c55e" : styles.border}`,
-                      background: form.assignees.find((a: any) => a.memberId === m.id) ? "#22c55e22" : "transparent",
-                      color: form.assignees.find((a: any) => a.memberId === m.id) ? "#22c55e" : styles.text,
+                      border: `1px solid ${form.assignees.includes(m.id) ? "#22c55e" : styles.border}`,
+                      background: form.assignees.includes(m.id) ? "#22c55e22" : "transparent",
+                      color: form.assignees.includes(m.id) ? "#22c55e" : styles.text,
                       cursor: "pointer",
                       fontSize: 14,
                       textAlign: "left",
@@ -819,7 +866,7 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                       transition: "all 0.2s"
                     }}
                   >
-                    {form.assignees.find((a: any) => a.memberId === m.id) ? "✓ " : "○ "}{m.name}
+                    {form.assignees.includes(m.id) ? "✓ " : "○ "}{m.name}
                   </button>
                 ))}
               </div>
@@ -840,30 +887,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
               </div>
             </div>
           </div>
-          <div style={{ marginTop: 14 }}>
-            <label style={lbl}>Link sản phẩm</label>
-            <Input 
-              value={form.productLink} 
-              onChange={v => setForm((f: any) => ({ ...f, productLink: v }))} 
-              placeholder="https://docs.google.com/... hoặc link sản phẩm bất kỳ" 
-              theme={theme} 
-            />
-          </div>
-          <div style={{ marginTop: 14 }}>
-            <label style={lbl}>Phần việc cho từng người</label>
-            {members.filter(m => form.assignees.find((a: any) => a.memberId === m.id)).map((m: any) => (
-              <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 600, minWidth: 120 }}>{m.name}:</span>
-                <Input 
-                  value={form.assignees.find((a: any) => a.memberId === m.id)?.role || ""}
-                  onChange={v => updateAssigneeRole(m.id, v)}
-                  placeholder="VD: Số liệu và bảng biểu"
-                  theme={theme}
-                  style={{ flex: 1 }}
-                />
-              </div>
-            ))}
-          </div>
           <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
             <Btn onClick={() => setShowForm(false)} variant="ghost" theme={theme}>Hủy</Btn>
             <Btn onClick={addTask} theme={theme}>✓ Thêm công việc</Btn>
@@ -878,7 +901,7 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
           <div style={{ fontSize: 13, marginTop: 6 }}>Nhấn "+ Thêm công việc" để bắt đầu</div>
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(380px,1fr))", gap: 14 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(420px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
             const assigneeMembers = members.filter((m: any) => t.assignees?.some((a: any) => a.memberId === m.id));
             const firstMember = assigneeMembers[0];
@@ -886,7 +909,9 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
             const sc = STATUS[t.status as keyof typeof STATUS];
             const od = overdue(t);
             const taskCommentsList = taskComments[t.id] || [];
+            const hasCurrentAccepted = t.assignees?.some((a: any) => a.memberId === currentReviewer && a.status === "accepted");
             const isLeader = (memberId: string) => leader === memberId;
+            const pendingMembers = t.assignees?.filter((a: any) => a.status === "pending") || [];
             
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
@@ -894,19 +919,24 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {assigneeMembers.map((m: any) => {
                       const assignee = t.assignees.find((a: any) => a.memberId === m.id);
+                      const isPending = assignee?.status === "pending";
                       return (
                         <Tag 
                           key={m.id} 
-                          color={assignee?.status === "accepted" ? "#22c55e" : MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}
+                          color={isPending ? "#f59e0b" : MEMBER_COLORS[members.indexOf(m) % MEMBER_COLORS.length]}
                         >
-                          {m.name.split(" ").pop()} {assignee?.role ? `(${assignee.role})` : ""} {assignee?.status === "pending" && "⏳"}
+                          {m.name.split(" ").pop()} {assignee?.role ? `(${assignee.role})` : ""} {isPending && "⏳"}
                         </Tag>
                       );
                     })}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>Cấp {t.complexity}</Tag>
-                    <button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
+                    <Tag color={COMPLEXITY[t.complexity as keyof typeof COMPLEXITY].color}>
+                      Cấp {t.complexity} {t.complexity === 3 && "⭐+1"}
+                    </Tag>
+                    {leader === currentReviewer && (
+                      <button onClick={() => setTasks((ts: any[]) => ts.filter((x: any) => x.id !== t.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
+                    )}
                   </div>
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
@@ -916,7 +946,7 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                   {t.assignees.map((a: any) => {
                     const member = members.find((m: any) => m.id === a.memberId);
                     return (
-                      <div key={a.memberId} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                      <div key={a.memberId} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 600, color: MEMBER_COLORS[members.indexOf(member) % MEMBER_COLORS.length] }}>
                           {member?.name || "Unknown"}
                         </span>
@@ -936,77 +966,118 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                 </div>
                 
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
-                {t.productLink && (
+                
+                {/* Nộp sản phẩm - chỉ hiện cho thành viên đã nhận task */}
+                {hasCurrentAccepted && (
                   <div style={{ marginBottom: 12 }}>
-                    <a 
-                      href={t.productLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      style={{ color: "#6366f1", fontSize: 13, textDecoration: "none", wordBreak: "break-all" }}
-                    >
-                      🔗 Link sản phẩm
-                    </a>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
+                      🔗 Nộp sản phẩm chung
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Input 
+                        value={t.productLink || ""}
+                        onChange={(v: string) => {
+                          setTasks((prev: any[]) => prev.map((task: any) =>
+                            task.id === t.id ? { ...task, productLink: v } : task
+                          ));
+                        }}
+                        placeholder="https://docs.google.com/..."
+                        theme={theme}
+                        style={{ flex: 1 }}
+                      />
+                      <Btn 
+                        onClick={() => {
+                          if (t.productLink?.trim()) {
+                            setTasks((prev: any[]) => prev.map((task: any) =>
+                              task.id === t.id ? { ...task, submittedBy: currentReviewer } : task
+                            ));
+                            alert("✅ Đã nộp sản phẩm!");
+                          } else {
+                            alert("⚠️ Vui lòng nhập link sản phẩm!");
+                          }
+                        }} 
+                        theme={theme}
+                        style={{ padding: "10px 16px" }}
+                      >
+                        Gửi
+                      </Btn>
+                    </div>
+                    {t.submittedBy && (
+                      <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                        ✅ Đã nộp bởi {getMemberName(t.submittedBy)}
+                      </div>
+                    )}
                   </div>
                 )}
                 
                 {/* Phần nhận việc */}
                 {currentReviewer && t.assignees?.some((a: any) => a.memberId === currentReviewer && a.status === "pending") && (
-                  <div style={{ marginBottom: 12 }}>
-                    <button 
-                      onClick={() => {
-                        setTasks((prev: any) => prev.map((task: any) => 
-                          task.id === t.id 
-                            ? { 
-                                ...task, 
-                                assignees: task.assignees.map((a: any) => 
-                                  a.memberId === currentReviewer ? { ...a, status: "accepted" } : a
-                                ) 
-                              } 
-                            : task
-                        ));
-                      }}
-                      style={{ 
-                        padding: "4px 12px", 
-                        borderRadius: 6, 
-                        border: "1px solid #22c55e", 
-                        background: "#22c55e22", 
-                        color: "#22c55e", 
-                        fontSize: 12, 
-                        cursor: "pointer",
-                        fontWeight: 600
-                      }}
-                    >
-                      ✅ Nhận phần việc: {t.assignees.find((a: any) => a.memberId === currentReviewer)?.role || "Chưa có phần việc"}
-                    </button>
-                    {isLeader(currentReviewer) && (
-                      <button 
-                        onClick={() => {
-                          setTasks((prev: any) => prev.map((task: any) => 
-                            task.id === t.id 
-                              ? { 
-                                  ...task, 
-                                  assignees: task.assignees.map((a: any) => 
-                                    a.memberId === currentReviewer ? { ...a, status: "accepted" } : a
-                                  ) 
-                                } 
-                              : task
-                          ));
-                        }}
-                        style={{ 
-                          marginLeft: 8,
-                          padding: "4px 12px", 
-                          borderRadius: 6, 
-                          border: "1px solid #6366f1", 
-                          background: "#6366f122", 
-                          color: "#6366f1", 
-                          fontSize: 12, 
-                          cursor: "pointer",
-                          fontWeight: 600
-                        }}
+                  <div style={{ marginBottom: 12, padding: 10, background: styles.inputBg, borderRadius: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
+                      📌 Nhận phần việc
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Input 
+                        value={roleInput[t.id] || ""}
+                        onChange={(v: string) => setRoleInput({ ...roleInput, [t.id]: v })}
+                        placeholder="Nhập phần việc bạn muốn nhận..."
+                        theme={theme}
+                        style={{ flex: 1 }}
+                      />
+                      <Btn 
+                        onClick={() => acceptRole(t.id, roleInput[t.id] || "")} 
+                        variant="success" 
+                        theme={theme}
+                        style={{ padding: "10px 16px" }}
                       >
-                        👑 Chỉ định
-                      </button>
-                    )}
+                        Nhận
+                      </Btn>
+                    </div>
+                    <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 4 }}>
+                      ⏰ Nếu quá 24h, leader sẽ chỉ định cứng
+                    </div>
+                  </div>
+                )}
+                
+                {/* Leader chỉ định */}
+                {leader === currentReviewer && pendingMembers.length > 0 && (
+                  <div style={{ marginBottom: 12, padding: 10, background: "#1e1b4b", borderRadius: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#fcd34d", marginBottom: 8 }}>
+                      👑 Chỉ định phần việc (cho thành viên chưa nhận)
+                    </div>
+                    {pendingMembers.map((a: any) => {
+                      const member = members.find((m: any) => m.id === a.memberId);
+                      const [roleAssign, setRoleAssign] = useState("");
+                      return (
+                        <div key={a.memberId} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, minWidth: 100, color: styles.text }}>
+                            {member?.name}:
+                          </span>
+                          <Input 
+                            value={roleAssign}
+                            onChange={(v: string) => setRoleAssign(v)}
+                            placeholder="Phần việc..."
+                            theme={theme}
+                            style={{ flex: 1 }}
+                          />
+                          <Btn 
+                            onClick={() => {
+                              if (roleAssign.trim()) {
+                                leaderAssignRole(t.id, a.memberId, roleAssign);
+                                setRoleAssign("");
+                              } else {
+                                alert("Vui lòng nhập phần việc!");
+                              }
+                            }} 
+                            variant="primary" 
+                            theme={theme}
+                            style={{ padding: "4px 12px", fontSize: 12 }}
+                          >
+                            Chỉ định
+                          </Btn>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 
@@ -1014,17 +1085,17 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                 {currentReviewer && t.assignees?.some((a: any) => a.memberId === currentReviewer) && (
                   <div style={{ marginBottom: 12, padding: 10, background: styles.inputBg, borderRadius: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
-                      📊 Đánh giá đóng góp task
+                      📊 Đánh giá đóng góp task (ẩn danh)
                     </div>
                     {t.assignees.filter((a: any) => a.memberId !== currentReviewer).map((a: any) => {
+                      const [score, setScore] = useState(0);
+                      const [scoreComment, setScoreComment] = useState("");
                       const existingScore = getContributionScore(currentReviewer, a.memberId, t.id);
-                      const [score, setScore] = useState(existingScore?.score || 0);
-                      const [scoreComment, setScoreComment] = useState(existingScore?.comment || "");
                       
                       return (
                         <div key={a.memberId} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${styles.border}` }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 13, fontWeight: 600, minWidth: 80 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, minWidth: 80, color: styles.text }}>
                               {getMemberName(a.memberId)}
                             </span>
                             <RatingSelect 
@@ -1049,6 +1120,21 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                               style={{ flex: 1, minWidth: 120 }}
                             />
                           </div>
+                          {existingScore?.usefulness === "useful" && (
+                            <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                              ✅ Được đánh giá là hữu ích
+                            </div>
+                          )}
+                          {existingScore?.usefulness === "not_useful" && (
+                            <div style={{ fontSize: 11, color: "#ef4444", marginTop: 4 }}>
+                              ❌ Được đánh giá là không hữu ích
+                              {existingScore?.usefulnessReason && (
+                                <div style={{ fontSize: 11, color: styles.textMuted }}>
+                                  Lý do: {existingScore.usefulnessReason}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1059,13 +1145,15 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc" }}>
-                      💬 Góp ý sản phẩm ({taskCommentsList.filter((c: any) => !c.isHidden).length})
+                      💬 Góp ý sản phẩm (ẩn danh) ({taskCommentsList.filter((c: any) => !c.isHidden).length})
                     </div>
                     {canComment(t) && (
                       <Btn 
                         onClick={() => {
                           if (showCommentForm === t.id) {
-                            resetCommentForm();
+                            setShowCommentForm(null);
+                            setCommentText("");
+                            setCommentTarget("");
                           } else {
                             setShowCommentForm(t.id);
                             setCommentTaskId(t.id);
@@ -1236,8 +1324,9 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                           Gửi góp ý
                         </Btn>
                         <Btn onClick={() => {
-                          resetCommentForm();
                           setShowCommentForm(null);
+                          setCommentText("");
+                          setCommentTarget("");
                         }} variant="ghost" theme={theme}>
                           Hủy
                         </Btn>
@@ -1259,10 +1348,9 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
 }
 
 // ─── PEER TAB ─────────────────────────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComments, theme, setCurrentReviewer }: any) {
+function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComments, theme }: any) {
   const [reviewer, setReviewer] = useState(() => {
-    const saved = localStorage.getItem("currentReviewer");
-    return saved || "";
+    return localStorage.getItem("currentReviewer") || "";
   });
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const [tempComments, setTempComments] = useState<Record<string, string>>({});
@@ -1270,12 +1358,6 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
 
   const reviewees = members.filter((m: any) => m.id !== reviewer);
   const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
-
-  // Update current reviewer for chat and other components
-  useEffect(() => {
-    setCurrentReviewer(reviewer);
-    localStorage.setItem("currentReviewer", reviewer);
-  }, [reviewer, setCurrentReviewer]);
 
   const setScore = (revieweeId: string, criterion: string, val: number) => {
     setTempScores(prev => ({
@@ -1357,7 +1439,7 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
   };
 
   const completedReviewers = Object.keys(peerScores).filter(
-    (key) => peerScores[key]?.completed === true
+    (key) => key !== "completed" && peerScores[key]?.completed === true
   ).length;
 
   if (members.length < 2) {
@@ -1385,6 +1467,7 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
                 return;
               }
               setReviewer(v);
+              localStorage.setItem("currentReviewer", v);
             }} theme={theme}>
               <option value="">Chọn tên của bạn...</option>
               {members.map((m: any) => (
@@ -1412,6 +1495,7 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
                 setReviewer("");
                 setTempScores({});
                 setTempComments({});
+                localStorage.removeItem("currentReviewer");
               }} variant="ghost" theme={theme}>↺ Thoát</Btn>
             </div>
             <div style={{ fontSize: 13, color: styles.textMuted }}>
@@ -1649,6 +1733,7 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
   
   const weakestCriterion = Object.entries(teamAvgScores).reduce((a, b) => a[1] < b[1] ? a : b);
 
+  // Lấy nhận xét đồng đội (ẩn danh)
   const getMemberComments = (memberId: string) => {
     const comments: string[] = [];
     Object.keys(peerComments).forEach(reviewerId => {
@@ -1657,6 +1742,20 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
       if (reviewerData && reviewerData[memberId] && reviewerData[memberId].comment) {
         comments.push(reviewerData[memberId].comment);
       }
+    });
+    return comments;
+  };
+
+  // Lấy góp ý sản phẩm (ẩn danh) cho memberId
+  const getProductComments = (memberId: string) => {
+    const comments: string[] = [];
+    Object.keys(taskComments).forEach(taskId => {
+      const taskCommentList = taskComments[taskId] || [];
+      taskCommentList.forEach((c: any) => {
+        if (c.targetMemberId === memberId && !c.isHidden) {
+          comments.push(c.content);
+        }
+      });
     });
     return comments;
   };
@@ -1735,7 +1834,8 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
           const memberTasks = tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === m.id));
           const completedTasks = memberTasks.filter((t: any) => t.status === "done").length;
 
-          const comments = getMemberComments(m.id);
+          const memberComments = getMemberComments(m.id);
+          const productComments = getProductComments(m.id);
           
           return (
             <Card key={m.id} style={{ borderColor: `${memberColors}44` }} theme={theme}>
@@ -1795,12 +1895,35 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
                 </div>
               </div>
 
-              {comments.length > 0 && (
+              {/* Góp ý sản phẩm (ẩn danh) */}
+              {productComments.length > 0 && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${styles.border}` }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
-                    💬 NHẬN XÉT ẨN DANH
+                    📝 GÓP Ý SẢN PHẨM (ẩn danh)
                   </div>
-                  {comments.map((comment, idx) => (
+                  {productComments.map((comment, idx) => (
+                    <div key={idx} style={{ 
+                      fontSize: 13, 
+                      color: styles.text, 
+                      background: styles.inputBg,
+                      padding: "10px 14px",
+                      borderRadius: 8,
+                      marginBottom: 8,
+                      fontStyle: "italic"
+                    }}>
+                      "{comment}"
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Nhận xét đồng đội (ẩn danh) */}
+              {memberComments.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${styles.border}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
+                    💬 NHẬN XÉT ĐỒNG ĐỘI (ẩn danh)
+                  </div>
+                  {memberComments.map((comment, idx) => (
                     <div key={idx} style={{ 
                       fontSize: 13, 
                       color: styles.text, 
@@ -1889,7 +2012,18 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
       const lScores = LEADER_CRITERIA.map(c => leaderScores?.[m.id]?.[c] ?? 0).filter((s: number) => s > 0);
       const leaderScore = lScores.length > 0 ? avg(lScores) * 10 : 0;
       const isLeader = m.id === leader;
-      const finalScore = isLeader ? taskScore * 0.4 + peerScore * 0.6 : taskScore * 0.4 + peerScore * 0.3 + leaderScore * 0.1;
+      
+      let finalScore;
+      if (isLeader) {
+        // Trưởng nhóm: Công việc × 40% + Đánh giá đồng đội × 30% + Đánh giá đóng góp task × 30%
+        // Đánh giá đóng góp task sẽ được tính từ taskContributionScores
+        // Tạm thời để 0, sẽ cập nhật sau
+        const contributionScore = 0;
+        finalScore = taskScore * 0.4 + peerScore * 0.3 + contributionScore * 0.3;
+      } else {
+        finalScore = taskScore * 0.4 + peerScore * 0.3 + leaderScore * 0.1;
+      }
+      
       return { ...m, taskScore, peerScore, leaderScore, finalScore, isLeader, myTasks: myTasks.length, doneTasks: myTasks.filter((t: any) => t.status === "done").length };
     });
   }, [members, tasks, peerScores, leaderScores, leader]);
@@ -2015,7 +2149,9 @@ export default function App() {
   const [hasGroup, setHasGroup] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [currentReviewer, setCurrentReviewer] = useState("");
+  const [currentReviewer, setCurrentReviewer] = useState(() => {
+    return localStorage.getItem("currentReviewer") || "";
+  });
   
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
   const [scheduleSelections, setScheduleSelections] = useState<any>({});
@@ -2111,6 +2247,11 @@ export default function App() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  const handleSelectUser = (userId: string) => {
+    setCurrentReviewer(userId);
+    localStorage.setItem("currentReviewer", userId);
+  };
+
   const styles = themeStyles[theme];
   const peerCompletedCount = members.length >= 2 ? members.filter((m: any) => peerScores[m.id]?.completed === true).length : null;
 
@@ -2168,9 +2309,28 @@ export default function App() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "12px 0" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✦</div>
-            <div><div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
-            <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div></div>
+            <div>
+              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
+              <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div>
+            </div>
           </div>
+          
+          {/* Dropdown chọn tên ở Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12, color: styles.textMuted }}>👤</span>
+            <Select 
+              value={currentReviewer} 
+              onChange={handleSelectUser} 
+              theme={theme}
+              style={{ minWidth: 150, padding: "4px 10px", fontSize: 13 }}
+            >
+              <option value="">Chọn tên...</option>
+              {members.map((m: any) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </Select>
+          </div>
+          
           <nav className="app-nav" style={{ display: "flex", gap: 4, background: styles.inputBg, borderRadius: 14, padding: 5, overflowX: "auto", flex: "1 1 auto", justifyContent: "center" }}>
             {TABS.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
@@ -2207,7 +2367,6 @@ export default function App() {
           peerComments={peerComments}
           setPeerComments={setPeerComments}
           theme={theme}
-          setCurrentReviewer={setCurrentReviewer}
         />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
         {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
@@ -2224,7 +2383,7 @@ export default function App() {
         />}
         {tab === "result" && <ResultTab members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} theme={theme} />}
       </div>
-      <ChatBox chatMessages={chatMessages} setChatMessages={setChatMessages} members={members} theme={theme} />
+      <ChatBox chatMessages={chatMessages} setChatMessages={setChatMessages} members={members} theme={theme} currentReviewer={currentReviewer} />
     </div>
   );
 }
