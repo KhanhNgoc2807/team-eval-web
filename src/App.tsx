@@ -282,14 +282,18 @@ function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewe
 }
 
 // ─── SCHEDULE TAB ─────────────────────────────────────────────────────────────
-function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme }: any) {
+function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelections, setScheduleSelections, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [newSlotDate, setNewSlotDate] = useState("");
   const [newSlotStart, setNewSlotStart] = useState("");
   const [newSlotEnd, setNewSlotEnd] = useState("");
-  const [selectedMember, setSelectedMember] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  const getMemberName = (id: string) => {
+    const m = members.find((m: any) => m.id === id);
+    return m ? m.name : "Unknown";
+  };
 
   const addTimeSlot = () => {
     if (!newSlotDate || !newSlotStart || !newSlotEnd) return;
@@ -319,12 +323,15 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
   };
 
   const toggleSelection = (slotId: string) => {
-    if (!selectedMember) return;
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
+      return;
+    }
     setScheduleSelections((prev: any) => ({
       ...prev,
-      [selectedMember]: {
-        ...(prev[selectedMember] || {}),
-        [slotId]: !(prev[selectedMember]?.[slotId] || false)
+      [currentReviewer]: {
+        ...(prev[currentReviewer] || {}),
+        [slotId]: !(prev[currentReviewer]?.[slotId] || false)
       }
     }));
   };
@@ -365,6 +372,8 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
     setTimeout(() => setCopySuccess(false), 2000);
   };
 
+  const currentName = currentReviewer ? getMemberName(currentReviewer) : "Chưa chọn";
+
   return (
     <div>
       <Card theme={theme} style={{ marginBottom: 20 }}>
@@ -373,6 +382,18 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
           <Btn onClick={() => setShowCreateForm(!showCreateForm)} variant="ghost" theme={theme}>
             {showCreateForm ? "✖ Đóng" : "+ Thêm khung giờ"}
           </Btn>
+        </div>
+        
+        <div style={{ marginBottom: 16, padding: "10px 14px", background: styles.inputBg, borderRadius: 8 }}>
+          <span style={{ fontSize: 13, color: styles.textMuted }}>👤 Bạn đang chọn với vai trò: </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: currentReviewer ? "#22c55e" : "#f59e0b" }}>
+            {currentReviewer ? currentName : "⚠️ Chưa chọn tên trên thanh tiêu đề"}
+          </span>
+          {!currentReviewer && (
+            <Btn onClick={() => alert("Vui lòng chọn tên của bạn trên thanh tiêu đề (góc phải) để tham gia khảo sát!")} variant="danger" theme={theme} style={{ padding: "2px 10px", fontSize: 11, marginLeft: 8 }}>
+              Chọn tên
+            </Btn>
+          )}
         </div>
         
         {showCreateForm && (
@@ -393,21 +414,13 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
           </div>
         ) : (
           <>
-            <div style={{ marginBottom: 20 }}>
-              <label style={lbl}>Bạn là:</label>
-              <Select value={selectedMember} onChange={setSelectedMember} theme={theme} style={{ maxWidth: 300, width: "100%" }}>
-                <option value="">Chọn tên của bạn...</option>
-                {members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}
-              </Select>
-            </div>
-
-            {selectedMember && (
+            {currentReviewer && (
               <div className="schedule-table-wrapper" style={{ overflowX: "auto", marginBottom: 24 }}>
                 <table className="schedule-table" style={{ width: "100%", borderCollapse: "collapse", minWidth: 500 }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${styles.border}` }}>
                       <th style={{ textAlign: "left", padding: 12 }}>Khung giờ</th>
-                      <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn</th>
+                      <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn của bạn</th>
                       <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
                       <th style={{ textAlign: "center", padding: 12 }}></th>
                     </tr>
@@ -421,13 +434,13 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                             onClick={() => toggleSelection(slot.id)}
                             style={{
                               width: 32, height: 32, borderRadius: 8,
-                              background: scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.inputBg,
-                              border: `1px solid ${scheduleSelections[selectedMember]?.[slot.id] ? "#22c55e" : styles.border}`,
+                              background: scheduleSelections[currentReviewer]?.[slot.id] ? "#22c55e" : styles.inputBg,
+                              border: `1px solid ${scheduleSelections[currentReviewer]?.[slot.id] ? "#22c55e" : styles.border}`,
                               cursor: "pointer",
-                              color: scheduleSelections[selectedMember]?.[slot.id] ? "#fff" : styles.textMuted
+                              color: scheduleSelections[currentReviewer]?.[slot.id] ? "#fff" : styles.textMuted
                             }}
                           >
-                            {scheduleSelections[selectedMember]?.[slot.id] ? "✓" : "○"}
+                            {scheduleSelections[currentReviewer]?.[slot.id] ? "✓" : "○"}
                           </button>
                         </td>
                         <td style={{ textAlign: "center", padding: 12 }}>
@@ -440,6 +453,13 @@ function ScheduleTab({ members, scheduleSlots, setScheduleSlots, scheduleSelecti
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {!currentReviewer && (
+              <div style={{ textAlign: "center", padding: 30, color: styles.textMuted }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>👤</div>
+                <div>Vui lòng chọn tên trên thanh tiêu đề để tham gia khảo sát</div>
               </div>
             )}
 
@@ -546,6 +566,7 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
   const [showCommentForm, setShowCommentForm] = useState<string | null>(null);
   const [roleInput, setRoleInput] = useState<Record<string, string>>({});
   const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [leaderRoleAssign, setLeaderRoleAssign] = useState<Record<string, string>>({});
   
   const styles = themeStyles[theme];
   
@@ -603,7 +624,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
     return member ? member.name : "Unknown";
   };
 
-  // Task Role Functions
   const acceptRole = (taskId: string, role: string) => {
     if (!currentReviewer) {
       alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi nhận việc!");
@@ -627,7 +647,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
     alert("✅ Bạn đã nhận phần việc!");
   };
 
-  // Task Comment Functions
   const submitComment = (taskId: string) => {
     if (!commentText.trim()) return;
     if (!currentReviewer) {
@@ -735,7 +754,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
     }
   };
 
-  // Task Contribution Score Functions
   const submitContributionScore = (taskId: string, revieweeId: string, score: number, comment: string) => {
     if (!currentReviewer) {
       alert("Vui lòng chọn tên của bạn trên thanh tiêu đề trước khi đánh giá!");
@@ -777,26 +795,14 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
     return task.assignees?.some((a: any) => a.memberId === currentReviewer);
   };
 
-  const canRateContribution = (task: any, targetId: string) => {
-    return task.assignees?.some((a: any) => a.memberId === currentReviewer) && currentReviewer !== targetId;
-  };
-
-  // Check if member has accepted the task
   const hasAccepted = (task: any) => {
     return task.assignees?.some((a: any) => a.memberId === currentReviewer && a.status === "accepted");
   };
 
-  // Check if a member is pending
-  const isPending = (task: any, memberId: string) => {
-    return task.assignees?.some((a: any) => a.memberId === memberId && a.status === "pending");
-  };
-
-  // Get pending members for leader to assign
   const getPendingMembers = (task: any) => {
     return task.assignees?.filter((a: any) => a.status === "pending").map((a: any) => a.memberId) || [];
   };
 
-  // Leader assign role to a member
   const leaderAssignRole = (taskId: string, memberId: string, role: string) => {
     if (leader !== currentReviewer) {
       alert("Chỉ trưởng nhóm mới có thể chỉ định!");
@@ -941,7 +947,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                 </div>
                 <div style={{ fontSize: 14, fontWeight: 600, color: t.status === "done" ? "#4ade80" : styles.text, textDecoration: t.status === "done" ? "line-through" : "none", marginBottom: 10 }}>{t.name}</div>
                 
-                {/* Phần việc chi tiết */}
                 <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>
                   {t.assignees.map((a: any) => {
                     const member = members.find((m: any) => m.id === a.memberId);
@@ -967,7 +972,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                 
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 
-                {/* Nộp sản phẩm - chỉ hiện cho thành viên đã nhận task */}
                 {hasCurrentAccepted && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
@@ -1010,7 +1014,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                   </div>
                 )}
                 
-                {/* Phần nhận việc */}
                 {currentReviewer && t.assignees?.some((a: any) => a.memberId === currentReviewer && a.status === "pending") && (
                   <div style={{ marginBottom: 12, padding: 10, background: styles.inputBg, borderRadius: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
@@ -1039,7 +1042,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                   </div>
                 )}
                 
-                {/* Leader chỉ định */}
                 {leader === currentReviewer && pendingMembers.length > 0 && (
                   <div style={{ marginBottom: 12, padding: 10, background: "#1e1b4b", borderRadius: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#fcd34d", marginBottom: 8 }}>
@@ -1047,24 +1049,25 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                     </div>
                     {pendingMembers.map((a: any) => {
                       const member = members.find((m: any) => m.id === a.memberId);
-                      const [roleAssign, setRoleAssign] = useState("");
+                      const key = `${t.id}-${a.memberId}`;
                       return (
                         <div key={a.memberId} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                           <span style={{ fontSize: 13, fontWeight: 600, minWidth: 100, color: styles.text }}>
                             {member?.name}:
                           </span>
                           <Input 
-                            value={roleAssign}
-                            onChange={(v: string) => setRoleAssign(v)}
+                            value={leaderRoleAssign[key] || ""}
+                            onChange={(v: string) => setLeaderRoleAssign({ ...leaderRoleAssign, [key]: v })}
                             placeholder="Phần việc..."
                             theme={theme}
                             style={{ flex: 1 }}
                           />
                           <Btn 
                             onClick={() => {
-                              if (roleAssign.trim()) {
-                                leaderAssignRole(t.id, a.memberId, roleAssign);
-                                setRoleAssign("");
+                              const role = leaderRoleAssign[key] || "";
+                              if (role.trim()) {
+                                leaderAssignRole(t.id, a.memberId, role);
+                                setLeaderRoleAssign({ ...leaderRoleAssign, [key]: "" });
                               } else {
                                 alert("Vui lòng nhập phần việc!");
                               }
@@ -1081,17 +1084,13 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                   </div>
                 )}
                 
-                {/* Phần đánh giá đóng góp task */}
                 {currentReviewer && t.assignees?.some((a: any) => a.memberId === currentReviewer) && (
                   <div style={{ marginBottom: 12, padding: 10, background: styles.inputBg, borderRadius: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
                       📊 Đánh giá đóng góp task (ẩn danh)
                     </div>
                     {t.assignees.filter((a: any) => a.memberId !== currentReviewer).map((a: any) => {
-                      const [score, setScore] = useState(0);
-                      const [scoreComment, setScoreComment] = useState("");
                       const existingScore = getContributionScore(currentReviewer, a.memberId, t.id);
-                      
                       return (
                         <div key={a.memberId} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: `1px solid ${styles.border}` }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1101,8 +1100,7 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                             <RatingSelect 
                               value={existingScore?.score || 0}
                               onChange={(v: number) => {
-                                setScore(v);
-                                submitContributionScore(t.id, a.memberId, v, scoreComment);
+                                submitContributionScore(t.id, a.memberId, v, existingScore?.comment || "");
                               }}
                               theme={theme}
                               style={{ width: 120 }}
@@ -1110,7 +1108,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                             <Input
                               value={existingScore?.comment || ""}
                               onChange={(v: string) => {
-                                setScoreComment(v);
                                 if (existingScore?.score > 0) {
                                   submitContributionScore(t.id, a.memberId, existingScore.score, v);
                                 }
@@ -1141,7 +1138,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                   </div>
                 )}
                 
-                {/* Phần góp ý sản phẩm */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc" }}>
@@ -1168,7 +1164,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                     )}
                   </div>
                   
-                  {/* Danh sách góp ý */}
                   {taskCommentsList.filter((c: any) => !c.isHidden).map((comment: any) => (
                     <div key={comment.id} style={{ fontSize: 13, color: styles.text, background: styles.inputBg, padding: "10px 12px", borderRadius: 8, marginBottom: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
@@ -1199,7 +1194,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                         {comment.content}
                       </div>
                       
-                      {/* Đánh giá hữu ích (cho người nhận) */}
                       {comment.targetMemberId === currentReviewer && comment.usefulness === null && (
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                           <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
@@ -1223,7 +1217,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                         </div>
                       )}
                       
-                      {/* Hiển thị đánh giá hữu ích */}
                       {comment.usefulness === "useful" && (
                         <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>✅ Được đánh giá là hữu ích</div>
                       )}
@@ -1238,7 +1231,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                         </div>
                       )}
                       
-                      {/* Phản hồi */}
                       {(comment.replies || []).map((reply: any) => (
                         <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
@@ -1255,7 +1247,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                         </div>
                       ))}
                       
-                      {/* Form phản hồi */}
                       {currentReviewer && comment.targetMemberId === currentReviewer && (
                         <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                           <Input
@@ -1278,7 +1269,6 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
                     </div>
                   ))}
                   
-                  {/* Form thêm góp ý */}
                   {showCommentForm === t.id && (
                     <div style={{ marginTop: 8 }}>
                       <div style={{ marginBottom: 8 }}>
@@ -1348,16 +1338,13 @@ function TaskTab({ members, tasks, setTasks, taskComments, setTaskComments, task
 }
 
 // ─── PEER TAB ─────────────────────────────────────────────────────────────────
-function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComments, theme }: any) {
-  const [reviewer, setReviewer] = useState(() => {
-    return localStorage.getItem("currentReviewer") || "";
-  });
+function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComments, theme, currentReviewer, setCurrentReviewer }: any) {
   const [tempScores, setTempScores] = useState<Record<string, Record<string, number>>>({});
   const [tempComments, setTempComments] = useState<Record<string, string>>({});
   const styles = themeStyles[theme];
 
-  const reviewees = members.filter((m: any) => m.id !== reviewer);
-  const hasCompleted = reviewer ? (peerScores[reviewer]?.completed === true) : false;
+  const reviewees = members.filter((m: any) => m.id !== currentReviewer);
+  const hasCompleted = currentReviewer ? (peerScores[currentReviewer]?.completed === true) : false;
 
   const setScore = (revieweeId: string, criterion: string, val: number) => {
     setTempScores(prev => ({
@@ -1385,6 +1372,11 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
   };
 
   const submitAllReviews = () => {
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
+      return;
+    }
+    
     let allDone = true;
     reviewees.forEach(reviewee => {
       PEER_CRITERIA.forEach(c => {
@@ -1404,15 +1396,15 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
         PEER_CRITERIA.forEach(criterion => {
           const score = getTempScore(reviewee.id, criterion);
           if (score > 0) {
-            if (!next[reviewer]) next[reviewer] = {};
-            if (!next[reviewer][reviewee.id]) next[reviewer][reviewee.id] = {};
-            if (!next[reviewer][reviewee.id][criterion]) next[reviewer][reviewee.id][criterion] = [];
-            next[reviewer][reviewee.id][criterion].push(score);
+            if (!next[currentReviewer]) next[currentReviewer] = {};
+            if (!next[currentReviewer][reviewee.id]) next[currentReviewer][reviewee.id] = {};
+            if (!next[currentReviewer][reviewee.id][criterion]) next[currentReviewer][reviewee.id][criterion] = [];
+            next[currentReviewer][reviewee.id][criterion].push(score);
           }
         });
       });
       
-      next[reviewer] = { ...next[reviewer], completed: true };
+      next[currentReviewer] = { ...next[currentReviewer], completed: true };
       
       return next;
     });
@@ -1423,9 +1415,9 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
       reviewees.forEach(reviewee => {
         const comment = getTempComment(reviewee.id);
         if (comment.trim()) {
-          if (!next[reviewer]) next[reviewer] = {};
-          if (!next[reviewer][reviewee.id]) next[reviewer][reviewee.id] = {};
-          next[reviewer][reviewee.id].comment = comment.trim();
+          if (!next[currentReviewer]) next[currentReviewer] = {};
+          if (!next[currentReviewer][reviewee.id]) next[currentReviewer][reviewee.id] = {};
+          next[currentReviewer][reviewee.id].comment = comment.trim();
         }
       });
       
@@ -1434,7 +1426,6 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
 
     setTempScores({});
     setTempComments({});
-    setReviewer("");
     alert("✅ Đã lưu đánh giá và nhận xét ẩn danh!");
   };
 
@@ -1445,6 +1436,8 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
   if (members.length < 2) {
     return <div style={{ textAlign: "center", padding: 80, color: styles.textMuted }}><div style={{ fontSize: 48 }}>👥</div><div>Cần ít nhất 2 thành viên</div></div>;
   }
+
+  const currentName = members.find((m: any) => m.id === currentReviewer)?.name || "Chưa chọn";
 
   return (
     <div>
@@ -1459,44 +1452,33 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
 
       <Card style={{ marginBottom: 20 }} theme={theme}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>Bạn là:</div>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <Select value={reviewer} onChange={(v: string) => {
-              if (peerScores[v]?.completed) {
-                alert("⚠️ Bạn đã đánh giá rồi! Mỗi người chỉ được đánh giá 1 lần.");
-                return;
-              }
-              setReviewer(v);
-              localStorage.setItem("currentReviewer", v);
-            }} theme={theme}>
-              <option value="">Chọn tên của bạn...</option>
-              {members.map((m: any) => (
-                <option key={m.id} value={m.id} disabled={peerScores[m.id]?.completed === true}>
-                  {m.name} {peerScores[m.id]?.completed ? "(✅ Đã đánh giá)" : ""}
-                </option>
-              ))}
-            </Select>
+          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>👤 Bạn đang đánh giá với vai trò:</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: currentReviewer ? "#22c55e" : "#f59e0b" }}>
+            {currentReviewer ? currentName : "⚠️ Chưa chọn tên trên thanh tiêu đề"}
           </div>
-          <div style={{ fontSize: 13, color: styles.textMuted }}>
+          {!currentReviewer && (
+            <Btn onClick={() => alert("Vui lòng chọn tên của bạn trên thanh tiêu đề (góc phải) để bắt đầu đánh giá!")} variant="danger" theme={theme} style={{ padding: "4px 12px", fontSize: 12 }}>
+              Chọn tên
+            </Btn>
+          )}
+          <div style={{ fontSize: 13, color: styles.textMuted, marginLeft: "auto" }}>
             📊 Đã có <b style={{ color: "#22c55e" }}>{completedReviewers}</b>/{members.length} người tham gia
           </div>
         </div>
       </Card>
 
-      {reviewer && !hasCompleted && (
+      {currentReviewer && !hasCompleted && (
         <>
           <Card theme={theme} style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
               <div>
                 <span style={{ fontSize: 14, color: "#a5b4fc" }}>👤 Đang đánh giá với vai trò: </span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{members.find((m: any) => m.id === reviewer)?.name}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: styles.text }}>{currentName}</span>
               </div>
               <Btn onClick={() => {
-                setReviewer("");
                 setTempScores({});
                 setTempComments({});
-                localStorage.removeItem("currentReviewer");
-              }} variant="ghost" theme={theme}>↺ Thoát</Btn>
+              }} variant="ghost" theme={theme}>↺ Làm lại</Btn>
             </div>
             <div style={{ fontSize: 13, color: styles.textMuted }}>
               🔒 Đánh giá và nhận xét của bạn sẽ được ẩn danh hoàn toàn.
@@ -1562,6 +1544,24 @@ function PeerTab({ members, peerScores, setPeerScores, peerComments, setPeerComm
           </div>
         </>
       )}
+      
+      {currentReviewer && hasCompleted && (
+        <Card theme={theme} style={{ textAlign: "center", background: "#0c2a1a", borderColor: "#166534" }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#86efac", marginBottom: 8 }}>Bạn đã hoàn thành đánh giá!</div>
+          <div style={{ fontSize: 13, color: styles.textMuted }}>Cảm ơn bạn đã tham gia đánh giá.</div>
+        </Card>
+      )}
+      
+      {!currentReviewer && (
+        <Card theme={theme} style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>👤</div>
+          <div style={{ fontSize: 16, fontWeight: 600, color: styles.text, marginBottom: 8 }}>Chọn tên để bắt đầu đánh giá</div>
+          <div style={{ fontSize: 13, color: styles.textMuted }}>
+            Vui lòng chọn tên của bạn trên thanh tiêu đề (góc phải màn hình)
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
@@ -1623,7 +1623,6 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
     );
   }
   
-  // Get average contribution score for a member across all tasks
   const getAvgContributionScore = (memberId: string) => {
     const allScores: number[] = [];
     Object.keys(taskContributionScores).forEach(reviewerId => {
@@ -1733,7 +1732,6 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
   
   const weakestCriterion = Object.entries(teamAvgScores).reduce((a, b) => a[1] < b[1] ? a : b);
 
-  // Lấy nhận xét đồng đội (ẩn danh)
   const getMemberComments = (memberId: string) => {
     const comments: string[] = [];
     Object.keys(peerComments).forEach(reviewerId => {
@@ -1746,7 +1744,6 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
     return comments;
   };
 
-  // Lấy góp ý sản phẩm (ẩn danh) cho memberId
   const getProductComments = (memberId: string) => {
     const comments: string[] = [];
     Object.keys(taskComments).forEach(taskId => {
@@ -1895,7 +1892,6 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
                 </div>
               </div>
 
-              {/* Góp ý sản phẩm (ẩn danh) */}
               {productComments.length > 0 && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${styles.border}` }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
@@ -1917,7 +1913,6 @@ function AnalysisTab({ members, tasks, peerScores, leaderScores, leader, peerCom
                 </div>
               )}
 
-              {/* Nhận xét đồng đội (ẩn danh) */}
               {memberComments.length > 0 && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${styles.border}` }}>
                   <div style={{ fontSize: 13, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
@@ -2015,9 +2010,6 @@ function ResultTab({ members, tasks, peerScores, leaderScores, leader, teacherSc
       
       let finalScore;
       if (isLeader) {
-        // Trưởng nhóm: Công việc × 40% + Đánh giá đồng đội × 30% + Đánh giá đóng góp task × 30%
-        // Đánh giá đóng góp task sẽ được tính từ taskContributionScores
-        // Tạm thời để 0, sẽ cập nhật sau
         const contributionScore = 0;
         finalScore = taskScore * 0.4 + peerScore * 0.3 + contributionScore * 0.3;
       } else {
@@ -2315,7 +2307,6 @@ export default function App() {
             </div>
           </div>
           
-          {/* Dropdown chọn tên ở Header */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: 12, color: styles.textMuted }}>👤</span>
             <Select 
@@ -2367,9 +2358,19 @@ export default function App() {
           peerComments={peerComments}
           setPeerComments={setPeerComments}
           theme={theme}
+          currentReviewer={currentReviewer}
+          setCurrentReviewer={setCurrentReviewer}
         />}
         {tab === "leader" && <LeaderTab members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
-        {tab === "schedule" && <ScheduleTab members={members} scheduleSlots={scheduleSlots} setScheduleSlots={setScheduleSlots} scheduleSelections={scheduleSelections} setScheduleSelections={setScheduleSelections} theme={theme} />}
+        {tab === "schedule" && <ScheduleTab 
+          members={members} 
+          scheduleSlots={scheduleSlots} 
+          setScheduleSlots={setScheduleSlots} 
+          scheduleSelections={scheduleSelections} 
+          setScheduleSelections={setScheduleSelections} 
+          theme={theme}
+          currentReviewer={currentReviewer}
+        />}
         {tab === "analysis" && <AnalysisTab 
           members={members} 
           tasks={tasks} 
