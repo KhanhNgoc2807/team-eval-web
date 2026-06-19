@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, onValue, get, child } from "firebase/database";
+import { getDatabase, ref, set, onValue, push, get, child, update, remove } from "firebase/database";
 
+// Config cũ của mày (giữ nguyên)
 const firebaseConfig = {
   apiKey: "AIzaSyCKVN3QEG5Ls5QfzbkHuApqKp69_AinJso",
   authDomain: "team-aa2b2.firebaseapp.com",
@@ -14,4 +15,4 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
-export { database, ref, set, onValue, get, child };
+export { database, ref, set, onValue, push, get, child, update, remove };
