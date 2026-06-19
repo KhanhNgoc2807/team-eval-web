@@ -975,7 +975,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                         borderLeft: `3px solid ${isMine ? "#22c55e" : isPending ? "#f59e0b" : "#6366f1"}`
                       }}>
                         <span style={{ fontSize: 13, flex: 1 }}>
-                          {s.name}
+                          {isPending ? "⬜" : "✅"} {s.name}
                           {isMine && <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã nhận)</span>}
                           {!isPending && s.assignee && !isMine && (
                             <span style={{ fontSize: 11, color: "#6366f1", marginLeft: 8 }}>👤 {layTen(s.assignee)}</span>
@@ -1099,8 +1099,8 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
   const [messageLink, setMessageLink] = useState("");
   const [commentText, setCommentText] = useState("");
   const [commentTarget, setCommentTarget] = useState("");
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
   
-  // Lọc các task có từ 2 thành viên trở lên
   const validTasks = tasks.filter((t: any) => {
     const assignedMembers = t.subtasks?.filter((s: any) => s.assignee !== null).map((s: any) => s.assignee) || [];
     const uniqueMembers = [...new Set(assignedMembers)];
@@ -1112,6 +1112,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     return member ? member.name : "Không xác định";
   };
 
+  // ─── THẢO LUẬN (HIỂN THỊ TÊN) ───
   const guiTinNhan = (taskId: string) => {
     if (!message.trim() && !messageLink.trim()) {
       alert("Vui lòng nhập nội dung hoặc link!");
@@ -1129,7 +1130,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
         {
           id: uid(),
           authorId: currentReviewer,
-          authorName: layTen(currentReviewer),
+          authorName: layTen(currentReviewer), // HIỂN THỊ TÊN
           content: content,
           link: messageLink.trim() || null,
           timestamp: new Date().toISOString()
@@ -1140,6 +1141,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     setMessageLink("");
   };
 
+  // ─── GÓP Ý SẢN PHẨM (ẨN DANH) ───
   const guiGopY = (taskId: string) => {
     if (!commentText.trim()) return;
     if (!currentReviewer) {
@@ -1159,7 +1161,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
         ...(prev[taskId] || []),
         {
           id: uid(),
-          authorId: currentReviewer,
+          authorId: currentReviewer, // Lưu ID nhưng KHÔNG HIỂN THỊ
           targetMemberId: commentTarget,
           content: commentText.trim(),
           timestamp: new Date().toISOString(),
@@ -1196,8 +1198,8 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     });
   };
 
-  const phanHoiGopY = (taskId: string, commentId: string, replyText: string) => {
-    if (!replyText?.trim()) return;
+  const phanHoiGopY = (taskId: string, commentId: string, replyTextContent: string) => {
+    if (!replyTextContent?.trim()) return;
     if (!currentReviewer) {
       alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
       return;
@@ -1213,7 +1215,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                 {
                   id: uid(),
                   authorId: currentReviewer,
-                  content: replyText.trim(),
+                  content: replyTextContent.trim(),
                   timestamp: new Date().toISOString()
                 }
               ]
@@ -1222,6 +1224,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
       );
       return { ...prev, [taskId]: updated };
     });
+    setReplyText({ ...replyText, [commentId]: "" });
   };
 
   const getTaskComments = (taskId: string) => {
@@ -1246,7 +1249,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 
   return (
     <div>
-      {/* Chọn task để thảo luận */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>📌 Chọn công việc:</div>
@@ -1280,7 +1282,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 
         return (
           <>
-            {/* Tiêu đề task */}
             <TheCard theme={theme} style={{ marginBottom: 20, borderColor: "#6366f144" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                 <div>
@@ -1293,7 +1294,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
-            {/* Chat thảo luận */}
+            {/* ─── THẢO LUẬN (HIỂN THỊ TÊN) ─── */}
             <TheCard theme={theme} style={{ marginBottom: 20 }}>
               <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>💬 Thảo luận</h4>
               
@@ -1307,7 +1308,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                     <div key={msg.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                         <span style={{ fontWeight: 600, fontSize: 13, color: "#6366f1" }}>
-                          {msg.authorName}
+                          {msg.authorName} {/* HIỂN THỊ TÊN */}
                         </span>
                         <span style={{ fontSize: 11, color: styles.textMuted }}>
                           {new Date(msg.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
@@ -1354,7 +1355,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
-            {/* Góp ý sản phẩm */}
+            {/* ─── GÓP Ý SẢN PHẨM (ẨN DANH) ─── */}
             <TheCard theme={theme}>
               <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
               
@@ -1369,7 +1370,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                         <div>
                           <span style={{ fontSize: 11, color: styles.textMuted, fontStyle: "italic" }}>
-                            Góp ý cho {layTen(comment.targetMemberId)} 
+                            Góp ý cho {layTen(comment.targetMemberId)} (ẩn danh) {/* KHÔNG HIỂN THỊ TÊN NGƯỜI GỬI */}
                           </span>
                           <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
                             {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
@@ -1424,7 +1425,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                             <span style={{ fontWeight: 600, fontSize: 11, color: "#6366f1" }}>
-                              Phản hồi
+                              Phản hồi (ẩn danh)
                             </span>
                             <span style={{ fontSize: 10, color: styles.textMuted }}>
                               {new Date(reply.timestamp).toLocaleDateString("vi-VN")}
@@ -1439,46 +1440,21 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                       {currentReviewer && comment.targetMemberId === currentReviewer && (
                         <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                           <OInput
-                            value={comment.replyInput || ""}
-                            onChange={(v: string) => {
-                              const updated = { ...comment, replyInput: v };
-                              setTaskComments((prev: any) => {
-                                const comments = prev[selectedTask] || [];
-                                const updatedComments = comments.map((c: any) => 
-                                  c.id === comment.id ? updated : c
-                                );
-                                return { ...prev, [selectedTask]: updatedComments };
-                              });
-                            }}
+                            value={replyText[comment.id] || ""}
+                            onChange={(v: string) => setReplyText({ ...replyText, [comment.id]: v })}
                             placeholder="Phản hồi góp ý (ẩn danh)..."
                             theme={theme}
                             style={{ flex: 1, fontSize: 12, padding: "4px 10px" }}
                             onKeyDown={(e: any) => {
-                              if (e.key === "Enter" && comment.replyInput?.trim()) {
-                                phanHoiGopY(selectedTask, comment.id, comment.replyInput);
-                                const updated = { ...comment, replyInput: "" };
-                                setTaskComments((prev: any) => {
-                                  const comments = prev[selectedTask] || [];
-                                  const updatedComments = comments.map((c: any) => 
-                                    c.id === comment.id ? updated : c
-                                  );
-                                  return { ...prev, [selectedTask]: updatedComments };
-                                });
+                              if (e.key === "Enter" && replyText[comment.id]?.trim()) {
+                                phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
                               }
                             }}
                           />
                           <NutBam 
                             onClick={() => {
-                              if (comment.replyInput?.trim()) {
-                                phanHoiGopY(selectedTask, comment.id, comment.replyInput);
-                                const updated = { ...comment, replyInput: "" };
-                                setTaskComments((prev: any) => {
-                                  const comments = prev[selectedTask] || [];
-                                  const updatedComments = comments.map((c: any) => 
-                                    c.id === comment.id ? updated : c
-                                  );
-                                  return { ...prev, [selectedTask]: updatedComments };
-                                });
+                              if (replyText[comment.id]?.trim()) {
+                                phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
                               }
                             }} 
                             theme={theme} 
@@ -1574,7 +1550,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     return tempComments[revieweeId] || "";
   };
 
-  // ── Đánh giá đóng góp task ──
   const layTen = (memberId: string) => {
     const member = members.find((m: any) => m.id === memberId);
     return member ? member.name : "Không xác định";
@@ -1615,12 +1590,10 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     return taskContributionScores[reviewerId]?.[revieweeId]?.[taskId];
   };
 
-  // Lấy các task mà reviewer tham gia
   const reviewerTasks = tasks.filter((t: any) => 
     t.subtasks?.some((s: any) => s.assignee === currentReviewer)
   );
 
-  // Lấy các thành viên cùng task với reviewer
   const getTaskMembers = (taskId: string) => {
     const task = tasks.find((t: any) => t.id === taskId);
     if (!task) return [];
@@ -1726,9 +1699,8 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
 
       {currentReviewer && !hasCompleted && (
         <>
-          {/* Đánh giá đồng đội */}
           <TheCard theme={theme} style={{ marginBottom: 20 }}>
-            <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>1. Đánh giá đồng đội</h4>
+            <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>1. Đánh giá đồng đội (ẩn danh)</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {reviewees.map((reviewee: any) => {
                 const mc = MAU_THANH_VIEN[members.indexOf(reviewee) % MAU_THANH_VIEN.length];
@@ -1767,7 +1739,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
             </div>
           </TheCard>
 
-          {/* Đánh giá đóng góp task */}
           {reviewerTasks.length > 0 && (
             <TheCard theme={theme} style={{ marginBottom: 20 }}>
               <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>2. Đánh giá đóng góp task (ẩn danh)</h4>
