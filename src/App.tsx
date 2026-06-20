@@ -289,6 +289,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <p style={{ margin: 0 }}>• Tất cả đầu việc hoàn thành → task tự động done → 10 điểm</p>
               <p style={{ margin: 0 }}>• Quá 24h, hệ thống tự chỉ định ngẫu nhiên</p>
               <p style={{ margin: 0 }}>• Nhận việc bỏ trống → +0.5 điểm thưởng</p>
+              <p style={{ margin: 0 }}>• Có thể từ chối hoặc nhường việc cho người khác</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -952,15 +953,31 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     alert("✅ Đã cập nhật công việc!");
   };
 
+  const layTen = (memberId: string) => {
+    const member = members.find((m: any) => m.id === memberId);
+    return member ? member.name : "Không xác định";
+  };
+
   const nhanTaskCon = (taskId: string, subtaskId: string) => {
     if (!currentReviewer) {
       alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
       return;
     }
+    
+    // Kiểm tra xem đầu việc này đã có ai nhận chưa
+    const task = tasks.find((t: any) => t.id === taskId);
+    const subtask = task?.subtasks?.find((s: any) => s.id === subtaskId);
+    
+    if (subtask && subtask.assignee && subtask.assignee !== currentReviewer && subtask.status !== "done") {
+      if (!window.confirm(`Đầu việc này đang được ${layTen(subtask.assignee)} nhận. Bạn có muốn nhận lại không?`)) {
+        return;
+      }
+    }
+    
     setTasks((prev: any[]) => prev.map((t: any) => {
       if (t.id === taskId) {
         const updatedSubtasks = t.subtasks.map((s: any) => {
-          if (s.id === subtaskId && (s.assignee === null || s.assignee === undefined || s.assignee === "")) {
+          if (s.id === subtaskId) {
             // Nếu là đầu việc bị báo cáo không hoàn thành, thưởng thêm điểm
             const bonus = s.incomplete ? 1 : 0;
             return { 
@@ -987,7 +1004,41 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       }
       return t;
     }));
-    alert("✅ Bạn đã nhận đầu việc này!");
+    
+    if (subtask && subtask.assignee && subtask.assignee !== currentReviewer && subtask.status !== "done") {
+      alert(`✅ Bạn đã nhận lại đầu việc này từ ${layTen(subtask.assignee)}!`);
+    } else {
+      alert("✅ Bạn đã nhận đầu việc này!");
+    }
+  };
+
+  const tuChoiSubtask = (taskId: string, subtaskId: string) => {
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
+      return;
+    }
+    
+    if (!window.confirm("Bạn có chắc chắn muốn từ chối đầu việc này?")) return;
+    
+    setTasks((prev: any[]) => prev.map((t: any) => {
+      if (t.id === taskId) {
+        const updatedSubtasks = t.subtasks.map((s: any) => {
+          if (s.id === subtaskId && s.assignee === currentReviewer) {
+            return { 
+              ...s, 
+              assignee: null, 
+              status: "pending",
+              incomplete: false
+            };
+          }
+          return s;
+        });
+        return { ...t, subtasks: updatedSubtasks };
+      }
+      return t;
+    }));
+    
+    alert("✅ Bạn đã từ chối đầu việc này!");
   };
 
   const chiDinhCung = (taskId: string, subtaskId: string, memberId: string) => {
@@ -1072,7 +1123,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
           if (s.id === subtaskId) {
             return { 
               ...s, 
-              assignee: null,
+              assignee: null, 
               status: "pending",
               reportedBy: currentReviewer,
               reportedAt: new Date().toISOString(),
@@ -1117,11 +1168,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     })); 
   };
 
-  const layTen = (memberId: string) => {
-    const member = members.find((m: any) => m.id === memberId);
-    return member ? member.name : "Không xác định";
-  };
-
   const filtered = filter === "all" 
     ? tasks 
     : tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === filter));
@@ -1144,7 +1190,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       }}>
         <span>📌 Hướng dẫn nhanh:</span>
         <span style={{ color: "#e2e8f0" }}>⬜ Chưa có ai nhận → Nhấn "Nhận"</span>
-        <span style={{ color: "#e2e8f0" }}>✅ Đã có người nhận</span>
+        <span style={{ color: "#e2e8f0" }}>🔄 Đã nhận - đang làm</span>
+        <span style={{ color: "#e2e8f0" }}>✅ Đã hoàn thành</span>
         <span style={{ color: "#e2e8f0" }}>⏰ Quá 24h → Tự chỉ định</span>
         <span style={{ color: "#22c55e" }}>⭐ Hoàn thành = 10 điểm</span>
         <HelpIcon 
@@ -1398,7 +1445,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {(t.assignees || []).map((a: any) => {
                       const member = members.find((m: any) => m.id === a.memberId);
-                      const hasAccepted = t.subtasks?.some((s: any) => s.assignee === a.memberId);
+                      const hasAccepted = t.subtasks?.some((s: any) => s.assignee === a.memberId && s.status !== "pending");
                       return (
                         <span key={a.memberId} style={{ 
                           padding: "2px 10px", 
@@ -1449,14 +1496,15 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                         }}>
                           <span style={{ fontSize: 13, flex: 1 }}>
                             {isPending ? "⬜" : s.status === "done" ? "✅" : "🔄"} {s.name}
-                            {isMine && <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã nhận)</span>}
-                            {!isPending && s.assignee && !isMine && (
-                              <span style={{ fontSize: 11, color: "#6366f1", marginLeft: 8 }}>👤 {layTen(s.assignee)}</span>
+                            {isMine && s.status === "accepted" && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>📌 (Bạn đã nhận - đang làm)</span>}
+                            {isMine && s.status === "done" && <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã hoàn thành)</span>}
+                            {!isPending && s.assignee && !isMine && s.status === "accepted" && (
+                              <span style={{ fontSize: 11, color: "#6366f1", marginLeft: 8 }}>👤 {layTen(s.assignee)} đang làm</span>
+                            )}
+                            {!isPending && s.assignee && !isMine && s.status === "done" && (
+                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ {layTen(s.assignee)} đã hoàn thành</span>
                             )}
                             {isPending && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>⏳ Chưa có ai nhận</span>}
-                            {s.status === "done" && s.assignee && (
-                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ Đã hoàn thành</span>
-                            )}
                             {s.incomplete && (
                               <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 8 }}>⚠️ Chưa hoàn thành</span>
                             )}
@@ -1466,7 +1514,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                           </span>
                           
                           {/* ─── NÚT HOÀN THÀNH CHO TỪNG ĐẦU VIỆC ────────────────────────── */}
-                          {isMine && s.status !== "done" && (
+                          {isMine && s.status === "accepted" && (
                             <NutBam 
                               onClick={() => hoanThanhSubtask(t.id, s.id)} 
                               variant="success" 
@@ -1475,6 +1523,24 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             >
                               ✅ Hoàn thành
                             </NutBam>
+                          )}
+                          
+                          {/* ─── NÚT TỪ CHỐI ────────────────────────────────────────────────── */}
+                          {isMine && s.status === "accepted" && (
+                            <button
+                              onClick={() => tuChoiSubtask(t.id, s.id)}
+                              style={{
+                                padding: "2px 8px",
+                                borderRadius: 4,
+                                border: "1px solid #ef4444",
+                                background: "transparent",
+                                color: "#ef4444",
+                                cursor: "pointer",
+                                fontSize: 10
+                              }}
+                            >
+                              🚫 Từ chối
+                            </button>
                           )}
                           
                           {/* ─── NÚT NHẬN VIỆC ────────────────────────────────────────────────── */}
@@ -1496,7 +1562,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                           )}
                           
                           {/* ─── BÁO CÁO KHÔNG HOÀN THÀNH ──────────────────────────── */}
-                          {!isPending && s.assignee && !isMine && leader === currentReviewer && !s.incomplete && (
+                          {!isPending && s.assignee && !isMine && s.status === "accepted" && leader === currentReviewer && !s.incomplete && (
                             <button
                               onClick={() => baoCaoKhongHoanThanh(t.id, s.id, s.assignee)}
                               style={{
@@ -1553,9 +1619,9 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                         }
                       </div>
                     )}
-                    {subtaskList.some((s: any) => s.status !== "done" && s.assignee !== null) && (
+                    {subtaskList.some((s: any) => s.status === "accepted" && s.assignee !== null) && (
                       <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
-                        ⏳ Còn {subtaskList.filter((s: any) => s.status !== "done" && s.assignee !== null).length} đầu việc đang làm, chưa hoàn thành.
+                        ⏳ Còn {subtaskList.filter((s: any) => s.status === "accepted" && s.assignee !== null).length} đầu việc đang làm, chưa hoàn thành.
                       </div>
                     )}
                     {subtaskList.every((s: any) => s.status === "done") && t.status !== "done" && (
