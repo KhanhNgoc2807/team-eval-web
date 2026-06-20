@@ -295,7 +295,8 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>💬 Thảo luận & Góp ý</h4>
               <p style={{ margin: 0 }}>• 💬 Thảo luận: Công khai, hiển thị tên</p>
               <p style={{ margin: 0 }}>• 📝 Góp ý: Ẩn danh</p>
-              <p style={{ margin: 0 }}>• Góp ý ≥ 10 từ = Có giá trị, được +1 điểm thưởng nếu hữu ích</p>
+              <p style={{ margin: 0 }}>• Góp ý ≥ 10 từ mới được đánh giá hữu ích</p>
+              <p style={{ margin: 0 }}>• Được đánh giá hữu ích = +1 điểm thưởng</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -1460,7 +1461,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   );
 }
 
-// ─── THẢO LUẬN ──────────────────────────────────────────────────────────────────
+// ─── THẢO LUẬN (ĐÃ SỬA PHẦN ĐÁNH GIÁ HỮU ÍCH) ──────────────────────────────
 function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskComments, setTaskComments, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
@@ -1546,7 +1547,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     setCommentTarget("");
   };
 
-  // ─── SỬA: HÀM ĐÁNH GIÁ HỮU ÍCH (CÓ CỘNG ĐIỂM) ────────────────────────────
+  // ─── SỬA: HÀM ĐÁNH GIÁ HỮU ÍCH (CỘNG +1 ĐIỂM) ─────────────────────────────
   const danhGiaHuuIch = (taskId: string, commentId: string, useful: boolean, reason?: string) => {
     if (useful === false && !reason) {
       alert("Vui lòng cho biết lý do vì sao góp ý này không hữu ích!");
@@ -1556,11 +1557,9 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
       const comments = prev[taskId] || [];
       const updated = comments.map((c: any) => {
         if (c.id === commentId) {
+          // ─── CHỈ CỘNG ĐIỂM KHI USEFUL = TRUE ──────────────────────────────
           if (useful && c.authorId) {
-            // ─── +1 ĐIỂM CHO NGƯỜI GỬI GÓP Ý ──────────────────────────────────
-            // Cập nhật peerScores của người gửi
-            const reviewerId = c.authorId;
-            // Lưu vào taskComments để hiển thị
+            // Cộng 1 điểm cho người gửi góp ý (sẽ được cộng vào peerScores)
             return {
               ...c,
               usefulness: "useful",
@@ -1742,12 +1741,13 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
+            {/* ─── PHẦN GÓP Ý - ĐÃ SỬA ──────────────────────────────────────────── */}
             <TheCard theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
                 <HelpIcon 
                   title="📝 Quy tắc góp ý"
-                  text="1️⃣ Góp ý ≥ 10 từ = Có giá trị\n2️⃣ Người nhận đánh giá 'Hữu ích' = Người gửi được +1 điểm thưởng\n3️⃣ Góp ý ngắn (< 10 từ) = Không được cộng điểm"
+                  text="1️⃣ Góp ý ≥ 10 từ mới được đánh giá hữu ích\n2️⃣ Người nhận đánh giá 'Hữu ích' = Người gửi được +1 điểm thưởng\n3️⃣ Góp ý ngắn (< 10 từ) = Không được đánh giá"
                 />
               </div>
               
@@ -1767,11 +1767,19 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
                             {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
                           </span>
+                          
+                          {/* ─── SỬA: HIỂN THỊ ĐÚNG TRẠNG THÁI ───────────────────── */}
                           {comment.isShort && (
                             <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
                           )}
-                          {!comment.isShort && (
+                          {!comment.isShort && comment.usefulness === null && (
+                            <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>⏳ Chờ đánh giá</The>
+                          )}
+                          {comment.usefulness === "useful" && (
                             <The color="#22c55e" style={{ fontSize: 9, marginLeft: 8 }}>⭐ Có giá trị</The>
+                          )}
+                          {comment.usefulness === "not_useful" && (
+                            <The color="#ef4444" style={{ fontSize: 9, marginLeft: 8 }}>❌ Không hữu ích</The>
                           )}
                           {comment.bonusPoint === 1 && (
                             <The color="#8b5cf6" style={{ fontSize: 9, marginLeft: 8 }}>+1 điểm thưởng ✨</The>
@@ -1782,7 +1790,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         {comment.content}
                       </div>
                       
-                      {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ──────────────────────────────── */}
+                      {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH - CHỈ HIỂN THỊ KHI ĐỦ ĐIỀU KIỆN ── */}
                       {!comment.isShort && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                           <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
@@ -1806,9 +1814,10 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         </div>
                       )}
                       
+                      {/* ─── GÓP Ý NGẮN - KHÔNG CÓ NÚT ĐÁNH GIÁ ──────────────────── */}
                       {comment.isShort && comment.targetMemberId === currentReviewer && (
                         <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
-                          ⚠️ Góp ý ngắn (dưới 10 từ) - Không được cộng điểm thưởng
+                          ⚠️ Góp ý ngắn (dưới 10 từ) - Không thể đánh giá hữu ích
                         </div>
                       )}
                       
@@ -1902,7 +1911,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                   <label style={{ ...nhan, marginBottom: 0 }}>Nội dung góp ý</label>
                   <HelpIcon 
                     title="📝 Góp ý hiệu quả"
-                    text="✅ Nên viết: 1 điểm tốt + 1 điểm cần cải thiện\n📏 Góp ý ≥ 10 từ = Có giá trị\n⭐ Được đánh giá hữu ích = +1 điểm thưởng"
+                    text="✅ Nên viết: 1 điểm tốt + 1 điểm cần cải thiện\n📏 Góp ý ≥ 10 từ mới được đánh giá\n⭐ Được đánh giá hữu ích = +1 điểm thưởng"
                   />
                 </div>
                 <OInput
@@ -1913,12 +1922,12 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                 />
                 {commentText.trim().split(/\s+/).length > 0 && commentText.trim().split(/\s+/).length < 10 && (
                   <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
-                    ⚠️ Góp ý quá ngắn (dưới 10 từ), sẽ không được cộng điểm thưởng
+                    ⚠️ Góp ý quá ngắn (dưới 10 từ), sẽ không được đánh giá hữu ích
                   </div>
                 )}
                 {commentText.trim().split(/\s+/).length >= 10 && (
                   <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
-                    ✅ Góp ý có giá trị, sẽ được +1 điểm thưởng nếu người nhận đánh giá "Hữu ích"
+                    ✅ Góp ý đủ dài (≥ 10 từ), sẽ được đánh giá hữu ích
                   </div>
                 )}
                 <NutBam 
@@ -1938,10 +1947,11 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
   );
 }
 
-// ─── CÁC COMPONENT KHÁC ──────────────────────────────────────────────────────
+// ─── CÁC COMPONENT KHÁC (GIỮ NGUYÊN) ──────────────────────────────────────────
 // DanhGiaNhanXet, DanhGiaTruongNhom, PhanTich, KetQua, App
 // (giữ nguyên từ code cũ, không thay đổi gì)
 
+// ─── ĐÁNH GIÁ & NHẬN XÉT ──────────────────────────────────────────────────────
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [targetMember, setTargetMember] = useState("");
@@ -2214,6 +2224,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   );
 }
 
+// ─── ĐÁNH GIÁ TRƯỞNG NHÓM ────────────────────────────────────────────────────
 function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme }: any) {
   const styles = themeStyles[theme];
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -2372,6 +2383,7 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   );
 }
 
+// ─── PHÂN TÍCH ────────────────────────────────────────────────────────────────
 function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
 
@@ -2545,6 +2557,7 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
   );
 }
 
+// ─── KẾT QUẢ ─────────────────────────────────────────────────────────────────
 function KetQua({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
 
