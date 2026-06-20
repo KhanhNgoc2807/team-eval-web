@@ -367,7 +367,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   const [filter, setFilter] = useState("all");
   const styles = themeStyles[theme];
 
-  // Tự động gán việc sau 24 giờ chưa ai nhận - SỬA
+  // Tự động gán việc sau 24 giờ chưa ai nhận
   useEffect(() => {
     if (!tasks || tasks.length === 0 || !members || members.length === 0) return;
     const now = new Date().getTime();
@@ -377,7 +377,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       const hours = (now - new Date(t.createdAt).getTime()) / (1000 * 60 * 60);
       if (hours >= 24) {
         const updatedSubtasks = t.subtasks.map((s: any) => {
-          // SỬA: Kiểm tra assignee rỗng
+          // SỬA LỖI: Kiểm tra assignee rỗng
           if (s.assignee === null || s.assignee === undefined || s.assignee === "") {
             updated = true;
             const randomMember = members[Math.floor(Math.random() * members.length)].id;
@@ -414,7 +414,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     setShowForm(false);
   };
 
-  // SỬA: Hàm nhận task con
+  // SỬA LỖI: Hàm nhận task con
   const nhanTaskCon = (taskId: string, subtaskId: string) => {
     if (!currentReviewer) { alert("⚠️ Vui lòng chọn định danh của bạn ở thanh tiêu đề phía trên!"); return; }
     setTasks((prev: any[]) => prev.map(t => {
@@ -422,7 +422,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       return { 
         ...t, 
         subtasks: t.subtasks.map((s: any) => {
-          // SỬA: Kiểm tra assignee rỗng
+          // SỬA LỖI: Kiểm tra assignee rỗng
           if (s.id === subtaskId && (s.assignee === null || s.assignee === undefined || s.assignee === "")) {
             return { ...s, assignee: currentReviewer, status: "accepted" };
           }
@@ -432,11 +432,11 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     }));
   };
 
-  // SỬA: Hàm chuyển trạng thái
+  // SỬA LỖI: Hàm chuyển trạng thái
   const doiTrangThai = (id: string) => {
     setTasks((prev: any[]) => prev.map(t => {
       if (t.id !== id) return t;
-      // SỬA: Kiểm tra assignee rỗng
+      // SỬA LỖI: Kiểm tra assignee rỗng
       const hasPending = t.subtasks.some((s: any) => s.assignee === null || s.assignee === undefined || s.assignee === "");
       if (hasPending && t.status === "todo") { 
         alert("⚠️ Không thể chuyển trạng thái khi vẫn còn việc phụ chưa có ai nhận!"); 
@@ -504,10 +504,10 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(380px, 1fr))", gap: 16 }}>
         {(filteredTasks || []).map((t: any) => {
-          // SỬA: Tính đúng số subtask chưa có người nhận
+          // SỬA LỖI: Tính đúng số subtask chưa có người nhận
           const subtaskList = t.subtasks || [];
           const hasSubtasks = subtaskList.length > 0;
-          // SỬA: Kiểm tra assignee rỗng
+          // SỬA LỖI: Kiểm tra assignee rỗng
           const pendingSubtasks = subtaskList.filter((s: any) => s.assignee === null || s.assignee === undefined || s.assignee === "");
           const allAssigned = hasSubtasks && pendingSubtasks.length === 0;
           
@@ -523,7 +523,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
               <div style={{ margin: "10px 0" }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>📌 Các đầu việc nhỏ:</div>
                 {subtaskList.map((s: any) => {
-                  // SỬA: Kiểm tra assignee rỗng
+                  // SỬA LỖI: Kiểm tra assignee rỗng
                   const isPending = s.assignee === null || s.assignee === undefined || s.assignee === "";
                   const isMine = s.assignee === currentReviewer;
                   const memberName = members.find((m: any) => m.id === s.assignee)?.name;
@@ -553,7 +553,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   );
                 })}
                 
-                {/* SỬA: Hiển thị đúng thông báo */}
+                {/* SỬA LỖI: Hiển thị đúng thông báo */}
                 {hasSubtasks && pendingSubtasks.length > 0 && (
                   <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
                     ⏰ Còn {pendingSubtasks.length} đầu việc chưa có ai nhận
@@ -571,7 +571,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                 )}
               </div>
 
-              {/* SỬA: Chỉ hiển thị nộp sản phẩm khi tất cả đã có người nhận */}
+              {/* SỬA LỖI: Chỉ hiển thị nộp sản phẩm khi tất cả đã có người nhận */}
               {hasSubtasks && pendingSubtasks.length === 0 && (
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>🔗 Link sản phẩm</div>
