@@ -105,6 +105,8 @@ function ThanhTienTrinh({ value, max, color = "#6366f1" }: { value: number; max:
 // ─── COMPONENT HƯỚNG DẪN ──────────────────────────────────────────────────────
 function HelpIcon({ text, title = "Hướng dẫn" }: { text: string; title?: string }) {
   const [show, setShow] = useState(false);
+  const lines = text.split('\n');
+  
   return (
     <span style={{ position: "relative", display: "inline-block", marginLeft: 6 }}>
       <span 
@@ -146,11 +148,14 @@ function HelpIcon({ text, title = "Hướng dẫn" }: { text: string; title?: st
           zIndex: 100,
           boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
           textAlign: "left",
-          lineHeight: 1.5,
-          whiteSpace: "pre-line"
+          lineHeight: 1.6,
         }}>
-          <div style={{ fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>{title}</div>
-          {text}
+          <div style={{ fontWeight: 600, color: "#a5b4fc", marginBottom: 6 }}>{title}</div>
+          {lines.map((line, i) => (
+            <div key={i} style={{ marginBottom: i < lines.length - 1 ? 4 : 0 }}>
+              {line}
+            </div>
+          ))}
           <div style={{
             position: "absolute",
             bottom: -6,
@@ -171,11 +176,40 @@ function HelpIcon({ text, title = "Hướng dẫn" }: { text: string; title?: st
 function HelpDialog({ theme }: { theme: Theme }) {
   const [isOpen, setIsOpen] = useState(false);
   const styles = themeStyles[theme];
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dialogRef.current && !dialogRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('keydown', handleEsc);
+    }
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [isOpen]);
 
   return (
     <>
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={() => setIsOpen(!isOpen)}
         style={{
           position: "fixed",
           bottom: 80,
@@ -199,21 +233,24 @@ function HelpDialog({ theme }: { theme: Theme }) {
       </button>
 
       {isOpen && (
-        <div style={{
-          position: "fixed",
-          bottom: 132,
-          right: 20,
-          width: 380,
-          maxHeight: 500,
-          background: styles.cardBg,
-          border: `1px solid ${styles.border}`,
-          borderRadius: 16,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-          zIndex: 1000,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column"
-        }}>
+        <div 
+          ref={dialogRef}
+          style={{
+            position: "fixed",
+            bottom: 132,
+            right: 20,
+            width: 380,
+            maxHeight: 500,
+            background: styles.cardBg,
+            border: `1px solid ${styles.border}`,
+            borderRadius: 16,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+            zIndex: 1000,
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column"
+          }}
+        >
           <div style={{
             padding: "12px 16px",
             background: "linear-gradient(135deg,#6366f1,#8b5cf6)",
@@ -225,7 +262,14 @@ function HelpDialog({ theme }: { theme: Theme }) {
             <span style={{ fontWeight: 700, fontSize: 14 }}>❓ Hướng dẫn sử dụng</span>
             <button
               onClick={() => setIsOpen(false)}
-              style={{ background: "none", border: "none", color: "white", fontSize: 18, cursor: "pointer" }}
+              style={{ 
+                background: "none", 
+                border: "none", 
+                color: "white", 
+                fontSize: 20, 
+                cursor: "pointer",
+                padding: "0 4px"
+              }}
             >
               ✕
             </button>
@@ -241,44 +285,42 @@ function HelpDialog({ theme }: { theme: Theme }) {
           }}>
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>🚀 Bắt đầu</h4>
-              <p style={{ margin: 0 }}>1. Chọn tên của bạn trên thanh tiêu đề (👤)</p>
-              <p style={{ margin: 0 }}>2. Tham gia các hoạt động nhóm</p>
+              <p style={{ margin: "2px 0" }}>1. Chọn tên của bạn trên thanh tiêu đề (👤)</p>
+              <p style={{ margin: "2px 0" }}>2. Tham gia các hoạt động nhóm</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>📋 Công việc</h4>
-              <p style={{ margin: 0 }}>• Nhận đầu việc phù hợp với thế mạnh</p>
-              <p style={{ margin: 0 }}>• Chỉ nộp sản phẩm khi <b>tất cả</b> đầu việc đã có người nhận</p>
-              <p style={{ margin: 0 }}>• Quá 24h, hệ thống tự chỉ định ngẫu nhiên</p>
+              <p style={{ margin: "2px 0" }}>• Nhận đầu việc phù hợp với thế mạnh</p>
+              <p style={{ margin: "2px 0" }}>• Chỉ nộp sản phẩm khi <b>tất cả</b> đầu việc đã có người nhận</p>
+              <p style={{ margin: "2px 0" }}>• Quá 24h, hệ thống tự chỉ định ngẫu nhiên</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>💬 Thảo luận & Góp ý</h4>
-              <p style={{ margin: 0 }}>• 💬 Thảo luận: Công khai, hiển thị tên</p>
-              <p style={{ margin: 0 }}>• 📝 Góp ý: Ẩn danh, thoải mái chia sẻ</p>
-              <p style={{ margin: 0 }}>• Góp ý ≥ 10 từ = Có giá trị, được cộng điểm thưởng</p>
+              <p style={{ margin: "2px 0" }}>• 💬 Thảo luận: Công khai, hiển thị tên</p>
+              <p style={{ margin: "2px 0" }}>• 📝 Góp ý: Ẩn danh</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>👥 Đánh giá</h4>
-              <p style={{ margin: 0 }}>• Đánh giá dựa trên đóng góp thực tế</p>
-              <p style={{ margin: 0 }}>• Công bằng, khách quan</p>
-              <p style={{ margin: 0 }}>• Nhận xét mang tính xây dựng</p>
+              <p style={{ margin: "2px 0" }}>• Đánh giá dựa trên đóng góp thực tế</p>
+              <p style={{ margin: "2px 0" }}>• Công bằng, khách quan</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>📅 Họp nhóm</h4>
-              <p style={{ margin: 0 }}>• Tạo khung giờ khảo sát</p>
-              <p style={{ margin: 0 }}>• Chọn lịch rảnh của bạn</p>
-              <p style={{ margin: 0 }}>• Xem thống kê và chọn khung giờ phù hợp</p>
+              <p style={{ margin: "2px 0" }}>• Tạo khung giờ khảo sát</p>
+              <p style={{ margin: "2px 0" }}>• Chọn lịch rảnh của bạn</p>
+              <p style={{ margin: "2px 0" }}>• Xem thống kê</p>
             </div>
 
             <div style={{ marginBottom: 8 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>📊 Công thức tính điểm</h4>
-              <p style={{ margin: 0, fontSize: 12, color: styles.textMuted }}>
+              <p style={{ margin: "2px 0", fontSize: 12, color: styles.textMuted }}>
                 Thành viên = Task×40% + Đồng đội×30% + Đóng góp×20% + Trưởng nhóm×10%
               </p>
-              <p style={{ margin: 0, fontSize: 12, color: styles.textMuted }}>
+              <p style={{ margin: "2px 0", fontSize: 12, color: styles.textMuted }}>
                 Trưởng nhóm = Task×40% + Đồng đội×30% + Đóng góp×30%
               </p>
             </div>
@@ -564,28 +606,6 @@ function HopNhom({ members, scheduleSlots, setScheduleSlots, scheduleSelections,
 
   return (
     <div>
-      <div style={{ 
-        background: "#1e1b4b", 
-        borderRadius: 12, 
-        padding: "12px 16px", 
-        marginBottom: 16,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        flexWrap: "wrap",
-        fontSize: 13,
-        color: "#a5b4fc"
-      }}>
-        <span>📌 Cách dùng:</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>1️⃣ Tạo khung giờ họp</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>2️⃣ Chọn lịch rảnh</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>3️⃣ Xem kết quả thống kê</span>
-        <HelpIcon 
-          title="📅 Họp nhóm"
-          text="Tạo các khung giờ khảo sát, mỗi thành viên chọn lịch rảnh.\nHệ thống sẽ thống kê và đề xuất khung giờ phù hợp nhất."
-        />
-      </div>
-
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📅 KHẢO SÁT LỊCH RẢNH</h3>
@@ -608,13 +628,6 @@ function HopNhom({ members, scheduleSlots, setScheduleSlots, scheduleSelections,
         
         {showCreateForm && (
           <div style={{ background: styles.inputBg, borderRadius: 12, padding: 16, marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <span style={{ fontWeight: 600, color: "#a5b4fc" }}>➕ Tạo khung giờ mới</span>
-              <HelpIcon 
-                title="⏰ Tạo khung giờ"
-                text="Tạo nhiều khung giờ khác nhau để khảo sát.\nThành viên sẽ chọn lịch rảnh của mình.\nKết quả sẽ hiển thị số người rảnh cho từng khung."
-              />
-            </div>
             <div className="schedule-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
               <div><label style={nhan}>Ngày</label><OInput type="date" value={newSlotDate} onChange={setNewSlotDate} theme={theme} /></div>
               <div><label style={nhan}>Từ giờ</label><OInput type="time" value={newSlotStart} onChange={setNewSlotStart} theme={theme} /></div>
@@ -637,13 +650,7 @@ function HopNhom({ members, scheduleSlots, setScheduleSlots, scheduleSelections,
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${styles.border}` }}>
                       <th style={{ textAlign: "left", padding: 12 }}>Khung giờ</th>
-                      <th style={{ textAlign: "center", padding: 12 }}>
-                        Lựa chọn của bạn
-                        <HelpIcon 
-                          title="✅ Chọn lịch rảnh"
-                          text="Nhấn vào ô tròn để chọn/bỏ chọn khung giờ rảnh của bạn.\nHệ thống sẽ tổng hợp để tìm khung giờ phù hợp nhất cho cả nhóm."
-                        />
-                      </th>
+                      <th style={{ textAlign: "center", padding: 12 }}>Lựa chọn của bạn</th>
                       <th style={{ textAlign: "center", padding: 12 }}>Số người rảnh</th>
                       <th style={{ textAlign: "center", padding: 12 }}></th>
                     </tr>
@@ -736,16 +743,13 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
       <TheCard theme={theme}>
         <h3 style={{ margin: "0 0 20px", fontSize: 15, color: "#a5b4fc", fontFamily: "'Space Mono',monospace" }}>⚙️ THIẾT LẬP</h3>
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={nhan}>Tên dự án / môn học</label>
-            <OInput value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing - Học kỳ 2" theme={theme} />
-          </div>
+          <div><label style={nhan}>Tên dự án / môn học</label><OInput value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing - Học kỳ 2" theme={theme} /></div>
           <div>
             <label style={nhan}>
               Trưởng nhóm
               <HelpIcon 
                 title="👑 Trưởng nhóm"
-                text="Trưởng nhóm có quyền:\n• Tạo và chỉnh sửa công việc\n• Xóa công việc\n• Chỉ định đầu việc cho thành viên"
+                text="Trưởng nhóm có quyền tạo, chỉnh sửa và xóa công việc.\nChỉ trưởng nhóm mới có thể chỉ định đầu việc cho thành viên."
               />
             </label>
             <Chon value={leader} onChange={setLeader} theme={theme}>
@@ -758,10 +762,6 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
           <div>Thành viên = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 30%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá đóng góp task × 20%</b> + <b style={{ color: "#ef4444" }}>Đánh giá trưởng nhóm × 10%</b></div>
           <div>Trưởng nhóm = <b style={{ color: "#6366f1" }}>Công việc × 40%</b> + <b style={{ color: "#22c55e" }}>Đánh giá đồng đội × 30%</b> + <b style={{ color: "#f59e0b" }}>Đánh giá đóng góp task × 30%</b></div>
-          <HelpIcon 
-            title="📊 Cách tính điểm"
-            text="Điểm được tính dựa trên nhiều yếu tố:\n• Công việc: Điểm từ các task đã nhận\n• Đánh giá đồng đội: Trung bình từ các thành viên khác\n• Đóng góp task: Đánh giá từng task cụ thể\n• Trưởng nhóm: Đánh giá riêng cho leader"
-          />
         </div>
       </TheCard>
       <TheCard theme={theme}>
@@ -829,11 +829,11 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         const shuffledMembers = [...assignedMembers].sort(() => Math.random() - 0.5);
         const pendingSubtasks = task.subtasks.filter((s: any) => s.assignee === null);
         
-        if (pendingSubtasks.length > 0) {
+        if (pendingSubtasks.length > 0 && shuffledMembers.length > 0) {
           hasChanges = true;
           let memberIndex = 0;
           const updatedSubtasks = task.subtasks.map((s: any) => {
-            if (s.assignee === null && shuffledMembers.length > 0) {
+            if (s.assignee === null) {
               const assignedMember = shuffledMembers[memberIndex % shuffledMembers.length];
               memberIndex++;
               return { ...s, assignee: assignedMember, status: "accepted" };
@@ -1031,7 +1031,9 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     const order = ["todo", "doing", "done"]; 
     setTasks((ts: any[]) => ts.map((t: any) => {
       if (t.id !== id) return t;
-      const allAssigned = t.subtasks.every((s: any) => s.assignee !== null);
+      const hasSubtasks = t.subtasks && t.subtasks.length > 0;
+      const pendingSubtasks = t.subtasks?.filter((s: any) => s.assignee === null) || [];
+      const allAssigned = hasSubtasks && pendingSubtasks.length === 0;
       if (!allAssigned && t.status !== "todo") {
         alert("⚠️ Vẫn còn đầu việc chưa có ai nhận! Không thể chuyển trạng thái.");
         return t;
@@ -1056,22 +1058,22 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       <div style={{ 
         background: "#1e1b4b", 
         borderRadius: 12, 
-        padding: "12px 16px", 
+        padding: "8px 14px", 
         marginBottom: 16,
         display: "flex",
         alignItems: "center",
-        gap: 12,
+        gap: 16,
         flexWrap: "wrap",
-        fontSize: 13,
+        fontSize: 12,
         color: "#a5b4fc"
       }}>
         <span>📌 Hướng dẫn nhanh:</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>1️⃣ Chọn tên của bạn trên thanh tiêu đề</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>2️⃣ Nhận đầu việc phù hợp với thế mạnh</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>3️⃣ Công việc chỉ được nộp khi tất cả đầu việc đã có người nhận</span>
+        <span style={{ color: "#e2e8f0" }}>⬜ Chưa có ai nhận → Nhấn "Nhận"</span>
+        <span style={{ color: "#e2e8f0" }}>✅ Đã có người nhận</span>
+        <span style={{ color: "#e2e8f0" }}>⏰ Quá 24h → Tự chỉ định</span>
         <HelpIcon 
-          title="💡 Mẹo"
-          text="Nhận đầu việc sớm để chọn việc phù hợp với thế mạnh.\nQuá 24h hệ thống sẽ tự chỉ định ngẫu nhiên!"
+          title="⏰ Quy trình 24h"
+          text="Sau 24h, hệ thống sẽ tự chỉ định các đầu việc chưa có người nhận.\nHãy chủ động nhận việc sớm để chọn đúng thế mạnh!"
         />
       </div>
 
@@ -1091,10 +1093,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         {leader === currentReviewer && (
           <NutBam onClick={() => setShowForm(true)} theme={theme}>
             + Tạo công việc
-            <HelpIcon 
-              title="👑 Trưởng nhóm"
-              text="Chỉ trưởng nhóm mới có thể tạo, chỉnh sửa và xóa công việc."
-            />
           </NutBam>
         )}
       </div>
@@ -1103,10 +1101,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         <TheCard style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h4 style={{ margin: 0, color: "#a5b4fc" }}>📝 Tạo công việc mới</h4>
-            <HelpIcon 
-              title="📋 Cách tạo công việc"
-              text="1. Đặt tên công việc rõ ràng\n2. Chọn thành viên tham gia\n3. Chia nhỏ thành các đầu việc cụ thể\n4. Chọn độ khó phù hợp"
-            />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 12, alignItems: "end" }}>
             <div>
@@ -1114,13 +1108,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
               <OInput value={form.name} onChange={v => setForm((f: any) => ({ ...f, name: v }))} placeholder="VD: Làm báo cáo marketing" theme={theme} />
             </div>
             <div>
-              <label style={nhan}>
-                Giao cho * (chọn nhiều)
-                <HelpIcon 
-                  title="👥 Chọn thành viên"
-                  text="Chọn các thành viên sẽ tham gia vào công việc này.\nHọ sẽ là những người có thể nhận các đầu việc nhỏ."
-                />
-              </label>
+              <label style={nhan}>Giao cho * (chọn nhiều)</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px", maxHeight: 200, overflowY: "auto" }}>
                 {members.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13, padding: 8 }}>Chưa có thành viên nào</span>}
                 {members.map((m: any) => (
@@ -1151,13 +1139,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
               <OInput type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} />
             </div>
             <div>
-              <label style={nhan}>
-                Độ khó
-                <HelpIcon 
-                  title="⭐ Độ khó"
-                  text="Cấp 1: Nhẹ - 1 điểm\nCấp 2: Trung bình - 2 điểm\nCấp 3: Nặng - 3 điểm (+1 điểm thưởng)"
-                />
-              </label>
+              <label style={nhan}>Độ khó</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {[1,2,3].map(v => (
                   <button key={v} onClick={() => setForm((f: any) => ({ ...f, complexity: v }))} 
@@ -1173,13 +1155,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
             <OInput value={form.description} onChange={v => setForm((f: any) => ({ ...f, description: v }))} placeholder="Mô tả công việc chi tiết..." theme={theme} />
           </div>
           <div style={{ marginTop: 12 }}>
-            <label style={nhan}>
-              Các đầu việc nhỏ *
-              <HelpIcon 
-                title="📌 Đầu việc nhỏ"
-                text="Chia công việc thành các đầu việc nhỏ cụ thể.\nMỗi đầu việc sẽ có 1 người nhận.\nTất cả đầu việc phải có người nhận mới nộp được sản phẩm."
-              />
-            </label>
+            <label style={nhan}>Các đầu việc nhỏ *</label>
             <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               <OInput 
                 value={subtaskInput} 
@@ -1319,10 +1295,13 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(420px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
+            // ─── SỬA LỖI LOGIC Ở ĐÂY ────────────────────────────────────────
+            const hasSubtasks = t.subtasks && t.subtasks.length > 0;
+            const pendingSubtasks = t.subtasks?.filter((s: any) => s.assignee === null) || [];
+            const allAssigned = hasSubtasks && pendingSubtasks.length === 0;
+            
             const sc = TRANG_THAI[t.status as keyof typeof TRANG_THAI];
             const od = t.deadline && t.status !== "done" && new Date(t.deadline) < new Date();
-            const pendingSubtasks = t.subtasks?.filter((s: any) => s.assignee === null) || [];
-            const allAssigned = t.subtasks?.length > 0 && pendingSubtasks.length === 0;
             
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
@@ -1355,12 +1334,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc" }}>📌 Các đầu việc nhỏ:</span>
-                    <HelpIcon 
-                      title="📌 Đầu việc nhỏ"
-                      text="⬜ = Chưa có ai nhận → Nhấn 'Nhận' để chọn\n✅ = Đã có người nhận\nBạn nên chọn đầu việc phù hợp với thế mạnh của mình!"
-                    />
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
+                    📌 Các đầu việc nhỏ:
                   </div>
                   {t.subtasks?.length > 0 ? (
                     t.subtasks.map((s: any) => {
@@ -1436,34 +1411,22 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                     </div>
                   )}
                   
-                  {pendingSubtasks.length > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
+                  {hasSubtasks && pendingSubtasks.length > 0 && (
+                    <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
                       ⏰ Còn {pendingSubtasks.length} đầu việc chưa có ai nhận
-                      <HelpIcon 
-                        title="⏰ Quy trình tự động"
-                        text={`Còn ${pendingSubtasks.length} đầu việc chưa có người nhận.\n⏳ Sau 24h, hệ thống sẽ tự chỉ định ngẫu nhiên cho các thành viên được giao.\n💡 Hãy chủ động nhận việc sớm để chọn đúng thế mạnh!`}
-                      />
                     </div>
                   )}
-                  {allAssigned && t.status !== "done" && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "#22c55e", marginTop: 6 }}>
+                  {hasSubtasks && allAssigned && t.status !== "done" && (
+                    <div style={{ fontSize: 11, color: "#22c55e", marginTop: 6 }}>
                       ✅ Tất cả đầu việc đã có người nhận!
-                      <HelpIcon 
-                        title="✅ Sẵn sàng làm việc"
-                        text="Tất cả đầu việc đã có người nhận.\nCác thành viên có thể bắt đầu làm việc và nộp sản phẩm!"
-                      />
                     </div>
                   )}
                 </div>
                 
-                {allAssigned && (
+                {hasSubtasks && allAssigned && (
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc" }}>🔗 Link sản phẩm</span>
-                      <HelpIcon 
-                        title="📤 Nộp sản phẩm"
-                        text="Chỉ nộp sản phẩm khi đã hoàn thành công việc.\nLink có thể là Google Docs, Drive, GitHub, Figma...\nSau khi nộp, các thành viên khác có thể xem và góp ý."
-                      />
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
+                      🔗 Link sản phẩm
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <OInput 
@@ -1670,29 +1633,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 
   return (
     <div>
-      <div style={{ 
-        background: "#1e1b4b", 
-        borderRadius: 12, 
-        padding: "12px 16px", 
-        marginBottom: 16,
-        fontSize: 13,
-        color: "#a5b4fc"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <span>💡 Hướng dẫn:</span>
-          <span style={{ color: "#e2e8f0", fontSize: 12 }}>
-            💬 Thảo luận = Công khai (hiển thị tên)
-          </span>
-          <span style={{ color: "#e2e8f0", fontSize: 12 }}>
-            📝 Góp ý = Ẩn danh
-          </span>
-          <HelpIcon 
-            title="💬 Phân biệt"
-            text="💬 Thảo luận: Dành cho trao đổi chung, hiển thị tên người gửi\n📝 Góp ý: Dành cho nhận xét cá nhân, ẩn danh để thoải mái chia sẻ"
-          />
-        </div>
-      </div>
-
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>📌 Chọn công việc:</div>
@@ -1912,13 +1852,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
               
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <label style={{ ...nhan, marginBottom: 0 }}>Chọn người nhận</label>
-                  <HelpIcon 
-                    title="👤 Người nhận"
-                    text="Chọn thành viên bạn muốn góp ý.\nGóp ý sẽ được ẩn danh và chỉ người nhận mới thấy tên bạn."
-                  />
-                </div>
                 <Chon 
                   value={commentTarget} 
                   onChange={setCommentTarget} 
@@ -1932,14 +1865,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                       <option key={id} value={id}>{layTen(id)}</option>
                     ))}
                 </Chon>
-                
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <label style={{ ...nhan, marginBottom: 0 }}>Nội dung góp ý</label>
-                  <HelpIcon 
-                    title="📝 Góp ý hiệu quả"
-                    text="✅ Nên viết: 1 điểm tốt + 1 điểm cần cải thiện\n📏 Góp ý ≥ 10 từ = Có giá trị\n⭐ Được đánh giá hữu ích = Cộng điểm thưởng"
-                  />
-                </div>
                 <OInput
                   value={commentText}
                   onChange={setCommentText}
@@ -2095,31 +2020,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
 
   return (
     <div>
-      <div style={{ 
-        background: "#1e1b4b", 
-        borderRadius: 12, 
-        padding: "12px 16px", 
-        marginBottom: 16,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        flexWrap: "wrap",
-        fontSize: 13,
-        color: "#a5b4fc"
-      }}>
-        <span>📌 Lưu ý:</span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>
-          👥 Đánh giá dựa trên đóng góp thực tế
-        </span>
-        <span style={{ color: "#e2e8f0", fontSize: 12 }}>
-          ⭐ Điểm cao = Đóng góp tốt
-        </span>
-        <HelpIcon 
-          title="🎯 Nguyên tắc đánh giá"
-          text="✅ Công bằng, khách quan\n✅ Dựa trên đóng góp thực tế\n✅ Không thiên vị\n✅ Nhận xét mang tính xây dựng"
-        />
-      </div>
-
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
@@ -2137,13 +2037,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
           <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Đánh giá thành viên</h4>
           
           <div style={{ marginBottom: 16 }}>
-            <label style={nhan}>
-              Chọn thành viên đánh giá
-              <HelpIcon 
-                title="👥 Đánh giá đồng đội"
-                text="Đánh giá tất cả thành viên trong nhóm.\nHệ thống sẽ tính điểm trung bình để đảm bảo công bằng."
-              />
-            </label>
+            <label style={nhan}>Chọn thành viên đánh giá</label>
             <Chon value={targetMember} onChange={setTargetMember} theme={theme}>
               <option value="">Chọn thành viên...</option>
               {otherMembers.map((m: any) => (
@@ -2181,13 +2075,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
               ) : (
                 <>
                   <div style={{ marginBottom: 16 }}>
-                    <label style={nhan}>
-                      Đánh giá theo tiêu chí
-                      <HelpIcon 
-                        title="📊 Thang điểm"
-                        text="0 = Không đánh giá\n2 = Chưa đạt\n6 = Trung bình\n8 = Tốt\n9 = Rất tốt\n10 = Xuất sắc"
-                      />
-                    </label>
+                    <label style={nhan}>Đánh giá theo tiêu chí</label>
                     {TIEU_CHI_DANH_GIA.map((criteria) => (
                       <div key={criteria} style={{ marginBottom: 8 }}>
                         <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
@@ -2201,13 +2089,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
                   </div>
 
                   <div style={{ marginBottom: 16 }}>
-                    <label style={nhan}>
-                      Nhận xét (tùy chọn)
-                      <HelpIcon 
-                        title="✍️ Nhận xét"
-                        text="Nên đưa ra nhận xét cụ thể, mang tính xây dựng để thành viên cải thiện."
-                      />
-                    </label>
+                    <label style={nhan}>Nhận xét (tùy chọn)</label>
                     <OInput
                       value={comment}
                       onChange={setComment}
@@ -2226,13 +2108,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
 
                   {showTasks && (
                     <div style={{ marginBottom: 16 }}>
-                      <label style={nhan}>
-                        Đánh giá đóng góp cho từng task
-                        <HelpIcon 
-                          title="📋 Đánh giá task"
-                          text="Đánh giá mức độ đóng góp của thành viên cho từng task cụ thể.\nĐiểm từ 0-10 dựa trên chất lượng công việc."
-                        />
-                      </label>
+                      <label style={nhan}>Đánh giá đóng góp cho từng task</label>
                       {getTaskOptions().length === 0 ? (
                         <div style={{ fontSize: 13, color: styles.textMuted, fontStyle: "italic" }}>
                           Chưa có task nào hoàn thành của thành viên này.
@@ -2353,124 +2229,103 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   const hasLeaderScore = leaderScores[leader]?.scores !== undefined;
 
   return (
-    <div>
-      <div style={{ 
-        background: "#1e1b4b", 
-        borderRadius: 12, 
-        padding: "12px 16px", 
-        marginBottom: 16,
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        flexWrap: "wrap",
-        fontSize: 13,
-        color: "#a5b4fc"
-      }}>
-        <span>👑 Đánh giá trưởng nhóm</span>
-        <HelpIcon 
-          title="👑 Đánh giá leader"
-          text="Đánh giá dựa trên:\n• Chủ động và trách nhiệm\n• Chất lượng công việc\n• Khả năng phối hợp nhóm"
-        />
-      </div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      <TheCard theme={theme}>
+        <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>👑 Đánh giá trưởng nhóm</h4>
+        
+        <div style={{ marginBottom: 16, padding: 12, background: styles.inputBg, borderRadius: 8 }}>
+          <div style={{ fontWeight: 600, color: styles.text }}>{leaderMember.name}</div>
+          <div style={{ fontSize: 13, color: styles.textMuted }}>Trưởng nhóm</div>
+        </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <TheCard theme={theme}>
-          <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>👑 Đánh giá trưởng nhóm</h4>
-          
-          <div style={{ marginBottom: 16, padding: 12, background: styles.inputBg, borderRadius: 8 }}>
-            <div style={{ fontWeight: 600, color: styles.text }}>{leaderMember.name}</div>
-            <div style={{ fontSize: 13, color: styles.textMuted }}>Trưởng nhóm</div>
-          </div>
-
-          {hasLeaderScore ? (
-            <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
-              <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
-                ✅ Đã đánh giá trưởng nhóm
-              </div>
-              <div style={{ fontSize: 13, color: styles.textMuted }}>
-                Điểm trung bình: {leaderScores[leader]?.avgScore?.toFixed(1) || "N/A"}
-              </div>
-              {leaderScores[leader]?.comment && (
-                <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
-                  Nhận xét: {leaderScores[leader]?.comment}
-                </div>
-              )}
-              <button 
-                onClick={() => {
-                  if (window.confirm("Bạn có muốn đánh giá lại trưởng nhóm?")) {
-                    const newLeaderScores = { ...leaderScores };
-                    delete newLeaderScores[leader];
-                    setLeaderScores(newLeaderScores);
-                    setScores({});
-                    setComment("");
-                  }
-                }}
-                style={{ marginTop: 8, padding: "4px 12px", borderRadius: 4, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
-              >
-                Đánh giá lại
-              </button>
+        {hasLeaderScore ? (
+          <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
+            <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
+              ✅ Đã đánh giá trưởng nhóm
             </div>
-          ) : (
-            <>
-              <div style={{ marginBottom: 16 }}>
-                <label style={nhan}>Đánh giá theo tiêu chí</label>
-                {TIEU_CHI_TRUONG_NHOM.map((criteria) => (
-                  <div key={criteria} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
-                    <ChonDiem 
-                      value={scores[criteria] || 0} 
-                      onChange={(v) => handleScoreChange(criteria, v)} 
-                      theme={theme}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ marginBottom: 16 }}>
-                <label style={nhan}>Nhận xét (tùy chọn)</label>
-                <OInput
-                  value={comment}
-                  onChange={setComment}
-                  placeholder="Nhận xét về trưởng nhóm..."
-                  theme={theme}
-                  style={{ minHeight: 60 }}
-                />
-              </div>
-
-              <NutBam onClick={submitLeaderEvaluation} theme={theme} style={{ width: "100%" }}>
-                ✅ Lưu đánh giá
-              </NutBam>
-            </>
-          )}
-        </TheCard>
-
-        <TheCard theme={theme}>
-          <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📊 Thông tin trưởng nhóm</h4>
-          
-          <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 12, background: "#f59e0b22", border: "2px solid #f59e0b44", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                👑
-              </div>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: styles.text }}>{leaderMember.name}</div>
-                <div style={{ fontSize: 13, color: styles.textMuted }}>Trưởng nhóm</div>
-              </div>
+            <div style={{ fontSize: 13, color: styles.textMuted }}>
+              Điểm trung bình: {leaderScores[leader]?.avgScore?.toFixed(1) || "N/A"}
             </div>
-            
-            {leaderScores[leader]?.avgScore && (
-              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 13, color: styles.textMuted }}>Điểm đánh giá:</span>
-                  <span style={{ fontSize: 18, fontWeight: 700, color: "#f59e0b" }}>
-                    {leaderScores[leader]?.avgScore?.toFixed(1)}
-                  </span>
-                </div>
+            {leaderScores[leader]?.comment && (
+              <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
+                Nhận xét: {leaderScores[leader]?.comment}
               </div>
             )}
+            <button 
+              onClick={() => {
+                if (window.confirm("Bạn có muốn đánh giá lại trưởng nhóm?")) {
+                  const newLeaderScores = { ...leaderScores };
+                  delete newLeaderScores[leader];
+                  setLeaderScores(newLeaderScores);
+                  setScores({});
+                  setComment("");
+                }
+              }}
+              style={{ marginTop: 8, padding: "4px 12px", borderRadius: 4, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
+            >
+              Đánh giá lại
+            </button>
           </div>
-        </TheCard>
-      </div>
+        ) : (
+          <>
+            <div style={{ marginBottom: 16 }}>
+              <label style={nhan}>Đánh giá theo tiêu chí</label>
+              {TIEU_CHI_TRUONG_NHOM.map((criteria) => (
+                <div key={criteria} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
+                  <ChonDiem 
+                    value={scores[criteria] || 0} 
+                    onChange={(v) => handleScoreChange(criteria, v)} 
+                    theme={theme}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={nhan}>Nhận xét (tùy chọn)</label>
+              <OInput
+                value={comment}
+                onChange={setComment}
+                placeholder="Nhận xét về trưởng nhóm..."
+                theme={theme}
+                style={{ minHeight: 60 }}
+              />
+            </div>
+
+            <NutBam onClick={submitLeaderEvaluation} theme={theme} style={{ width: "100%" }}>
+              ✅ Lưu đánh giá
+            </NutBam>
+          </>
+        )}
+      </TheCard>
+
+      <TheCard theme={theme}>
+        <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📊 Thông tin trưởng nhóm</h4>
+        
+        <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#f59e0b22", border: "2px solid #f59e0b44", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+              👑
+            </div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: styles.text }}>{leaderMember.name}</div>
+              <div style={{ fontSize: 13, color: styles.textMuted }}>Trưởng nhóm</div>
+            </div>
+          </div>
+          
+          {leaderScores[leader]?.avgScore && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: styles.textMuted }}>Điểm đánh giá:</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: "#f59e0b" }}>
+                  {leaderScores[leader]?.avgScore?.toFixed(1)}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </TheCard>
     </div>
   );
 }
@@ -2545,13 +2400,7 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
   return (
     <div>
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 PHÂN TÍCH ĐÁNH GIÁ</h3>
-          <HelpIcon 
-            title="📊 Phân tích"
-            text="Bảng xếp hạng dựa trên các tiêu chí:\n• Task: Điểm từ công việc đã nhận\n• Đồng đội: Đánh giá từ các thành viên\n• Đóng góp: Đánh giá từng task\n• Trưởng nhóm: Đánh giá leader"
-          />
-        </div>
+        <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 PHÂN TÍCH ĐÁNH GIÁ</h3>
       </TheCard>
 
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
@@ -2990,7 +2839,7 @@ export default function App() {
             </Chon>
             <HelpIcon 
               title="👤 Chọn tên"
-              text="BẮT BUỘC phải chọn tên của bạn trước khi thực hiện bất kỳ thao tác nào:\n• Nhận đầu việc\n• Chat nhóm\n• Đánh giá thành viên\n• Tham gia khảo sát lịch họp"
+              text="BẮT BUỘC chọn tên trước khi:\n• Nhận đầu việc\n• Chat nhóm\n• Đánh giá thành viên\n• Tham gia khảo sát lịch họp"
             />
           </div>
           
