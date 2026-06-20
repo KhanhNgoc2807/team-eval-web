@@ -557,6 +557,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     name: "", 
     description: "",
     subtasks: [] as string[],
+    assignees: [] as string[],
     deadline: "", 
     complexity: 2
   });
@@ -569,8 +570,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   const styles = themeStyles[theme];
   
   const addTask = () => { 
-    if (!form.name.trim() || form.subtasks.length === 0) {
-      alert("Vui lòng nhập tên công việc và ít nhất 1 đầu việc nhỏ!");
+    if (!form.name.trim() || form.subtasks.length === 0 || form.assignees.length === 0) {
+      alert("Vui lòng nhập tên công việc, đầu việc nhỏ và chọn thành viên tham gia!");
       return;
     }
     const newTask = { 
@@ -589,7 +590,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       productLink: "",
       submittedBy: "",
       createdAt: new Date().toISOString(),
-      // Lưu danh sách thành viên được giao (chưa nhận)
       assignees: form.assignees.map((id: string) => ({ 
         memberId: id, 
         role: "", 
@@ -597,7 +597,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       }))
     };
     setTasks((t: any[]) => [...t, newTask]); 
-    setForm({ name: "", description: "", subtasks: [], deadline: "", complexity: 2 });
+    setForm({ name: "", description: "", subtasks: [], assignees: [], deadline: "", complexity: 2 });
     setSubtaskInput("");
     setShowForm(false); 
   };
@@ -670,25 +670,19 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     }
     setTasks((prev: any[]) => prev.map((t: any) => {
       if (t.id === taskId) {
-        // Cập nhật subtask
         const updatedSubtasks = t.subtasks.map((s: any) => {
           if (s.id === subtaskId && s.assignee === null) {
             return { ...s, assignee: currentReviewer, status: "accepted" };
           }
           return s;
         });
-        // Cập nhật assignees
         const updatedAssignees = (t.assignees || []).map((a: any) => {
           if (a.memberId === currentReviewer) {
             return { ...a, status: "accepted" };
           }
           return a;
         });
-        return { 
-          ...t, 
-          subtasks: updatedSubtasks,
-          assignees: updatedAssignees
-        };
+        return { ...t, subtasks: updatedSubtasks, assignees: updatedAssignees };
       }
       return t;
     }));
@@ -1165,9 +1159,8 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
   const [commentTarget, setCommentTarget] = useState("");
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   
-  // Lọc task có từ 2 thành viên trở lên (dựa trên assignees)
+  // Lọc task có từ 2 thành viên trở lên
   const validTasks = tasks.filter((t: any) => {
-    // Lấy tất cả thành viên từ assignees (bao gồm cả chưa nhận)
     const allMembers = t.assignees?.map((a: any) => a.memberId) || [];
     const uniqueMembers = [...new Set(allMembers)];
     return uniqueMembers.length >= 2;
@@ -1178,7 +1171,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     return member ? member.name : "Không xác định";
   };
 
-  // ─── THẢO LUẬN (HIỂN THỊ TÊN) ───
+  // ─── THẢO LUẬN ───
   const guiTinNhan = (taskId: string) => {
     if (!message.trim() && !messageLink.trim()) {
       alert("Vui lòng nhập nội dung hoặc link!");
@@ -1207,7 +1200,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     setMessageLink("");
   };
 
-  // ─── GÓP Ý SẢN PHẨM (ẨN DANH) ───
+  // ─── GÓP Ý ───
   const guiGopY = (taskId: string) => {
     if (!commentText.trim()) return;
     if (!currentReviewer) {
@@ -1266,603 +1259,4 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 
   const phanHoiGopY = (taskId: string, commentId: string, replyTextContent: string) => {
     if (!replyTextContent?.trim()) return;
-    if (!currentReviewer) {
-      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
-      return;
-    }
-    setTaskComments((prev: any) => {
-      const comments = prev[taskId] || [];
-      const updated = comments.map((c: any) => 
-        c.id === commentId 
-          ? { 
-              ...c, 
-              replies: [
-                ...(c.replies || []),
-                {
-                  id: uid(),
-                  authorId: currentReviewer,
-                  content: replyTextContent.trim(),
-                  timestamp: new Date().toISOString()
-                }
-              ]
-            } 
-          : c
-      );
-      return { ...prev, [taskId]: updated };
-    });
-    setReplyText({ ...replyText, [commentId]: "" });
-  };
-
-  const getTaskComments = (taskId: string) => {
-    return taskComments[taskId] || [];
-  };
-
-  const getDiscussions = (taskId: string) => {
-    return taskDiscussions[taskId] || [];
-  };
-
-  if (validTasks.length === 0) {
-    return (
-      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>💬</div>
-        <h3 style={{ color: "#a5b4fc", marginBottom: 12 }}>Chưa có thảo luận nào</h3>
-        <p style={{ color: styles.textMuted }}>
-          Thảo luận sẽ hiển thị khi có công việc với ít nhất 2 thành viên tham gia.
-        </p>
-      </TheCard>
-    );
-  }
-
-  return (
-    <div>
-      <TheCard theme={theme} style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 14, color: styles.textMuted, fontWeight: 600 }}>📌 Chọn công việc:</div>
-          <Chon 
-            value={selectedTask || ""} 
-            onChange={setSelectedTask} 
-            theme={theme}
-            style={{ minWidth: 250 }}
-          >
-            <option value="">Chọn công việc...</option>
-            {validTasks.map((t: any) => {
-              const allMembers = t.assignees?.map((a: any) => a.memberId) || [];
-              const uniqueMembers = [...new Set(allMembers)];
-              return (
-                <option key={t.id} value={t.id}>
-                  {t.name} ({uniqueMembers.length} thành viên)
-                </option>
-              );
-            })}
-          </Chon>
-        </div>
-      </TheCard>
-
-      {selectedTask && (() => {
-        const task = tasks.find((t: any) => t.id === selectedTask);
-        if (!task) return null;
-        const discussions = getDiscussions(selectedTask);
-        const comments = getTaskComments(selectedTask);
-        const allMembers = task.assignees?.map((a: any) => a.memberId) || [];
-        const uniqueMembers = [...new Set(allMembers)];
-
-        return (
-          <>
-            <TheCard theme={theme} style={{ marginBottom: 20, borderColor: "#6366f144" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: styles.text }}>{task.name}</div>
-                  <div style={{ fontSize: 13, color: styles.textMuted }}>
-                    👥 {uniqueMembers.map((id: string) => layTen(id)).join(", ")}
-                  </div>
-                </div>
-                <The color="#6366f1">Cấp {task.complexity}</The>
-              </div>
-            </TheCard>
-
-            {/* ─── THẢO LUẬN (HIỂN THỊ TÊN) ─── */}
-            <TheCard theme={theme} style={{ marginBottom: 20 }}>
-              <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>💬 Thảo luận</h4>
-              
-              <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 16 }}>
-                {discussions.length === 0 ? (
-                  <div style={{ textAlign: "center", color: styles.textMuted, padding: 20, fontSize: 13 }}>
-                    Chưa có tin nhắn nào
-                  </div>
-                ) : (
-                  discussions.map((msg: any) => (
-                    <div key={msg.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span style={{ fontWeight: 600, fontSize: 13, color: "#6366f1" }}>
-                          {msg.authorName}
-                        </span>
-                        <span style={{ fontSize: 11, color: styles.textMuted }}>
-                          {new Date(msg.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 13, color: styles.text, whiteSpace: "pre-wrap" }}>
-                        {msg.content}
-                      </div>
-                      {msg.link && (
-                        <a 
-                          href={msg.link} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          style={{ color: "#6366f1", fontSize: 13, textDecoration: "none", wordBreak: "break-all", display: "block", marginTop: 4 }}
-                        >
-                          🔗 {msg.link}
-                        </a>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <OInput
-                  value={message}
-                  onChange={setMessage}
-                  placeholder="Nhập tin nhắn..."
-                  theme={theme}
-                />
-                <OInput
-                  value={messageLink}
-                  onChange={setMessageLink}
-                  placeholder="🔗 Thêm link (tùy chọn)..."
-                  theme={theme}
-                />
-                <NutBam 
-                  onClick={() => guiTinNhan(selectedTask)} 
-                  theme={theme}
-                  style={{ alignSelf: "flex-end" }}
-                >
-                  Gửi tin nhắn
-                </NutBam>
-              </div>
-            </TheCard>
-
-            {/* ─── GÓP Ý SẢN PHẨM (ẨN DANH) ─── */}
-            <TheCard theme={theme}>
-              <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
-              
-              <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 16 }}>
-                {comments.filter((c: any) => !c.isHidden).length === 0 ? (
-                  <div style={{ textAlign: "center", color: styles.textMuted, padding: 20, fontSize: 13 }}>
-                    Chưa có góp ý nào
-                  </div>
-                ) : (
-                  comments.filter((c: any) => !c.isHidden).map((comment: any) => (
-                    <div key={comment.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                        <div>
-                          <span style={{ fontSize: 11, color: styles.textMuted, fontStyle: "italic" }}>
-                            Góp ý cho {layTen(comment.targetMemberId)} (ẩn danh)
-                          </span>
-                          <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
-                            {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
-                          </span>
-                          {comment.isShort && (
-                            <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
-                          )}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 13, color: styles.text, marginBottom: 6 }}>
-                        {comment.content}
-                      </div>
-                      
-                      {comment.targetMemberId === currentReviewer && comment.usefulness === null && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
-                          <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
-                          <button 
-                            onClick={() => danhGiaHuuIch(selectedTask, comment.id, true)}
-                            style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #22c55e", background: "#22c55e22", color: "#22c55e", cursor: "pointer", fontSize: 11 }}
-                          >
-                            ✅ Hữu ích
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const reason = prompt("Vui lòng cho biết lý do vì sao góp ý này không hữu ích:");
-                              if (reason !== null) {
-                                danhGiaHuuIch(selectedTask, comment.id, false, reason);
-                              }
-                            }}
-                            style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef444422", color: "#ef4444", cursor: "pointer", fontSize: 11 }}
-                          >
-                            ❌ Không hữu ích
-                          </button>
-                        </div>
-                      )}
-                      
-                      {comment.usefulness === "useful" && (
-                        <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>✅ Được đánh giá là hữu ích</div>
-                      )}
-                      {comment.usefulness === "not_useful" && (
-                        <div style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>
-                          ❌ Được đánh giá là không hữu ích
-                          {comment.usefulnessReason && (
-                            <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 2 }}>
-                              Lý do: {comment.usefulnessReason}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {(comment.replies || []).map((reply: any) => (
-                        <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <span style={{ fontWeight: 600, fontSize: 11, color: "#6366f1" }}>
-                              Phản hồi (ẩn danh)
-                            </span>
-                            <span style={{ fontSize: 10, color: styles.textMuted }}>
-                              {new Date(reply.timestamp).toLocaleDateString("vi-VN")}
-                            </span>
-                          </div>
-                          <div style={{ fontSize: 12, color: styles.text }}>
-                            {reply.content}
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {currentReviewer && comment.targetMemberId === currentReviewer && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                          <OInput
-                            value={replyText[comment.id] || ""}
-                            onChange={(v: string) => setReplyText({ ...replyText, [comment.id]: v })}
-                            placeholder="Phản hồi góp ý (ẩn danh)..."
-                            theme={theme}
-                            style={{ flex: 1, fontSize: 12, padding: "4px 10px" }}
-                            onKeyDown={(e: any) => {
-                              if (e.key === "Enter" && replyText[comment.id]?.trim()) {
-                                phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
-                              }
-                            }}
-                          />
-                          <NutBam 
-                            onClick={() => {
-                              if (replyText[comment.id]?.trim()) {
-                                phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
-                              }
-                            }} 
-                            theme={theme} 
-                            style={{ padding: "4px 12px", fontSize: 11 }}
-                          >
-                            Gửi
-                          </NutBam>
-                        </div>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <Chon 
-                  value={commentTarget} 
-                  onChange={setCommentTarget} 
-                  theme={theme}
-                  style={{ width: "100%" }}
-                >
-                  <option value="">Chọn người nhận góp ý...</option>
-                  {uniqueMembers
-                    .filter((id: string) => id !== currentReviewer)
-                    .map((id: string) => (
-                      <option key={id} value={id}>{layTen(id)}</option>
-                    ))}
-                </Chon>
-                <OInput
-                  value={commentText}
-                  onChange={setCommentText}
-                  placeholder="Nhập góp ý (nên viết 1 điểm tốt + 1 điểm cần cải thiện)..."
-                  theme={theme}
-                />
-                {commentText.trim().split(/\s+/).length > 0 && commentText.trim().split(/\s+/).length < 10 && (
-                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 4 }}>
-                    ⚠️ Góp ý quá ngắn (dưới 10 từ), sẽ không được cộng điểm thưởng
-                  </div>
-                )}
-                {commentText.trim().split(/\s+/).length >= 10 && (
-                  <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
-                    ✅ Góp ý có giá trị, sẽ được cộng điểm nếu người nhận đánh giá "Hữu ích"
-                  </div>
-                )}
-                <NutBam 
-                  onClick={() => guiGopY(selectedTask)} 
-                  theme={theme}
-                  style={{ alignSelf: "flex-end" }}
-                  disabled={!commentTarget || !commentText.trim()}
-                >
-                  Gửi góp ý (ẩn danh)
-                </NutBam>
-              </div>
-            </TheCard>
-          </>
-        );
-      })()}
-    </div>
-  );
-}
-
-// ─── CÁC TAB KHÁC ─────────────────────────────────────────────────────────────
-// (Đánh giá & Nhận xét, Đánh giá trưởng nhóm, Phân tích, Kết quả - giữ nguyên như code đã gửi)
-
-// ─── ỨNG DỤNG CHÍNH ────────────────────────────────────────────────────────────
-export default function App() {
-  const [tab, setTab] = useState("setup");
-  const [projectName, setProjectName] = useState("");
-  const [leader, setLeader] = useState("");
-  const [members, setMembers] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [peerScores, setPeerScores] = useState({});
-  const [peerComments, setPeerComments] = useState({});
-  const [leaderScores, setLeaderScores] = useState({});
-  const [teacherScore, setTeacherScore] = useState("");
-  const [isCopied, setIsCopied] = useState(false);
-  const [hasGroup, setHasGroup] = useState(false);
-  const [isReady, setIsReady] = useState(false);
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
-  const [currentReviewer, setCurrentReviewer] = useState(() => {
-    return localStorage.getItem("currentReviewer") || "";
-  });
-  
-  const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
-  const [scheduleSelections, setScheduleSelections] = useState<any>({});
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [taskDiscussions, setTaskDiscussions] = useState<any>({});
-  const [taskComments, setTaskComments] = useState<any>({});
-  const [taskContributionScores, setTaskContributionScores] = useState<any>({});
-  
-  const [roomId, setRoomId] = useState<string | null>(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get("room") || null;
-  });
-
-  // Load dữ liệu từ Firebase
-  useEffect(() => {
-    if (!roomId) {
-      setIsReady(true);
-      return;
-    }
-    const dbRef = ref(database, `teams/${roomId}`);
-    const unsubscribe = onValue(dbRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setProjectName(data.projectName || "");
-        setLeader(data.leader || "");
-        setMembers(data.members || []);
-        setTasks(data.tasks || []);
-        setPeerScores(data.peerScores || {});
-        setPeerComments(data.peerComments || {});
-        setLeaderScores(data.leaderScores || {});
-        setTeacherScore(data.teacherScore || "");
-        setScheduleSlots(data.scheduleSlots || []);
-        setScheduleSelections(data.scheduleSelections || {});
-        setChatMessages(data.chatMessages || []);
-        setTaskDiscussions(data.taskDiscussions || {});
-        setTaskComments(data.taskComments || {});
-        setTaskContributionScores(data.taskContributionScores || {});
-        setHasGroup(true);
-      } else {
-        setHasGroup(true);
-      }
-      setIsReady(true);
-    });
-    return () => unsubscribe();
-  }, [roomId]);
-
-  // Lưu dữ liệu lên Firebase
-  useEffect(() => {
-    if (!isReady || !roomId) return;
-    const dbRef = ref(database, `teams/${roomId}`);
-    set(dbRef, { 
-      projectName, leader, members, tasks, 
-      peerScores, peerComments, leaderScores, 
-      teacherScore, scheduleSlots, scheduleSelections,
-      chatMessages, taskDiscussions, taskComments, taskContributionScores
-    });
-  }, [projectName, leader, members, tasks, peerScores, peerComments, leaderScores, teacherScore, 
-      scheduleSlots, scheduleSelections, chatMessages, taskDiscussions, taskComments, taskContributionScores, roomId, isReady]);
-
-  // Cập nhật URL
-  useEffect(() => {
-    if (!isReady) return;
-    if (roomId) {
-      window.history.replaceState(null, "", `?room=${roomId}`);
-    } else {
-      window.history.replaceState(null, "", window.location.pathname);
-    }
-  }, [roomId, isReady]);
-
-  const toggleTheme = () => {
-    const newTheme = theme === "dark" ? "light" : "dark";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-  };
-
-  const createNewGroup = () => {
-    const newRoomId = uid();
-    setRoomId(newRoomId);
-    setProjectName("");
-    setLeader("");
-    setMembers([]);
-    setTasks([]);
-    setPeerScores({});
-    setPeerComments({});
-    setLeaderScores({});
-    setTeacherScore("");
-    setScheduleSlots([]);
-    setScheduleSelections({});
-    setChatMessages([]);
-    setTaskDiscussions({});
-    setTaskComments({});
-    setTaskContributionScores({});
-    setHasGroup(true);
-    window.history.replaceState(null, "", `?room=${newRoomId}`);
-  };
-
-  const generateShareLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  };
-
-  const handleSelectUser = (userId: string) => {
-    setCurrentReviewer(userId);
-    localStorage.setItem("currentReviewer", userId);
-  };
-
-  const styles = themeStyles[theme];
-  const peerCompletedCount = members.length >= 2 ? members.filter((m: any) => peerScores[m.id]?.completed === true).length : null;
-
-  const tabBadge = {
-    tasks: tasks.length || null,
-    peer: peerCompletedCount !== null ? `${peerCompletedCount}/${members.length}` : null,
-    discussion: tasks.filter((t: any) => {
-      const allMembers = t.assignees?.map((a: any) => a.memberId) || [];
-      return [...new Set(allMembers)].length >= 2;
-    }).length || null,
-    schedule: scheduleSlots.length > 0 ? scheduleSlots.length : null,
-    analysis: null,
-    result: null,
-  };
-
-  if (!isReady) {
-    return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: styles.bg, color: styles.text }}>Đang tải dữ liệu...</div>;
-  }
-
-  if (!roomId) {
-    return (
-      <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-        <TheCard style={{ textAlign: "center", maxWidth: 500, width: "100%" }} theme={theme}>
-          <div style={{ fontSize: 64, marginBottom: 20 }}>🚀</div>
-          <h2 style={{ color: "#a5b4fc", marginBottom: 12 }}>TEAM EVAL</h2>
-          <p style={{ color: styles.textMuted, marginBottom: 24, lineHeight: 1.6 }}>
-            Công cụ đánh giá nhóm học tập trực tuyến<br />
-            Tạo nhóm mới để bắt đầu
-          </p>
-          <NutBam onClick={createNewGroup} variant="primary" theme={theme} style={{ padding: "12px 24px", fontSize: 16, width: "100%", maxWidth: 200 }}>
-            ➕ Tạo nhóm mới
-          </NutBam>
-        </TheCard>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text }}>
-      <style>{`
-        @media (max-width: 768px) {
-          .two-columns { grid-template-columns: 1fr !important; gap: 16px !important; }
-          .task-form-grid { grid-template-columns: 1fr !important; }
-          .stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
-          .result-table-wrapper { overflow-x: auto !important; }
-          .schedule-form-grid { grid-template-columns: 1fr !important; }
-          .schedule-table-wrapper { overflow-x: auto !important; }
-          .card { padding: 16px !important; }
-          .hide-on-mobile { display: none; }
-          .app-nav button span:last-child { display: none; }
-          .app-nav button span:first-child { font-size: 18px; }
-        }
-        @media (max-width: 480px) {
-          .stats-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-      <div style={{ background: styles.headerBg, borderBottom: `1px solid ${styles.border}`, padding: "0 16px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12, padding: "12px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 12, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>✦</div>
-            <div>
-              <div style={{ fontFamily: "'Space Mono',monospace", fontSize: 14, fontWeight: 700, color: "#a5b4fc", letterSpacing: 2 }}>TEAM EVAL</div>
-              <div style={{ fontSize: 11, color: "#5c54c7", letterSpacing: 3, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectName || "NHÓM CỦA BẠN"}</div>
-            </div>
-          </div>
-          
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontSize: 12, color: styles.textMuted }}>👤</span>
-            <Chon 
-              value={currentReviewer} 
-              onChange={handleSelectUser} 
-              theme={theme}
-              style={{ minWidth: 150, padding: "4px 10px", fontSize: 13 }}
-            >
-              <option value="">Chọn tên...</option>
-              {members.map((m: any) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </Chon>
-          </div>
-          
-          <nav className="app-nav" style={{ display: "flex", gap: 4, background: styles.inputBg, borderRadius: 14, padding: 5, overflowX: "auto", flex: "1 1 auto", justifyContent: "center" }}>
-            {CAC_TAB.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                <span>{t.icon}</span>
-                <span>{t.label}</span>
-                {tabBadge[t.id as keyof typeof tabBadge] && <span style={{ background: tab === t.id ? "rgba(255,255,255,.25)" : styles.border, borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>{tabBadge[t.id as keyof typeof tabBadge]}</span>}
-              </button>
-            ))}
-          </nav>
-          <div style={{ display: "flex", gap: 8 }}>
-            <NutBam onClick={toggleTheme} variant="ghost" theme={theme} style={{ padding: "8px 12px", fontSize: 18 }}>{theme === "dark" ? "☀️" : "🌙"}</NutBam>
-            <NutBam onClick={generateShareLink} variant={isCopied ? "success" : "primary"} theme={theme} style={{ padding: "8px 16px", fontSize: 12, whiteSpace: "nowrap" }}>{isCopied ? "✓ Đã copy!" : "🔗 Chia sẻ"}</NutBam>
-          </div>
-        </div>
-      </div>
-      <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
-        {tab === "setup" && <ThietLap members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
-        {tab === "tasks" && <CongViec 
-          members={members} 
-          tasks={tasks} 
-          setTasks={setTasks} 
-          theme={theme}
-          leader={leader}
-          currentReviewer={currentReviewer}
-        />}
-        {tab === "discussion" && <ThaoLuan 
-          members={members} 
-          tasks={tasks}
-          taskDiscussions={taskDiscussions}
-          setTaskDiscussions={setTaskDiscussions}
-          taskComments={taskComments}
-          setTaskComments={setTaskComments}
-          theme={theme}
-          currentReviewer={currentReviewer}
-        />}
-        {tab === "peer" && <DanhGiaNhanXet 
-          members={members} 
-          tasks={tasks}
-          peerScores={peerScores} 
-          setPeerScores={setPeerScores}
-          peerComments={peerComments}
-          setPeerComments={setPeerComments}
-          taskContributionScores={taskContributionScores}
-          setTaskContributionScores={setTaskContributionScores}
-          theme={theme}
-          currentReviewer={currentReviewer}
-        />}
-        {tab === "leader" && <DanhGiaTruongNhom members={members} leader={leader} leaderScores={leaderScores} setLeaderScores={setLeaderScores} theme={theme} />}
-        {tab === "schedule" && <HopNhom 
-          members={members} 
-          scheduleSlots={scheduleSlots} 
-          setScheduleSlots={setScheduleSlots} 
-          scheduleSelections={scheduleSelections} 
-          setScheduleSelections={setScheduleSelections} 
-          theme={theme}
-          currentReviewer={currentReviewer}
-        />}
-        {tab === "analysis" && <PhanTich 
-          members={members} 
-          tasks={tasks} 
-          peerScores={peerScores}
-          leaderScores={leaderScores}
-          leader={leader}
-          peerComments={peerComments}
-          taskComments={taskComments}
-          taskContributionScores={taskContributionScores}
-          theme={theme}
-        />}
-        {tab === "result" && <KetQua members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} theme={theme} />}
-      </div>
-      <ChatBox chatMessages={chatMessages} setChatMessages={setChatMessages} members={members} theme={theme} currentReviewer={currentReviewer} />
-    </div>
-  );
-}
+    if
