@@ -1460,7 +1460,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   );
 }
 
-// ─── THẢO LUẬN (ĐÃ SỬA LỖI HIỂN THỊ NÚT HỮU ÍCH) ──────────────────────────
+// ─── THẢO LUẬN (ĐÃ SỬA - CÓ NÚT ĐÁNH GIÁ HỮU ÍCH) ──────────────────────────
 function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskComments, setTaskComments, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
@@ -1738,7 +1738,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
-            {/* ─── PHẦN GÓP Ý - ĐÃ SỬA LỖI ──────────────────────────────────────── */}
+            {/* ─── PHẦN GÓP Ý ────────────────────────────────────────────────────── */}
             <TheCard theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
@@ -1755,11 +1755,14 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                   </div>
                 ) : (
                   comments.filter((c: any) => !c.isHidden).map((comment: any) => {
-                    // ─── SỬA LỖI: TÍNH LẠI SỐ TỪ CHÍNH XÁC ──────────────────────────
+                    // ─── TÍNH LẠI SỐ TỪ ──────────────────────────────────────────────
                     const content = comment.content || "";
                     const wordCount = content.split(/\s+/).filter((w: string) => w.trim().length > 0).length;
                     const isShort = wordCount < 10;
                     const isLong = !isShort;
+                    
+                    // ─── KIỂM TRA NGƯỜI NHẬN ──────────────────────────────────────────
+                    const isReceiver = comment.targetMemberId === currentReviewer;
                     
                     return (
                       <div key={comment.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
@@ -1772,7 +1775,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                               {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
                             </span>
                             
-                            {/* ─── HIỂN THỊ ĐÚNG TRẠNG THÁI ──────────────────────────── */}
                             {isShort && (
                               <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
                             )}
@@ -1795,8 +1797,8 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           {comment.content}
                         </div>
                         
-                        {/* ─── SỬA: NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────── */}
-                        {isLong && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
+                        {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────────── */}
+                        {isLong && isReceiver && comment.usefulness === null && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                             <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
                             <button 
@@ -1819,7 +1821,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           </div>
                         )}
                         
-                        {isShort && comment.targetMemberId === currentReviewer && (
+                        {isShort && isReceiver && (
                           <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                             ⚠️ Góp ý ngắn (dưới 10 từ) - Không thể đánh giá hữu ích
                           </div>
@@ -1857,7 +1859,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           </div>
                         ))}
                         
-                        {currentReviewer && comment.targetMemberId === currentReviewer && (
+                        {currentReviewer && isReceiver && (
                           <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                             <OInput
                               value={replyText[comment.id] || ""}
@@ -2384,7 +2386,7 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   );
 }
 
-// ─── KẾT QUẢ & PHÂN TÍCH (GỘP) ──────────────────────────────────────────────
+// ─── KẾT QUẢ & PHÂN TÍCH ──────────────────────────────────────────────────────
 function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
 
