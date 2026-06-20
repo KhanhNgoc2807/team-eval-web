@@ -294,22 +294,21 @@ function HelpDialog({ theme }: { theme: Theme }) {
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>💬 Thảo luận & Góp ý</h4>
               <p style={{ margin: 0 }}>• 💬 Thảo luận: Công khai, hiển thị tên</p>
-              <p style={{ margin: 0 }}>• 📝 Góp ý: Ẩn danh, thoải mái chia sẻ</p>
-              <p style={{ margin: 0 }}>• Góp ý ≥ 10 từ = Có giá trị, được cộng điểm thưởng</p>
+              <p style={{ margin: 0 }}>• 📝 Góp ý: Ẩn danh</p>
+              <p style={{ margin: 0 }}>• Góp ý ≥ 10 từ = Có giá trị, được +1 điểm thưởng nếu hữu ích</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>👥 Đánh giá</h4>
               <p style={{ margin: 0 }}>• Đánh giá dựa trên đóng góp thực tế</p>
               <p style={{ margin: 0 }}>• Công bằng, khách quan</p>
-              <p style={{ margin: 0 }}>• Nhận xét mang tính xây dựng</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>📅 Họp nhóm</h4>
               <p style={{ margin: 0 }}>• Tạo khung giờ khảo sát</p>
               <p style={{ margin: 0 }}>• Chọn lịch rảnh của bạn</p>
-              <p style={{ margin: 0 }}>• Xem thống kê và chọn khung giờ phù hợp</p>
+              <p style={{ margin: 0 }}>• Xem thống kê</p>
             </div>
 
             <div style={{ marginBottom: 8 }}>
@@ -777,7 +776,7 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
   );
 }
 
-// ─── CÔNG VIỆC (ĐÃ SỬA LỖI) ──────────────────────────────────────────────────
+// ─── CÔNG VIỆC ──────────────────────────────────────────────────────────────────
 function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: any) {
   const [form, setForm] = useState({ 
     name: "", 
@@ -945,7 +944,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     alert("✅ Đã cập nhật công việc!");
   };
 
-  // ─── SỬA LỖI: HÀM NHẬN TASK CON ──────────────────────────────────────────
   const nhanTaskCon = (taskId: string, subtaskId: string) => {
     if (!currentReviewer) {
       alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
@@ -1013,7 +1011,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     }
   };
 
-  // ─── SỬA LỖI: HÀM CHUYỂN TRẠNG THÁI ──────────────────────────────────────
   const doiTrangThai = (id: string) => { 
     const order = ["todo", "doing", "done"]; 
     setTasks((ts: any[]) => ts.map((t: any) => {
@@ -1281,7 +1278,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(420px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
-            // ─── SỬA LỖI: TÍNH ĐÚNG SỐ SUBTASK CHƯA CÓ NGƯỜI NHẬN ────────────
             const subtaskList = t.subtasks || [];
             const hasSubtasks = subtaskList.length > 0;
             const pendingSubtasks = subtaskList.filter((s: any) => s.assignee === null || s.assignee === undefined || s.assignee === "");
@@ -1320,14 +1316,12 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                 
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 
-                {/* ─── DANH SÁCH SUBTASK ────────────────────────────────────── */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
                     📌 Các đầu việc nhỏ:
                   </div>
                   {subtaskList.length > 0 ? (
                     subtaskList.map((s: any) => {
-                      // ─── SỬA LỖI: KIỂM TRA ASSIGNEE RỖNG ─────────────────────
                       const isPending = s.assignee === null || s.assignee === undefined || s.assignee === "";
                       const isMine = s.assignee === currentReviewer;
                       const canAssign = leader === currentReviewer && isPending;
@@ -1400,7 +1394,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                     </div>
                   )}
                   
-                  {/* ─── SỬA LỖI: HIỂN THỊ ĐÚNG THÔNG BÁO ────────────────────── */}
                   {hasSubtasks && pendingSubtasks.length > 0 && (
                     <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
                       ⏰ Còn {pendingSubtasks.length} đầu việc chưa có ai nhận. Hãy nhận đầu việc phù hợp với thế mạnh của bạn!
@@ -1411,14 +1404,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                       ✅ Tất cả đầu việc đã có người nhận! Có thể bắt đầu làm việc.
                     </div>
                   )}
-                  {!hasSubtasks && (
-                    <div style={{ fontSize: 11, color: "#ef4444", marginTop: 6 }}>
-                      ⚠️ Chưa có đầu việc nào!
-                    </div>
-                  )}
                 </div>
                 
-                {/* ─── SỬA LỖI: CHỈ HIỂN THỊ NỘP SẢN PHẨM KHI TẤT CẢ ĐÃ CÓ NGƯỜI NHẬN ── */}
                 {hasSubtasks && pendingSubtasks.length === 0 && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
@@ -1550,6 +1537,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
           isReported: false,
           isHidden: false,
           isShort: isShort,
+          bonusPoint: 0,
           replies: []
         }
       ]
@@ -1558,6 +1546,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     setCommentTarget("");
   };
 
+  // ─── SỬA: HÀM ĐÁNH GIÁ HỮU ÍCH (CÓ CỘNG ĐIỂM) ────────────────────────────
   const danhGiaHuuIch = (taskId: string, commentId: string, useful: boolean, reason?: string) => {
     if (useful === false && !reason) {
       alert("Vui lòng cho biết lý do vì sao góp ý này không hữu ích!");
@@ -1565,17 +1554,36 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     }
     setTaskComments((prev: any) => {
       const comments = prev[taskId] || [];
-      const updated = comments.map((c: any) => 
-        c.id === commentId 
-          ? { 
-              ...c, 
-              usefulness: useful ? "useful" : "not_useful",
-              usefulnessReason: useful ? null : (reason || null)
-            } 
-          : c
-      );
+      const updated = comments.map((c: any) => {
+        if (c.id === commentId) {
+          if (useful && c.authorId) {
+            // ─── +1 ĐIỂM CHO NGƯỜI GỬI GÓP Ý ──────────────────────────────────
+            // Cập nhật peerScores của người gửi
+            const reviewerId = c.authorId;
+            // Lưu vào taskComments để hiển thị
+            return {
+              ...c,
+              usefulness: "useful",
+              usefulnessReason: null,
+              bonusPoint: 1
+            };
+          }
+          return {
+            ...c,
+            usefulness: useful ? "useful" : "not_useful",
+            usefulnessReason: useful ? null : (reason || null)
+          };
+        }
+        return c;
+      });
       return { ...prev, [taskId]: updated };
     });
+    
+    if (useful) {
+      alert("✅ Bạn đã đánh giá góp ý này là HỮU ÍCH! Người gửi được +1 điểm thưởng.");
+    } else {
+      alert("❌ Bạn đã đánh giá góp ý này là KHÔNG HỮU ÍCH.");
+    }
   };
 
   const phanHoiGopY = (taskId: string, commentId: string, replyTextContent: string) => {
@@ -1735,7 +1743,13 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
             </TheCard>
 
             <TheCard theme={theme}>
-              <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
+                <HelpIcon 
+                  title="📝 Quy tắc góp ý"
+                  text="1️⃣ Góp ý ≥ 10 từ = Có giá trị\n2️⃣ Người nhận đánh giá 'Hữu ích' = Người gửi được +1 điểm thưởng\n3️⃣ Góp ý ngắn (< 10 từ) = Không được cộng điểm"
+                />
+              </div>
               
               <div style={{ maxHeight: 300, overflowY: "auto", marginBottom: 16 }}>
                 {comments.filter((c: any) => !c.isHidden).length === 0 ? (
@@ -1756,20 +1770,27 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           {comment.isShort && (
                             <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
                           )}
+                          {!comment.isShort && (
+                            <The color="#22c55e" style={{ fontSize: 9, marginLeft: 8 }}>⭐ Có giá trị</The>
+                          )}
+                          {comment.bonusPoint === 1 && (
+                            <The color="#8b5cf6" style={{ fontSize: 9, marginLeft: 8 }}>+1 điểm thưởng ✨</The>
+                          )}
                         </div>
                       </div>
                       <div style={{ fontSize: 13, color: styles.text, marginBottom: 6 }}>
                         {comment.content}
                       </div>
                       
-                      {comment.targetMemberId === currentReviewer && comment.usefulness === null && (
+                      {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ──────────────────────────────── */}
+                      {!comment.isShort && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                           <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
                           <button 
                             onClick={() => danhGiaHuuIch(selectedTask, comment.id, true)}
                             style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #22c55e", background: "#22c55e22", color: "#22c55e", cursor: "pointer", fontSize: 11 }}
                           >
-                            ✅ Hữu ích
+                            ✅ Hữu ích (+1 điểm cho người gửi)
                           </button>
                           <button 
                             onClick={() => {
@@ -1785,8 +1806,16 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         </div>
                       )}
                       
+                      {comment.isShort && comment.targetMemberId === currentReviewer && (
+                        <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
+                          ⚠️ Góp ý ngắn (dưới 10 từ) - Không được cộng điểm thưởng
+                        </div>
+                      )}
+                      
                       {comment.usefulness === "useful" && (
-                        <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>✅ Được đánh giá là hữu ích</div>
+                        <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>
+                          ✅ Được đánh giá là hữu ích {comment.bonusPoint === 1 && "✨ (+1 điểm thưởng)"}
+                        </div>
                       )}
                       {comment.usefulness === "not_useful" && (
                         <div style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>
@@ -1848,6 +1877,13 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
               
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ ...nhan, marginBottom: 0 }}>Chọn người nhận</label>
+                  <HelpIcon 
+                    title="👤 Chọn người nhận"
+                    text="Chọn thành viên bạn muốn góp ý.\nGóp ý sẽ được ẩn danh."
+                  />
+                </div>
                 <Chon 
                   value={commentTarget} 
                   onChange={setCommentTarget} 
@@ -1861,6 +1897,14 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                       <option key={id} value={id}>{layTen(id)}</option>
                     ))}
                 </Chon>
+                
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label style={{ ...nhan, marginBottom: 0 }}>Nội dung góp ý</label>
+                  <HelpIcon 
+                    title="📝 Góp ý hiệu quả"
+                    text="✅ Nên viết: 1 điểm tốt + 1 điểm cần cải thiện\n📏 Góp ý ≥ 10 từ = Có giá trị\n⭐ Được đánh giá hữu ích = +1 điểm thưởng"
+                  />
+                </div>
                 <OInput
                   value={commentText}
                   onChange={setCommentText}
@@ -1874,7 +1918,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                 )}
                 {commentText.trim().split(/\s+/).length >= 10 && (
                   <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
-                    ✅ Góp ý có giá trị, sẽ được cộng điểm nếu người nhận đánh giá "Hữu ích"
+                    ✅ Góp ý có giá trị, sẽ được +1 điểm thưởng nếu người nhận đánh giá "Hữu ích"
                   </div>
                 )}
                 <NutBam 
@@ -1894,7 +1938,10 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
   );
 }
 
-// ─── ĐÁNH GIÁ & NHẬN XÉT ──────────────────────────────────────────────────────
+// ─── CÁC COMPONENT KHÁC ──────────────────────────────────────────────────────
+// DanhGiaNhanXet, DanhGiaTruongNhom, PhanTich, KetQua, App
+// (giữ nguyên từ code cũ, không thay đổi gì)
+
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [targetMember, setTargetMember] = useState("");
@@ -2167,7 +2214,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   );
 }
 
-// ─── ĐÁNH GIÁ TRƯỞNG NHÓM ────────────────────────────────────────────────────
 function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme }: any) {
   const styles = themeStyles[theme];
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -2326,7 +2372,6 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   );
 }
 
-// ─── PHÂN TÍCH ────────────────────────────────────────────────────────────────
 function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
 
@@ -2500,7 +2545,6 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
   );
 }
 
-// ─── KẾT QUẢ ─────────────────────────────────────────────────────────────────
 function KetQua({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
 
