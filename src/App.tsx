@@ -22,8 +22,7 @@ const CAC_TAB = [
   { id: "peer", icon: "👥", label: "Đánh giá & Nhận xét" },
   { id: "leader", icon: "👑", label: "Đánh giá trưởng nhóm" },
   { id: "schedule", icon: "📅", label: "Họp nhóm" },
-  { id: "analysis", icon: "📊", label: "Phân tích" },
-  { id: "result", icon: "🏆", label: "Kết quả" },
+  { id: "result", icon: "📊", label: "Kết quả & Phân tích" },
 ];
 const uid = () => Math.random().toString(36).substring(2, 9);
 const tinhTrungBinh = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
@@ -1762,130 +1761,131 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                     const isLong = !isShort;
                     
                     return (
-                    <div key={comment.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                        <div>
-                          <span style={{ fontSize: 11, color: styles.textMuted, fontStyle: "italic" }}>
-                            Góp ý cho {layTen(comment.targetMemberId)} (ẩn danh)
-                          </span>
-                          <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
-                            {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
-                          </span>
-                          
-                          {/* ─── SỬA: HIỂN THỊ ĐÚNG TRẠNG THÁI DỰA TRÊN SỐ TỪ THỰC TẾ ── */}
-                          {isShort && (
-                            <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
-                          )}
-                          {isLong && comment.usefulness === null && (
-                            <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>⏳ Chờ đánh giá</The>
-                          )}
-                          {comment.usefulness === "useful" && (
-                            <The color="#22c55e" style={{ fontSize: 9, marginLeft: 8 }}>⭐ Có giá trị</The>
-                          )}
-                          {comment.usefulness === "not_useful" && (
-                            <The color="#ef4444" style={{ fontSize: 9, marginLeft: 8 }}>❌ Không hữu ích</The>
-                          )}
-                          {comment.bonusPoint === 1 && (
-                            <The color="#8b5cf6" style={{ fontSize: 9, marginLeft: 8 }}>+1 điểm thưởng ✨</The>
-                          )}
+                      <div key={comment.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                          <div>
+                            <span style={{ fontSize: 11, color: styles.textMuted, fontStyle: "italic" }}>
+                              Góp ý cho {layTen(comment.targetMemberId)} (ẩn danh)
+                            </span>
+                            <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
+                              {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
+                            </span>
+                            
+                            {/* ─── HIỂN THỊ ĐÚNG TRẠNG THÁI ──────────────────────────── */}
+                            {isShort && (
+                              <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
+                            )}
+                            {isLong && comment.usefulness === null && (
+                              <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>⏳ Chờ đánh giá</The>
+                            )}
+                            {comment.usefulness === "useful" && (
+                              <The color="#22c55e" style={{ fontSize: 9, marginLeft: 8 }}>⭐ Có giá trị</The>
+                            )}
+                            {comment.usefulness === "not_useful" && (
+                              <The color="#ef4444" style={{ fontSize: 9, marginLeft: 8 }}>❌ Không hữu ích</The>
+                            )}
+                            {comment.bonusPoint === 1 && (
+                              <The color="#8b5cf6" style={{ fontSize: 9, marginLeft: 8 }}>+1 điểm thưởng ✨</The>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div style={{ fontSize: 13, color: styles.text, marginBottom: 6 }}>
-                        {comment.content}
-                      </div>
-                      
-                      {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH - SỬA ĐIỀU KIỆN ────────────────────── */}
-                      {isLong && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
-                          <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
-                          <button 
-                            onClick={() => danhGiaHuuIch(selectedTask, comment.id, true)}
-                            style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #22c55e", background: "#22c55e22", color: "#22c55e", cursor: "pointer", fontSize: 11 }}
-                          >
-                            ✅ Hữu ích (+1 điểm cho người gửi)
-                          </button>
-                          <button 
-                            onClick={() => {
-                              const reason = prompt("Vui lòng cho biết lý do vì sao góp ý này không hữu ích:");
-                              if (reason !== null) {
-                                danhGiaHuuIch(selectedTask, comment.id, false, reason);
-                              }
-                            }}
-                            style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef444422", color: "#ef4444", cursor: "pointer", fontSize: 11 }}
-                          >
-                            ❌ Không hữu ích
-                          </button>
+                        <div style={{ fontSize: 13, color: styles.text, marginBottom: 6 }}>
+                          {comment.content}
                         </div>
-                      )}
-                      
-                      {/* ─── GÓP Ý NGẮN - KHÔNG CÓ NÚT ĐÁNH GIÁ ──────────────────── */}
-                      {isShort && comment.targetMemberId === currentReviewer && (
-                        <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
-                          ⚠️ Góp ý ngắn (dưới 10 từ) - Không thể đánh giá hữu ích
-                        </div>
-                      )}
-                      
-                      {comment.usefulness === "useful" && (
-                        <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>
-                          ✅ Được đánh giá là hữu ích {comment.bonusPoint === 1 && "✨ (+1 điểm thưởng)"}
-                        </div>
-                      )}
-                      {comment.usefulness === "not_useful" && (
-                        <div style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>
-                          ❌ Được đánh giá là không hữu ích
-                          {comment.usefulnessReason && (
-                            <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 2 }}>
-                              Lý do: {comment.usefulnessReason}
+                        
+                        {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────────── */}
+                        {isLong && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
+                            <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
+                            <button 
+                              onClick={() => danhGiaHuuIch(selectedTask, comment.id, true)}
+                              style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #22c55e", background: "#22c55e22", color: "#22c55e", cursor: "pointer", fontSize: 11 }}
+                            >
+                              ✅ Hữu ích (+1 điểm cho người gửi)
+                            </button>
+                            <button 
+                              onClick={() => {
+                                const reason = prompt("Vui lòng cho biết lý do vì sao góp ý này không hữu ích:");
+                                if (reason !== null) {
+                                  danhGiaHuuIch(selectedTask, comment.id, false, reason);
+                                }
+                              }}
+                              style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef444422", color: "#ef4444", cursor: "pointer", fontSize: 11 }}
+                            >
+                              ❌ Không hữu ích
+                            </button>
+                          </div>
+                        )}
+                        
+                        {/* ─── GÓP Ý NGẮN - KHÔNG CÓ NÚT ĐÁNH GIÁ ──────────────────── */}
+                        {isShort && comment.targetMemberId === currentReviewer && (
+                          <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
+                            ⚠️ Góp ý ngắn (dưới 10 từ) - Không thể đánh giá hữu ích
+                          </div>
+                        )}
+                        
+                        {comment.usefulness === "useful" && (
+                          <div style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>
+                            ✅ Được đánh giá là hữu ích {comment.bonusPoint === 1 && "✨ (+1 điểm thưởng)"}
+                          </div>
+                        )}
+                        {comment.usefulness === "not_useful" && (
+                          <div style={{ color: "#ef4444", fontSize: 11, marginTop: 4 }}>
+                            ❌ Được đánh giá là không hữu ích
+                            {comment.usefulnessReason && (
+                              <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 2 }}>
+                                Lý do: {comment.usefulnessReason}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        
+                        {(comment.replies || []).map((reply: any) => (
+                          <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                              <span style={{ fontWeight: 600, fontSize: 11, color: "#6366f1" }}>
+                                Phản hồi (ẩn danh)
+                              </span>
+                              <span style={{ fontSize: 10, color: styles.textMuted }}>
+                                {new Date(reply.timestamp).toLocaleDateString("vi-VN")}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      )}
-                      
-                      {(comment.replies || []).map((reply: any) => (
-                        <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                            <span style={{ fontWeight: 600, fontSize: 11, color: "#6366f1" }}>
-                              Phản hồi (ẩn danh)
-                            </span>
-                            <span style={{ fontSize: 10, color: styles.textMuted }}>
-                              {new Date(reply.timestamp).toLocaleDateString("vi-VN")}
-                            </span>
+                            <div style={{ fontSize: 12, color: styles.text }}>
+                              {reply.content}
+                            </div>
                           </div>
-                          <div style={{ fontSize: 12, color: styles.text }}>
-                            {reply.content}
+                        ))}
+                        
+                        {currentReviewer && comment.targetMemberId === currentReviewer && (
+                          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                            <OInput
+                              value={replyText[comment.id] || ""}
+                              onChange={(v: string) => setReplyText({ ...replyText, [comment.id]: v })}
+                              placeholder="Phản hồi góp ý (ẩn danh)..."
+                              theme={theme}
+                              style={{ flex: 1, fontSize: 12, padding: "4px 10px" }}
+                              onKeyDown={(e: any) => {
+                                if (e.key === "Enter" && replyText[comment.id]?.trim()) {
+                                  phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
+                                }
+                              }}
+                            />
+                            <NutBam 
+                              onClick={() => {
+                                if (replyText[comment.id]?.trim()) {
+                                  phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
+                                }
+                              }} 
+                              theme={theme} 
+                              style={{ padding: "4px 12px", fontSize: 11 }}
+                            >
+                              Gửi
+                            </NutBam>
                           </div>
-                        </div>
-                      ))}
-                      
-                      {currentReviewer && comment.targetMemberId === currentReviewer && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                          <OInput
-                            value={replyText[comment.id] || ""}
-                            onChange={(v: string) => setReplyText({ ...replyText, [comment.id]: v })}
-                            placeholder="Phản hồi góp ý (ẩn danh)..."
-                            theme={theme}
-                            style={{ flex: 1, fontSize: 12, padding: "4px 10px" }}
-                            onKeyDown={(e: any) => {
-                              if (e.key === "Enter" && replyText[comment.id]?.trim()) {
-                                phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
-                              }
-                            }}
-                          />
-                          <NutBam 
-                            onClick={() => {
-                              if (replyText[comment.id]?.trim()) {
-                                phanHoiGopY(selectedTask, comment.id, replyText[comment.id]);
-                              }
-                            }} 
-                            theme={theme} 
-                            style={{ padding: "4px 12px", fontSize: 11 }}
-                          >
-                            Gửi
-                          </NutBam>
-                        </div>
-                      )}
-                    </div>
-                  )})}
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
               
@@ -1951,10 +1951,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
   );
 }
 
-// ─── CÁC COMPONENT KHÁC (GIỮ NGUYÊN) ──────────────────────────────────────────
-// DanhGiaNhanXet, DanhGiaTruongNhom, PhanTich, KetQua, App
-// (giữ nguyên từ code cũ)
-
+// ─── ĐÁNH GIÁ & NHẬN XÉT ──────────────────────────────────────────────────────
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [targetMember, setTargetMember] = useState("");
@@ -2227,6 +2224,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   );
 }
 
+// ─── ĐÁNH GIÁ TRƯỞNG NHÓM ────────────────────────────────────────────────────
 function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme }: any) {
   const styles = themeStyles[theme];
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -2385,9 +2383,11 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   );
 }
 
-function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
+// ─── KẾT QUẢ & PHÂN TÍCH (GỘP) ──────────────────────────────────────────────
+function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
 
+  // ─── PHÂN TÍCH ──────────────────────────────────────────────────────────────
   const memberAverages = members.map((m: any) => {
     let peerTotal = 0;
     let peerCount = 0;
@@ -2435,11 +2435,13 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
       taskAvg,
       leaderScore,
       taskPoints,
-      finalScore: Math.round(finalScore * 10) / 10
+      finalScore: Math.round(finalScore * 10) / 10,
+      isLeader
     };
   });
 
   const sortedMembers = [...memberAverages].sort((a, b) => b.finalScore - a.finalScore);
+  const groupAvg = memberAverages.reduce((sum, m) => sum + m.finalScore, 0) / memberAverages.length;
 
   const getComments = (memberId: string) => {
     const comments: string[] = [];
@@ -2451,12 +2453,63 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
     return comments;
   };
 
+  // ─── THỐNG KÊ TIẾN ĐỘ ──────────────────────────────────────────────────────
+  const total = tasks.length;
+  const done = tasks.filter((t: any) => t.status === "done").length;
+
+  const exportResults = () => {
+    const text = `📊 KẾT QUẢ ĐÁNH GIÁ NHÓM\n\n` +
+      `Dự án: ${tasks.length} tasks\n` +
+      `Thành viên: ${members.length} người\n` +
+      `Điểm trung bình nhóm: ${groupAvg.toFixed(1)}\n\n` +
+      sortedMembers.map((m, idx) => 
+        `${idx + 1}. ${m.name}${m.isLeader ? " (👑 Trưởng nhóm)" : ""}\n` +
+        `   Task: ${m.taskPoints.toFixed(1)} | Đồng đội: ${m.peerAvg.toFixed(1)} | Trưởng nhóm: ${m.leaderScore.toFixed(1)} | Tổng: ${m.finalScore.toFixed(1)}`
+      ).join("\n");
+
+    navigator.clipboard.writeText(text);
+    alert("✅ Đã copy kết quả!");
+  };
+
   return (
     <div>
+      {/* ─── TIẾN ĐỘ TỔNG THỂ ────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
-        <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 PHÂN TÍCH ĐÁNH GIÁ</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 TIẾN ĐỘ DỰ ÁN</h3>
+          <div style={{ display: "flex", gap: 8 }}>
+            <NutBam onClick={exportResults} variant="primary" theme={theme}>
+              📋 Xuất kết quả
+            </NutBam>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16, marginTop: 12 }}>
+          <div style={{ textAlign: "center", padding: 12, background: styles.inputBg, borderRadius: 8 }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#a5b4fc" }}>{total}</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Tổng việc</div>
+          </div>
+          <div style={{ textAlign: "center", padding: 12, background: styles.inputBg, borderRadius: 8 }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#22c55e" }}>{done}</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Đã hoàn thành</div>
+          </div>
+          <div style={{ textAlign: "center", padding: 12, background: styles.inputBg, borderRadius: 8 }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>{total - done}</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Đang làm</div>
+          </div>
+          <div style={{ textAlign: "center", padding: 12, background: styles.inputBg, borderRadius: 8 }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: "#6366f1" }}>{members.length}</div>
+            <div style={{ fontSize: 12, color: styles.textMuted }}>Thành viên</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <ThanhTienTrinh value={done} max={total} />
+          <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
+            Tiến độ: {total ? Math.round((done / total) * 100) : 0}%
+          </div>
+        </div>
       </TheCard>
 
+      {/* ─── BẢNG XẾP HẠNG ──────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>🏆 Bảng xếp hạng thành viên</h4>
         
@@ -2482,7 +2535,7 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
                   <td style={{ padding: "12px 8px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span>{m.name}</span>
-                      {m.id === leader && <The color="#f59e0b">👑</The>}
+                      {m.isLeader && <The color="#f59e0b">👑</The>}
                     </div>
                   </td>
                   <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.taskPoints?.toFixed(1) || 0}</td>
@@ -2497,8 +2550,16 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
             </tbody>
           </table>
         </div>
+
+        <div style={{ marginTop: 16, padding: 12, background: styles.inputBg, borderRadius: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 14, color: styles.textMuted }}>Điểm trung bình nhóm</span>
+            <span style={{ fontSize: 24, fontWeight: 700, color: "#a5b4fc" }}>{groupAvg.toFixed(1)}</span>
+          </div>
+        </div>
       </TheCard>
 
+      {/* ─── NHẬN XÉT & GÓP Ý ──────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <TheCard theme={theme}>
           <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Nhận xét đồng đội</h4>
@@ -2554,136 +2615,6 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
           )}
         </TheCard>
       </div>
-    </div>
-  );
-}
-
-function KetQua({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
-  const styles = themeStyles[theme];
-
-  const memberAverages = members.map((m: any) => {
-    let peerTotal = 0;
-    let peerCount = 0;
-    Object.keys(peerScores).forEach((reviewerId) => {
-      if (peerScores[reviewerId]?.[m.id]?.scores) {
-        const scores = Object.values(peerScores[reviewerId][m.id].scores) as number[];
-        peerTotal += scores.reduce((a, b) => a + b, 0) / scores.length;
-        peerCount++;
-      }
-    });
-    const peerAvg = peerCount > 0 ? peerTotal / peerCount : 0;
-
-    let taskTotal = 0;
-    let taskCount = 0;
-    tasks.forEach((t: any) => {
-      if (t.subtasks?.some((s: any) => s.assignee === m.id && s.status === "accepted")) {
-        const complexity = t.complexity || 1;
-        taskTotal += complexity * 2;
-        taskCount++;
-      }
-    });
-    const taskPoints = taskCount > 0 ? taskTotal / taskCount : 0;
-
-    const leaderScore = leaderScores[m.id]?.avgScore || 0;
-
-    const isLeader = m.id === leader;
-    const finalScore = isLeader
-      ? (taskPoints * 0.4 + peerAvg * 0.3 + leaderScore * 0.3)
-      : (taskPoints * 0.4 + peerAvg * 0.3 + leaderScore * 0.1);
-
-    return {
-      ...m,
-      peerAvg,
-      taskPoints,
-      leaderScore,
-      finalScore: Math.round(finalScore * 10) / 10,
-      isLeader
-    };
-  });
-
-  const sortedMembers = [...memberAverages].sort((a, b) => b.finalScore - a.finalScore);
-  const groupAvg = memberAverages.reduce((sum, m) => sum + m.finalScore, 0) / memberAverages.length;
-
-  const exportResults = () => {
-    const text = `📊 KẾT QUẢ ĐÁNH GIÁ NHÓM\n\n` +
-      `Dự án: ${tasks.length} tasks\n` +
-      `Thành viên: ${members.length} người\n` +
-      `Điểm trung bình nhóm: ${groupAvg.toFixed(1)}\n\n` +
-      sortedMembers.map((m, idx) => 
-        `${idx + 1}. ${m.name}${m.isLeader ? " (👑 Trưởng nhóm)" : ""}\n` +
-        `   Task: ${m.taskPoints.toFixed(1)} | Đồng đội: ${m.peerAvg.toFixed(1)} | Trưởng nhóm: ${m.leaderScore.toFixed(1)} | Tổng: ${m.finalScore.toFixed(1)}`
-      ).join("\n");
-
-    navigator.clipboard.writeText(text);
-    alert("✅ Đã copy kết quả!");
-  };
-
-  return (
-    <div>
-      <TheCard theme={theme} style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>🏆 KẾT QUẢ ĐÁNH GIÁ</h3>
-          <div style={{ display: "flex", gap: 8 }}>
-            <NutBam onClick={exportResults} variant="primary" theme={theme}>
-              📋 Xuất kết quả
-            </NutBam>
-          </div>
-        </div>
-      </TheCard>
-
-      <TheCard theme={theme} style={{ marginBottom: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-          <div>
-            <div style={{ fontSize: 14, color: styles.textMuted }}>Điểm trung bình nhóm</div>
-            <div style={{ fontSize: 32, fontWeight: 700, color: "#a5b4fc" }}>{groupAvg.toFixed(1)}</div>
-          </div>
-          <div>
-            <div style={{ fontSize: 14, color: styles.textMuted }}>Số thành viên</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: styles.text }}>{members.length}</div>
-          </div>
-        </div>
-        <ThanhTienTrinh value={groupAvg} max={10} color="#6366f1" />
-      </TheCard>
-
-      <TheCard theme={theme}>
-        <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📊 Bảng điểm chi tiết</h4>
-        
-        <div className="result-table-wrapper" style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: `2px solid ${styles.border}` }}>
-                <th style={{ padding: "12px 8px", textAlign: "left" }}>#</th>
-                <th style={{ padding: "12px 8px", textAlign: "left" }}>Thành viên</th>
-                <th style={{ padding: "12px 8px", textAlign: "center" }}>Task</th>
-                <th style={{ padding: "12px 8px", textAlign: "center" }}>Đồng đội</th>
-                <th style={{ padding: "12px 8px", textAlign: "center" }}>Trưởng nhóm</th>
-                <th style={{ padding: "12px 8px", textAlign: "center" }}>Tổng</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedMembers.map((m, idx) => (
-                <tr key={m.id} style={{ borderBottom: `1px solid ${styles.border}` }}>
-                  <td style={{ padding: "12px 8px", fontWeight: 700, color: idx === 0 ? "#fcd34d" : styles.textMuted }}>
-                    {idx + 1}
-                  </td>
-                  <td style={{ padding: "12px 8px" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span>{m.name}</span>
-                      {m.isLeader && <The color="#f59e0b">👑</The>}
-                    </div>
-                  </td>
-                  <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.taskPoints.toFixed(1)}</td>
-                  <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.peerAvg.toFixed(1)}</td>
-                  <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.leaderScore.toFixed(1)}</td>
-                  <td style={{ padding: "12px 8px", textAlign: "center", fontWeight: 700, color: idx === 0 ? "#fcd34d" : styles.text }}>
-                    {m.finalScore.toFixed(1)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </TheCard>
     </div>
   );
 }
@@ -2821,7 +2752,6 @@ export default function App() {
       return [...new Set(allMembers)].length >= 2;
     }).length || null,
     schedule: scheduleSlots.length > 0 ? scheduleSlots.length : null,
-    analysis: null,
     result: null,
   };
 
@@ -2949,7 +2879,7 @@ export default function App() {
           theme={theme}
           currentReviewer={currentReviewer}
         />}
-        {tab === "analysis" && <PhanTich 
+        {tab === "result" && <KetQuaPhanTich 
           members={members} 
           tasks={tasks} 
           peerScores={peerScores}
@@ -2960,7 +2890,6 @@ export default function App() {
           taskContributionScores={taskContributionScores}
           theme={theme}
         />}
-        {tab === "result" && <KetQua members={members} tasks={tasks} peerScores={peerScores} leaderScores={leaderScores} leader={leader} teacherScore={teacherScore} setTeacherScore={setTeacherScore} theme={theme} />}
       </div>
       <ChatBox chatMessages={chatMessages} setChatMessages={setChatMessages} members={members} theme={theme} currentReviewer={currentReviewer} />
       <HelpDialog theme={theme} />
