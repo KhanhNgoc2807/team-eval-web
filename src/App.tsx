@@ -1460,7 +1460,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   );
 }
 
-// ─── THẢO LUẬN (ĐÃ SỬA PHẦN ĐÁNH GIÁ HỮU ÍCH) ──────────────────────────────
+// ─── THẢO LUẬN (ĐÃ SỬA LỖI HIỂN THỊ NÚT HỮU ÍCH) ──────────────────────────
 function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskComments, setTaskComments, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
@@ -1546,7 +1546,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     setCommentTarget("");
   };
 
-  // ─── SỬA: HÀM ĐÁNH GIÁ HỮU ÍCH (CỘNG +1 ĐIỂM) ─────────────────────────────
+  // ─── HÀM ĐÁNH GIÁ HỮU ÍCH ──────────────────────────────────────────────────
   const danhGiaHuuIch = (taskId: string, commentId: string, useful: boolean, reason?: string) => {
     if (useful === false && !reason) {
       alert("Vui lòng cho biết lý do vì sao góp ý này không hữu ích!");
@@ -1738,7 +1738,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
-            {/* ─── PHẦN GÓP Ý - ĐÃ SỬA ──────────────────────────────────────────── */}
+            {/* ─── PHẦN GÓP Ý - ĐÃ SỬA LỖI ──────────────────────────────────────── */}
             <TheCard theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
@@ -1755,8 +1755,9 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                   </div>
                 ) : (
                   comments.filter((c: any) => !c.isHidden).map((comment: any) => {
-                    // ─── TÍNH LẠI SỐ TỪ VÀ ISSHORT KHI HIỂN THỊ ──────────────────────
-                    const wordCount = comment.content?.split(/\s+/).length || 0;
+                    // ─── SỬA LỖI: TÍNH LẠI SỐ TỪ CHÍNH XÁC ──────────────────────────
+                    const content = comment.content || "";
+                    const wordCount = content.split(/\s+/).filter((w: string) => w.trim().length > 0).length;
                     const isShort = wordCount < 10;
                     const isLong = !isShort;
                     
@@ -1789,11 +1790,12 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                             )}
                           </div>
                         </div>
+                        
                         <div style={{ fontSize: 13, color: styles.text, marginBottom: 6 }}>
                           {comment.content}
                         </div>
                         
-                        {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────────── */}
+                        {/* ─── SỬA: NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────── */}
                         {isLong && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                             <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
@@ -1817,7 +1819,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           </div>
                         )}
                         
-                        {/* ─── GÓP Ý NGẮN - KHÔNG CÓ NÚT ĐÁNH GIÁ ──────────────────── */}
                         {isShort && comment.targetMemberId === currentReviewer && (
                           <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                             ⚠️ Góp ý ngắn (dưới 10 từ) - Không thể đánh giá hữu ích
@@ -2387,7 +2388,6 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
 function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
 
-  // ─── PHÂN TÍCH ──────────────────────────────────────────────────────────────
   const memberAverages = members.map((m: any) => {
     let peerTotal = 0;
     let peerCount = 0;
@@ -2453,7 +2453,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     return comments;
   };
 
-  // ─── THỐNG KÊ TIẾN ĐỘ ──────────────────────────────────────────────────────
   const total = tasks.length;
   const done = tasks.filter((t: any) => t.status === "done").length;
 
@@ -2473,7 +2472,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
 
   return (
     <div>
-      {/* ─── TIẾN ĐỘ TỔNG THỂ ────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 TIẾN ĐỘ DỰ ÁN</h3>
@@ -2509,7 +2507,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         </div>
       </TheCard>
 
-      {/* ─── BẢNG XẾP HẠNG ──────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>🏆 Bảng xếp hạng thành viên</h4>
         
@@ -2559,7 +2556,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         </div>
       </TheCard>
 
-      {/* ─── NHẬN XÉT & GÓP Ý ──────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <TheCard theme={theme}>
           <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Nhận xét đồng đội</h4>
