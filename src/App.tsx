@@ -1557,9 +1557,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
       const comments = prev[taskId] || [];
       const updated = comments.map((c: any) => {
         if (c.id === commentId) {
-          // ─── CHỈ CỘNG ĐIỂM KHI USEFUL = TRUE ──────────────────────────────
           if (useful && c.authorId) {
-            // Cộng 1 điểm cho người gửi góp ý (sẽ được cộng vào peerScores)
             return {
               ...c,
               usefulness: "useful",
@@ -1757,7 +1755,13 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                     Chưa có góp ý nào
                   </div>
                 ) : (
-                  comments.filter((c: any) => !c.isHidden).map((comment: any) => (
+                  comments.filter((c: any) => !c.isHidden).map((comment: any) => {
+                    // ─── TÍNH LẠI SỐ TỪ VÀ ISSHORT KHI HIỂN THỊ ──────────────────────
+                    const wordCount = comment.content?.split(/\s+/).length || 0;
+                    const isShort = wordCount < 10;
+                    const isLong = !isShort;
+                    
+                    return (
                     <div key={comment.id} style={{ marginBottom: 12, padding: "10px 12px", background: styles.inputBg, borderRadius: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                         <div>
@@ -1768,11 +1772,11 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                             {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
                           </span>
                           
-                          {/* ─── SỬA: HIỂN THỊ ĐÚNG TRẠNG THÁI ───────────────────── */}
-                          {comment.isShort && (
+                          {/* ─── SỬA: HIỂN THỊ ĐÚNG TRẠNG THÁI DỰA TRÊN SỐ TỪ THỰC TẾ ── */}
+                          {isShort && (
                             <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>Góp ý ngắn</The>
                           )}
-                          {!comment.isShort && comment.usefulness === null && (
+                          {isLong && comment.usefulness === null && (
                             <The color="#f59e0b" style={{ fontSize: 9, marginLeft: 8 }}>⏳ Chờ đánh giá</The>
                           )}
                           {comment.usefulness === "useful" && (
@@ -1790,8 +1794,8 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         {comment.content}
                       </div>
                       
-                      {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH - CHỈ HIỂN THỊ KHI ĐỦ ĐIỀU KIỆN ── */}
-                      {!comment.isShort && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
+                      {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH - SỬA ĐIỀU KIỆN ────────────────────── */}
+                      {isLong && comment.targetMemberId === currentReviewer && comment.usefulness === null && (
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                           <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
                           <button 
@@ -1815,7 +1819,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                       )}
                       
                       {/* ─── GÓP Ý NGẮN - KHÔNG CÓ NÚT ĐÁNH GIÁ ──────────────────── */}
-                      {comment.isShort && comment.targetMemberId === currentReviewer && (
+                      {isShort && comment.targetMemberId === currentReviewer && (
                         <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                           ⚠️ Góp ý ngắn (dưới 10 từ) - Không thể đánh giá hữu ích
                         </div>
@@ -1881,7 +1885,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         </div>
                       )}
                     </div>
-                  ))
+                  )})}
                 )}
               </div>
               
@@ -1949,9 +1953,8 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 
 // ─── CÁC COMPONENT KHÁC (GIỮ NGUYÊN) ──────────────────────────────────────────
 // DanhGiaNhanXet, DanhGiaTruongNhom, PhanTich, KetQua, App
-// (giữ nguyên từ code cũ, không thay đổi gì)
+// (giữ nguyên từ code cũ)
 
-// ─── ĐÁNH GIÁ & NHẬN XÉT ──────────────────────────────────────────────────────
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [targetMember, setTargetMember] = useState("");
@@ -2224,7 +2227,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   );
 }
 
-// ─── ĐÁNH GIÁ TRƯỞNG NHÓM ────────────────────────────────────────────────────
 function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme }: any) {
   const styles = themeStyles[theme];
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -2383,7 +2385,6 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   );
 }
 
-// ─── PHÂN TÍCH ────────────────────────────────────────────────────────────────
 function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerComments, taskComments, taskContributionScores, theme }: any) {
   const styles = themeStyles[theme];
 
@@ -2557,7 +2558,6 @@ function PhanTich({ members, tasks, peerScores, leaderScores, leader, peerCommen
   );
 }
 
-// ─── KẾT QUẢ ─────────────────────────────────────────────────────────────────
 function KetQua({ members, tasks, peerScores, leaderScores, leader, teacherScore, setTeacherScore, theme }: any) {
   const styles = themeStyles[theme];
 
