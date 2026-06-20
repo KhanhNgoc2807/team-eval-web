@@ -1460,7 +1460,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   );
 }
 
-// ─── THẢO LUẬN (ĐÃ SỬA - CÓ NÚT ĐÁNH GIÁ HỮU ÍCH) ──────────────────────────
+// ─── THẢO LUẬN (CÓ LIKE/DISLIKE) ──────────────────────────────────────────
 function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskComments, setTaskComments, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
@@ -1546,7 +1546,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
     setCommentTarget("");
   };
 
-  // ─── HÀM ĐÁNH GIÁ HỮU ÍCH ──────────────────────────────────────────────────
   const danhGiaHuuIch = (taskId: string, commentId: string, useful: boolean, reason?: string) => {
     if (useful === false && !reason) {
       alert("Vui lòng cho biết lý do vì sao góp ý này không hữu ích!");
@@ -1738,7 +1737,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
-            {/* ─── PHẦN GÓP Ý ────────────────────────────────────────────────────── */}
+            {/* ─── PHẦN GÓP Ý CÓ LIKE/DISLIKE ────────────────────────────────────── */}
             <TheCard theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
@@ -1755,13 +1754,10 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                   </div>
                 ) : (
                   comments.filter((c: any) => !c.isHidden).map((comment: any) => {
-                    // ─── TÍNH LẠI SỐ TỪ ──────────────────────────────────────────────
                     const content = comment.content || "";
                     const wordCount = content.split(/\s+/).filter((w: string) => w.trim().length > 0).length;
                     const isShort = wordCount < 10;
                     const isLong = !isShort;
-                    
-                    // ─── KIỂM TRA NGƯỜI NHẬN ──────────────────────────────────────────
                     const isReceiver = comment.targetMemberId === currentReviewer;
                     
                     return (
@@ -1797,27 +1793,68 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           {comment.content}
                         </div>
                         
-                        {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────────── */}
-                        {isLong && isReceiver && comment.usefulness === null && (
+                        {/* ─── NÚT LIKE/DISLIKE - LUÔN HIỆN CHO NGƯỜI ĐƯỢC GÓP Ý ─── */}
+                        {isLong && isReceiver && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                             <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
                             <button 
-                              onClick={() => danhGiaHuuIch(selectedTask, comment.id, true)}
-                              style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #22c55e", background: "#22c55e22", color: "#22c55e", cursor: "pointer", fontSize: 11 }}
+                              onClick={() => {
+                                if (comment.usefulness === "useful") {
+                                  alert("Bạn đã đánh giá góp ý này là HỮU ÍCH rồi!");
+                                  return;
+                                }
+                                danhGiaHuuIch(selectedTask, comment.id, true);
+                              }}
+                              style={{ 
+                                padding: "4px 12px", 
+                                borderRadius: 4, 
+                                border: `1px solid ${comment.usefulness === "useful" ? "#22c55e" : "#22c55e"}`,
+                                background: comment.usefulness === "useful" ? "#22c55e" : "#22c55e22",
+                                color: comment.usefulness === "useful" ? "#fff" : "#22c55e",
+                                cursor: comment.usefulness === "useful" ? "not-allowed" : "pointer",
+                                fontSize: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                opacity: comment.usefulness === "useful" ? 0.6 : 1
+                              }}
+                              disabled={comment.usefulness === "useful"}
                             >
-                              ✅ Hữu ích (+1 điểm cho người gửi)
+                              👍 Hữu ích (+1 điểm)
                             </button>
                             <button 
                               onClick={() => {
+                                if (comment.usefulness === "not_useful") {
+                                  alert("Bạn đã đánh giá góp ý này là KHÔNG HỮU ÍCH rồi!");
+                                  return;
+                                }
                                 const reason = prompt("Vui lòng cho biết lý do vì sao góp ý này không hữu ích:");
-                                if (reason !== null) {
+                                if (reason !== null && reason.trim()) {
                                   danhGiaHuuIch(selectedTask, comment.id, false, reason);
                                 }
                               }}
-                              style={{ padding: "2px 10px", borderRadius: 4, border: "1px solid #ef4444", background: "#ef444422", color: "#ef4444", cursor: "pointer", fontSize: 11 }}
+                              style={{ 
+                                padding: "4px 12px", 
+                                borderRadius: 4, 
+                                border: `1px solid ${comment.usefulness === "not_useful" ? "#ef4444" : "#ef4444"}`,
+                                background: comment.usefulness === "not_useful" ? "#ef4444" : "#ef444422",
+                                color: comment.usefulness === "not_useful" ? "#fff" : "#ef4444",
+                                cursor: comment.usefulness === "not_useful" ? "not-allowed" : "pointer",
+                                fontSize: 12,
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                opacity: comment.usefulness === "not_useful" ? 0.6 : 1
+                              }}
+                              disabled={comment.usefulness === "not_useful"}
                             >
-                              ❌ Không hữu ích
+                              👎 Không hữu ích
                             </button>
+                            {comment.usefulness && (
+                              <span style={{ fontSize: 11, color: styles.textMuted }}>
+                                (Đã đánh giá)
+                              </span>
+                            )}
                           </div>
                         )}
                         
