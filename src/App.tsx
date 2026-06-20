@@ -878,7 +878,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       subtasks: form.subtasks.map((name: string) => ({ 
         id: uid(),
         name: name,
-        assignee: null,
+        assignee: null, // ← QUAN TRỌNG: TẤT CẢ ĐỀU null (CHƯA CÓ AI NHẬN)
         status: "pending" 
       })),
       deadline: form.deadline, 
@@ -1035,6 +1035,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       const hasSubtasks = subtaskList.length > 0;
       const pendingSubtasks = subtaskList.filter((s: any) => s.assignee === null);
       const allAssigned = hasSubtasks && pendingSubtasks.length === 0;
+      
       if (!allAssigned && t.status !== "todo") {
         alert("⚠️ Vẫn còn đầu việc chưa có ai nhận! Không thể chuyển trạng thái.");
         return t;
@@ -1296,9 +1297,12 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(420px,1fr))", gap: 14 }}>
           {filtered.map((t: any) => {
+            // ─── QUAN TRỌNG: LẤY DANH SÁCH SUBTASK ──────────────────────────
             const subtaskList = t.subtasks || [];
             const hasSubtasks = subtaskList.length > 0;
+            // Đếm số subtask chưa có người nhận (assignee === null)
             const pendingSubtasks = subtaskList.filter((s: any) => s.assignee === null);
+            // Tất cả đã có người nhận khi có subtask và không còn subtask nào chưa có người nhận
             const allAssigned = hasSubtasks && pendingSubtasks.length === 0;
             
             const sc = TRANG_THAI[t.status as keyof typeof TRANG_THAI];
@@ -1334,15 +1338,17 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                 
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 
+                {/* ─── DANH SÁCH SUBTASK ───────────────────────────────────────────── */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
                     📌 Các đầu việc nhỏ:
                   </div>
+                  
                   {subtaskList.length > 0 ? (
                     subtaskList.map((s: any) => {
-                      const isPending = s.assignee === null;
-                      const isMine = s.assignee === currentReviewer;
-                      const canAssign = leader === currentReviewer && isPending;
+                      const isPending = s.assignee === null; // CHƯA CÓ AI NHẬN
+                      const isMine = s.assignee === currentReviewer; // ĐÃ NHẬN BỞI TÔI
+                      const canAssign = leader === currentReviewer && isPending; // TRƯỞNG NHÓM CÓ THỂ CHỈ ĐỊNH
                       
                       return (
                         <div key={s.id} style={{ 
@@ -1356,6 +1362,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                           borderLeft: `3px solid ${isMine ? "#22c55e" : isPending ? "#f59e0b" : "#6366f1"}`
                         }}>
                           <span style={{ fontSize: 13, flex: 1 }}>
+                            {/* HIỂN THỊ TRẠNG THÁI ĐÚNG */}
                             {isPending ? "⬜" : "✅"} {s.name}
                             {isMine && <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã nhận)</span>}
                             {!isPending && s.assignee && !isMine && (
@@ -1364,6 +1371,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             {isPending && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>⏳ Chưa có ai nhận</span>}
                           </span>
                           
+                          {/* ─── NÚT NHẬN - CHỈ HIỂN THỊ KHI CHƯA CÓ AI NHẬN ──────── */}
                           {isPending && currentReviewer && (
                             <NutBam 
                               onClick={() => nhanTaskCon(t.id, s.id)} 
@@ -1375,6 +1383,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             </NutBam>
                           )}
                           
+                          {/* ─── TRƯỞNG NHÓM CHỈ ĐỊNH ──────────────────────────────── */}
                           {canAssign && (
                             <>
                               <Chon 
@@ -1412,24 +1421,21 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                     </div>
                   )}
                   
-                  {hasSubtasks && pendingSubtasks.length > 0 && (
+                  {/* ─── THÔNG BÁO TRẠNG THÁI TỔNG THỂ ───────────────────────────── */}
+                  {subtaskList.length > 0 && pendingSubtasks.length > 0 && (
                     <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
-                      ⏰ Còn {pendingSubtasks.length} đầu việc chưa có ai nhận
+                      ⏰ Còn {pendingSubtasks.length} đầu việc chưa có ai nhận. Hãy nhận đầu việc phù hợp với thế mạnh của bạn!
                     </div>
                   )}
-                  {hasSubtasks && pendingSubtasks.length === 0 && t.status !== "done" && (
+                  {subtaskList.length > 0 && pendingSubtasks.length === 0 && t.status !== "done" && (
                     <div style={{ fontSize: 11, color: "#22c55e", marginTop: 6 }}>
-                      ✅ Tất cả đầu việc đã có người nhận!
-                    </div>
-                  )}
-                  {!hasSubtasks && (
-                    <div style={{ fontSize: 11, color: "#ef4444", marginTop: 6 }}>
-                      ⚠️ Chưa có đầu việc nào!
+                      ✅ Tất cả đầu việc đã có người nhận! Có thể bắt đầu làm việc.
                     </div>
                   )}
                 </div>
                 
-                {hasSubtasks && pendingSubtasks.length === 0 && (
+                {/* ─── CHỈ HIỂN THỊ NỘP SẢN PHẨM KHI TẤT CẢ ĐẦU VIỆC ĐÃ CÓ NGƯỜI NHẬN ── */}
+                {subtaskList.length > 0 && pendingSubtasks.length === 0 && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
                       🔗 Link sản phẩm
