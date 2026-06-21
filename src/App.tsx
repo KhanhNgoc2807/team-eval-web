@@ -286,10 +286,12 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>📋 Công việc</h4>
               <p style={{ margin: 0 }}>• Nhận đầu việc phù hợp với thế mạnh</p>
               <p style={{ margin: 0 }}>• Hoàn thành từng đầu việc nhỏ → ấn "✅ Hoàn thành"</p>
+              <p style={{ margin: 0 }}>• Task không có đầu việc nhỏ → ấn "✅ Hoàn thành task (10đ)"</p>
               <p style={{ margin: 0 }}>• Tất cả đầu việc hoàn thành → task tự động done → 10 điểm</p>
               <p style={{ margin: 0 }}>• Quá 24h, hệ thống tự chỉ định ngẫu nhiên</p>
               <p style={{ margin: 0 }}>• Nhận việc bỏ trống → +0.5 điểm thưởng</p>
               <p style={{ margin: 0 }}>• Có thể từ chối hoặc nhường việc cho người khác</p>
+              <p style={{ margin: 0 }}>• Điểm task = (Số task hoàn thành / Tổng task được giao) × 10</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -801,6 +803,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [leaderRoleAssign, setLeaderRoleAssign] = useState<Record<string, string>>({});
+  const [productContent, setProductContent] = useState<Record<string, string>>({});
   
   const styles = themeStyles[theme];
 
@@ -878,7 +881,9 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       deadline: form.deadline, 
       status: "todo",
       productLink: "",
+      productText: "",
       submittedBy: "",
+      submittedAt: "",
       createdAt: new Date().toISOString(),
       assignees: form.assignees.map((id: string) => ({ 
         memberId: id, 
@@ -956,6 +961,29 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   const layTen = (memberId: string) => {
     const member = members.find((m: any) => m.id === memberId);
     return member ? member.name : "Không xác định";
+  };
+
+  const hoanThanhTaskDon = (taskId: string) => {
+    if (!currentReviewer) {
+      alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
+      return;
+    }
+    const task = tasks.find((t: any) => t.id === taskId);
+    if (!task) return;
+    
+    // Kiểm tra xem người dùng có được giao task này không
+    if (!task.assignees?.some((a: any) => a.memberId === currentReviewer)) {
+      alert("⚠️ Bạn không được giao task này!");
+      return;
+    }
+    
+    setTasks((prev: any[]) => prev.map((t: any) => {
+      if (t.id === taskId && t.status !== "done") {
+        return { ...t, status: "done", score: 10 };
+      }
+      return t;
+    }));
+    alert("✅ Bạn đã hoàn thành task! +10 điểm");
   };
 
   const nhanTaskCon = (taskId: string, subtaskId: string) => {
@@ -1471,6 +1499,18 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   )}
                 </div>
                 
+                {/* ─── NÚT HOÀN THÀNH CHO TASK ĐƠN LẺ ────────────────────────── */}
+                {!hasSubtasks && t.assignees?.some((a: any) => a.memberId === currentReviewer) && t.status !== "done" && (
+                  <NutBam 
+                    onClick={() => hoanThanhTaskDon(t.id)} 
+                    variant="success" 
+                    theme={theme} 
+                    style={{ marginBottom: 12, width: "100%" }}
+                  >
+                    ✅ Hoàn thành task (10 điểm)
+                  </NutBam>
+                )}
+                
                 {/* ─── HIỂN THỊ ĐẦU VIỆC NHỎ ────────────────────────────────────── */}
                 {hasSubtasks && (
                   <div style={{ marginBottom: 12 }}>
@@ -1641,42 +1681,88 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                 {allAssigned && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
-                      🔗 Link sản phẩm
+                      📤 Nộp sản phẩm
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <OInput 
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <OInput
                         value={t.productLink || ""}
                         onChange={(v: string) => {
                           setTasks((prev: any[]) => prev.map((task: any) =>
                             task.id === t.id ? { ...task, productLink: v } : task
                           ));
                         }}
-                        placeholder="https://docs.google.com/..."
+                        placeholder="🔗 Link sản phẩm (Google Drive, Docs, GitHub...)"
                         theme={theme}
-                        style={{ flex: 1 }}
                       />
-                      <NutBam 
-                        onClick={() => {
-                          if (t.productLink?.trim()) {
+                      <textarea
+                        value={productContent[t.id] || t.productText || ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setProductContent({ ...productContent, [t.id]: val });
+                          setTasks((prev: any[]) => prev.map((task: any) =>
+                            task.id === t.id ? { ...task, productText: val } : task
+                          ));
+                        }}
+                        placeholder="📝 Hoặc nhập nội dung sản phẩm tại đây..."
+                        style={{
+                          background: styles.inputBg,
+                          border: `1px solid ${styles.border}`,
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          color: styles.text,
+                          fontSize: 14,
+                          outline: "none",
+                          fontFamily: "inherit",
+                          width: "100%",
+                          boxSizing: "border-box",
+                          minHeight: 80,
+                          resize: "vertical"
+                        }}
+                        onFocus={e => e.currentTarget.style.borderColor = "#6366f1"}
+                        onBlur={e => e.currentTarget.style.borderColor = styles.border}
+                      />
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                        <NutBam
+                          onClick={() => {
+                            if (!t.productLink?.trim() && !productContent[t.id]?.trim() && !t.productText?.trim()) {
+                              alert("⚠️ Vui lòng nhập link hoặc nội dung sản phẩm!");
+                              return;
+                            }
                             setTasks((prev: any[]) => prev.map((task: any) =>
-                              task.id === t.id ? { ...task, submittedBy: currentReviewer } : task
+                              task.id === t.id ? { ...task, submittedBy: currentReviewer, submittedAt: new Date().toISOString() } : task
                             ));
                             alert("✅ Đã nộp sản phẩm!");
-                          } else {
-                            alert("⚠️ Vui lòng nhập link sản phẩm!");
-                          }
-                        }} 
-                        theme={theme}
-                        style={{ padding: "10px 16px" }}
-                      >
-                        Gửi
-                      </NutBam>
-                    </div>
-                    {t.submittedBy && (
-                      <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
-                        ✅ Đã nộp bởi {layTen(t.submittedBy)}
+                          }}
+                          theme={theme}
+                        >
+                          📤 Gửi sản phẩm
+                        </NutBam>
                       </div>
-                    )}
+                      {t.submittedBy && (
+                        <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
+                          ✅ Đã nộp bởi {layTen(t.submittedBy)} vào {new Date(t.submittedAt).toLocaleString("vi-VN")}
+                        </div>
+                      )}
+                      {t.productLink && (
+                        <div style={{ fontSize: 12, marginTop: 4 }}>
+                          🔗 Link: <a href={t.productLink} target="_blank" rel="noopener noreferrer" style={{ color: "#6366f1" }}>{t.productLink}</a>
+                        </div>
+                      )}
+                      {t.productText && (
+                        <div style={{ 
+                          fontSize: 13, 
+                          marginTop: 4, 
+                          background: styles.inputBg, 
+                          padding: 8, 
+                          borderRadius: 6,
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          color: styles.text
+                        }}>
+                          📝 {t.productText}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 
@@ -2757,15 +2843,17 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     const leaderScore = leaderScores[m.id]?.avgScore || 0;
 
     // ─── ĐIỂM TASK ──────────────────────────────────────────────────────────────
-    let taskScore = 0;
-    let taskCount2 = 0;
-    tasks.forEach((t: any) => {
-      if (t.status === "done" && t.subtasks?.some((s: any) => s.assignee === m.id && s.status === "done")) {
-        taskScore += t.score || 10;
-        taskCount2++;
-      }
-    });
-    const taskPoints = taskCount2 > 0 ? taskScore / taskCount2 : 0;
+    const totalAssignedTasks = tasks.filter((t: any) => 
+      t.assignees?.some((a: any) => a.memberId === m.id)
+    ).length;
+
+    const completedTasks = tasks.filter((t: any) => 
+      t.status === "done" && t.assignees?.some((a: any) => a.memberId === m.id)
+    ).length;
+
+    const taskPoints = totalAssignedTasks > 0 
+      ? (completedTasks / totalAssignedTasks) * 10 
+      : 0;
 
     const isLeader = m.id === leader;
     
@@ -2793,6 +2881,8 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
       totalBonus,
       leaderScore,
       taskPoints,
+      totalAssignedTasks,
+      completedTasks,
       baseScore: Math.round(finalScore * 10) / 10,
       finalScore: Math.round(finalScoreWithBonus * 10) / 10,
       isLeader
@@ -2838,7 +2928,7 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
       `Điểm giảng viên: ${teacherScore || "Chưa nhập"}\n\n` +
       sortedWithPercent.map((m, idx) => 
         `${idx + 1}. ${m.name}${m.isLeader ? " (👑 Trưởng nhóm)" : ""}\n` +
-        `   Task: ${m.taskPoints.toFixed(1)} | Đồng đội: ${m.peerAvg.toFixed(1)} | Trưởng nhóm: ${m.leaderScore.toFixed(1)} | Điểm cơ bản: ${m.baseScore.toFixed(1)}\n` +
+        `   Task: ${m.taskPoints.toFixed(1)} (${m.completedTasks}/${m.totalAssignedTasks} hoàn thành) | Đồng đội: ${m.peerAvg.toFixed(1)} | Trưởng nhóm: ${m.leaderScore.toFixed(1)} | Điểm cơ bản: ${m.baseScore.toFixed(1)}\n` +
         `   🎁 Thưởng: +${m.totalBonus.toFixed(1)} (${m.diemGopY} góp ý + ${m.rescueCount} cứu việc) | Tổng: ${m.finalScore.toFixed(1)} | %: ${m.percent}% | Điểm sau chia: ${m.finalScoreWithTeacher.toFixed(1)}`
       ).join("\n");
 
@@ -2993,6 +3083,9 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span>{m.name}</span>
                       {m.isLeader && <The color="#f59e0b">👑</The>}
+                    </div>
+                    <div style={{ fontSize: 10, color: styles.textMuted }}>
+                      ({m.completedTasks}/{m.totalAssignedTasks} task)
                     </div>
                   </td>
                   <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.taskPoints?.toFixed(1) || 0}</td>
