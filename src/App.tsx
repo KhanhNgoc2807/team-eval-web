@@ -327,7 +327,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
                 🎁 Góp ý hữu ích +0.5đ | Nhận việc bỏ trống +0.5đ (tối đa +2đ mỗi loại)
               </p>
               <p style={{ margin: 0, fontSize: 12, color: "#fcd34d" }}>
-                📊 Chia điểm giảng viên = (Điểm GV × Số thành viên) × (% đóng góp / 100)
+                📊 Chia điểm giảng viên = (Điểm GV × Số thành viên) × (% đóng góp / 100) - Tối đa 10 điểm
               </p>
             </div>
           </div>
@@ -781,7 +781,7 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
               Điểm sau chia = Tổng điểm cần chia × (% đóng góp / 100)
             </div>
             <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-              → Tổng điểm sau chia luôn bằng Điểm GV × Số thành viên
+              → Giới hạn tối đa 10 điểm
             </div>
             <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
               → Làm tròn 1 chữ số thập phân
@@ -2901,11 +2901,12 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     // ─── CÔNG THỨC CHIA ĐIỂM GIẢNG VIÊN (CHIA THEO TỔNG ĐIỂM) ──────────────
     // Tổng điểm cần chia = Điểm giảng viên × Số thành viên
     // Điểm sau chia = Tổng điểm cần chia × (Phần trăm đóng góp / 100)
+    // Giới hạn tối đa 10 điểm
     let finalScoreWithTeacher = m.finalScore;
     if (teacherScore > 0 && members.length > 0) {
       const totalPointsToDivide = teacherScore * members.length;
       finalScoreWithTeacher = totalPointsToDivide * (percent / 100);
-      finalScoreWithTeacher = Math.round(finalScoreWithTeacher * 10) / 10;
+      finalScoreWithTeacher = Math.min(Math.round(finalScoreWithTeacher * 10) / 10, 10);
     }
     
     return {
