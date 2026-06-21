@@ -326,6 +326,9 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <p style={{ margin: 0, fontSize: 12, color: "#f59e0b" }}>
                 🎁 Góp ý hữu ích +0.5đ | Nhận việc bỏ trống +0.5đ (tối đa +2đ mỗi loại)
               </p>
+              <p style={{ margin: 0, fontSize: 12, color: "#fcd34d" }}>
+                📊 Chia điểm giảng viên = Điểm GV × (% đóng góp / % lớn nhất)
+              </p>
             </div>
           </div>
         </div>
@@ -751,13 +754,35 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
         </div>
         <div style={{ marginTop: 20, padding: 16, background: styles.inputBg, borderRadius: 12, fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
-          <div>Thành viên = <b style={{ color: "#6366f1" }}>Task × 50%</b> + <b style={{ color: "#22c55e" }}>Đồng đội × 40%</b> + <b style={{ color: "#ef4444" }}>Trưởng nhóm đánh giá × 10%</b></div>
-          <div>Trưởng nhóm = <b style={{ color: "#6366f1" }}>Task × 50%</b> + <b style={{ color: "#22c55e" }}>Đồng đội × 50%</b></div>
-          <div style={{ color: "#f59e0b", marginTop: 4, fontSize: 12 }}>
-            🎁 Điểm thưởng: 
-            <span style={{ marginLeft: 8 }}>Góp ý hữu ích +0.5đ</span>
-            <span style={{ marginLeft: 8 }}>Nhận việc bỏ trống +0.5đ</span>
-            <span style={{ marginLeft: 8, color: styles.textMuted }}>(tối đa +2đ mỗi loại)</span>
+          
+          <div>• <b style={{ color: "#6366f1" }}>Thành viên</b></div>
+          <div style={{ paddingLeft: 16, fontSize: 12 }}>
+            Task × 50% + Đồng đội × 40% + Trưởng nhóm đánh giá × 10%
+          </div>
+          
+          <div style={{ marginTop: 4 }}>• <b style={{ color: "#6366f1" }}>Trưởng nhóm</b></div>
+          <div style={{ paddingLeft: 16, fontSize: 12 }}>
+            Task × 50% + Đồng đội × 50%
+          </div>
+          
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
+            <div style={{ color: "#f59e0b", fontWeight: 700, marginBottom: 4 }}>🎁 ĐIỂM THƯỞNG</div>
+            <div style={{ paddingLeft: 16, fontSize: 12 }}>Góp ý hữu ích: +0.5đ</div>
+            <div style={{ paddingLeft: 16, fontSize: 12 }}>Nhận việc bỏ trống: +0.5đ</div>
+            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>(Tối đa +2đ mỗi loại)</div>
+          </div>
+          
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
+            <div style={{ color: "#fcd34d", fontWeight: 700, marginBottom: 4 }}>📊 CHIA ĐIỂM GIẢNG VIÊN</div>
+            <div style={{ paddingLeft: 16, fontSize: 12 }}>
+              Điểm sau chia = Điểm GV × (% đóng góp / % lớn nhất)
+            </div>
+            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
+              → Người có % đóng góp cao nhất được giữ nguyên điểm giảng viên
+            </div>
+            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
+              → Các thành viên khác nhân với tỷ lệ tương ứng
+            </div>
           </div>
         </div>
       </TheCard>
@@ -971,7 +996,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     const task = tasks.find((t: any) => t.id === taskId);
     if (!task) return;
     
-    // Kiểm tra xem người dùng có được giao task này không
     if (!task.assignees?.some((a: any) => a.memberId === currentReviewer)) {
       alert("⚠️ Bạn không được giao task này!");
       return;
@@ -992,7 +1016,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       return;
     }
     
-    // Kiểm tra xem đầu việc này đã có ai nhận chưa
     const task = tasks.find((t: any) => t.id === taskId);
     const subtask = task?.subtasks?.find((s: any) => s.id === subtaskId);
     
@@ -1006,14 +1029,13 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       if (t.id === taskId) {
         const updatedSubtasks = t.subtasks.map((s: any) => {
           if (s.id === subtaskId) {
-            // Nếu là đầu việc bị báo cáo không hoàn thành, thưởng thêm điểm
             const bonus = s.incomplete ? 1 : 0;
             return { 
               ...s, 
               assignee: currentReviewer, 
               status: "accepted",
               incomplete: false,
-              rescueBonus: bonus // +1 điểm thưởng nếu nhận việc bỏ trống
+              rescueBonus: bonus
             };
           }
           return s;
@@ -1121,10 +1143,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
           return s;
         });
         
-        // Kiểm tra xem tất cả đầu việc đã hoàn thành chưa
         const allDone = updatedSubtasks.every((s: any) => s.status === "done");
         
-        // Nếu tất cả đã hoàn thành và task chưa ở trạng thái done, tự động chuyển
         if (allDone && t.status !== "done") {
           return { 
             ...t, 
@@ -1458,14 +1478,12 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                 
                 {t.deadline && <div style={{ fontSize: 12, color: od ? "#f87171" : styles.textMuted, marginBottom: 12 }}>{od ? "⚠️ Quá hạn: " : "📅 Hạn: "}{new Date(t.deadline + "T00:00:00").toLocaleDateString("vi-VN")}</div>}
                 
-                {/* Hiển thị điểm nếu đã hoàn thành */}
                 {t.status === "done" && t.score !== undefined && (
                   <div style={{ fontSize: 14, color: "#22c55e", marginBottom: 8, fontWeight: 700 }}>
                     ⭐ Điểm: {t.score}/10
                   </div>
                 )}
                 
-                {/* ─── HIỂN THỊ THÀNH VIÊN ĐƯỢC GIAO ────────────────────────────────── */}
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 4 }}>
                     👥 Thành viên được giao:
@@ -1499,7 +1517,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   )}
                 </div>
                 
-                {/* ─── NÚT HOÀN THÀNH CHO TASK ĐƠN LẺ ────────────────────────── */}
                 {!hasSubtasks && t.assignees?.some((a: any) => a.memberId === currentReviewer) && t.status !== "done" && (
                   <NutBam 
                     onClick={() => hoanThanhTaskDon(t.id)} 
@@ -1511,7 +1528,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   </NutBam>
                 )}
                 
-                {/* ─── HIỂN THỊ ĐẦU VIỆC NHỎ ────────────────────────────────────── */}
                 {hasSubtasks && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, color: "#a5b4fc", marginBottom: 8 }}>
@@ -1553,7 +1569,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             )}
                           </span>
                           
-                          {/* ─── NÚT HOÀN THÀNH CHO TỪNG ĐẦU VIỆC ────────────────────────── */}
                           {isMine && s.status === "accepted" && (
                             <NutBam 
                               onClick={() => hoanThanhSubtask(t.id, s.id)} 
@@ -1565,7 +1580,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             </NutBam>
                           )}
                           
-                          {/* ─── NÚT TỪ CHỐI ────────────────────────────────────────────────── */}
                           {isMine && s.status === "accepted" && (
                             <button
                               onClick={() => tuChoiSubtask(t.id, s.id)}
@@ -1583,7 +1597,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             </button>
                           )}
                           
-                          {/* ─── NÚT NHẬN VIỆC ────────────────────────────────────────────────── */}
                           {isPending && isAssignedToMe && currentReviewer && (
                             <NutBam 
                               onClick={() => nhanTaskCon(t.id, s.id)} 
@@ -1601,7 +1614,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             </span>
                           )}
                           
-                          {/* ─── BÁO CÁO KHÔNG HOÀN THÀNH ──────────────────────────── */}
                           {!isPending && s.assignee && !isMine && s.status === "accepted" && leader === currentReviewer && !s.incomplete && (
                             <button
                               onClick={() => baoCaoKhongHoanThanh(t.id, s.id, s.assignee)}
@@ -1677,7 +1689,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   </div>
                 )}
                 
-                {/* ─── NỘP SẢN PHẨM ────────────────────────────────────────────────── */}
                 {allAssigned && (
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "#a5b4fc", marginBottom: 4 }}>
@@ -2055,7 +2066,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
               </div>
             </TheCard>
 
-            {/* ─── PHẦN GÓP Ý ────────────────────────────────────────────────────── */}
             <TheCard theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                 <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
@@ -2111,7 +2121,6 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           {comment.content}
                         </div>
                         
-                        {/* ─── NÚT ĐÁNH GIÁ HỮU ÍCH ────────────────────────────────── */}
                         {isLong && isReceiver && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, paddingTop: 6, borderTop: `1px solid ${styles.border}` }}>
                             <span style={{ fontSize: 11, color: styles.textMuted }}>Góp ý này có hữu ích không?</span>
@@ -2589,10 +2598,7 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
 
-  // Chỉ trưởng nhóm mới được đánh giá
   const isLeader = currentReviewer === leader;
-  
-  // Các thành viên khác (không bao gồm trưởng nhóm)
   const otherMembers = members.filter((m: any) => m.id !== leader);
 
   const handleScoreChange = (criteria: string, value: number) => {
@@ -2806,7 +2812,7 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     return totalUseful;
   };
 
-  // ─── TÍNH SỐ LẦN CỨU VIỆC (NHẬN VIỆC BỎ TRỐNG) ─────────────────────────
+  // ─── TÍNH SỐ LẦN CỨU VIỆC ─────────────────────────────────────────────────
   const tinhRescueCount = (memberId: string) => {
     let count = 0;
     tasks.forEach((t: any) => {
@@ -2831,18 +2837,14 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     });
     const peerAvg = peerCount > 0 ? peerTotal / peerCount : 0;
 
-    // ─── ĐIỂM GÓP Ý HỮU ÍCH ─────────────────────────────────────────────────
     const diemGopY = tinhDiemGopY(m.id);
     const bonusFromComments = Math.min(diemGopY * 0.5, 2);
 
-    // ─── ĐIỂM CỨU VIỆC ──────────────────────────────────────────────────────
     const rescueCount = tinhRescueCount(m.id);
     const bonusFromRescue = Math.min(rescueCount * 0.5, 2);
 
-    // ─── ĐIỂM TRƯỞNG NHÓM ĐÁNH GIÁ ────────────────────────────────────────────
     const leaderScore = leaderScores[m.id]?.avgScore || 0;
 
-    // ─── ĐIỂM TASK ──────────────────────────────────────────────────────────────
     const totalAssignedTasks = tasks.filter((t: any) => 
       t.assignees?.some((a: any) => a.memberId === m.id)
     ).length;
@@ -2857,17 +2859,13 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
 
     const isLeader = m.id === leader;
     
-    // ─── CÔNG THỨC TÍNH ĐIỂM ──────────────────────────────────────────────────
     let finalScore;
     if (isLeader) {
-      // Trưởng nhóm: Task 50% + Đồng đội 50%
       finalScore = (taskPoints * 0.5 + peerAvg * 0.5);
     } else {
-      // Thành viên: Task 50% + Đồng đội 40% + Trưởng nhóm đánh giá 10%
       finalScore = (taskPoints * 0.5 + peerAvg * 0.4 + leaderScore * 0.1);
     }
 
-    // ─── CỘNG ĐIỂM THƯỞNG ──────────────────────────────────────────────────────
     const totalBonus = bonusFromComments + bonusFromRescue;
     const finalScoreWithBonus = Math.min(finalScore + totalBonus, 10);
 
@@ -2891,17 +2889,29 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
 
   const sortedMembers = [...memberAverages].sort((a, b) => b.finalScore - a.finalScore);
   const groupAvg = memberAverages.reduce((sum, m) => sum + m.finalScore, 0) / memberAverages.length;
-
-  // ─── TÍNH TỔNG ĐIỂM VÀ % ĐÓNG GÓP ──────────────────────────────────────
   const totalScore = memberAverages.reduce((sum, m) => sum + m.finalScore, 0);
   
+  // ─── TÍNH % ĐÓNG GÓP VÀ ĐIỂM SAU CHIA ──────────────────────────────────────
+  const maxPercent = Math.max(...memberAverages.map(m => {
+    const percent = totalScore > 0 ? (m.finalScore / totalScore) * 100 : 0;
+    return percent;
+  }));
+
   const membersWithPercent = memberAverages.map((m) => {
     const percent = totalScore > 0 ? (m.finalScore / totalScore) * 100 : 0;
-    const finalScoreWithTeacher = teacherScore > 0 ? (percent / 100) * teacherScore : m.finalScore;
+    
+    // ─── CÔNG THỨC CHIA ĐIỂM GIẢNG VIÊN ──────────────────────────────────────
+    // Điểm sau chia = Điểm giảng viên × (Phần trăm đóng góp / Phần trăm lớn nhất)
+    let finalScoreWithTeacher = m.finalScore;
+    if (teacherScore > 0 && maxPercent > 0) {
+      finalScoreWithTeacher = teacherScore * (percent / maxPercent);
+      finalScoreWithTeacher = Math.round(finalScoreWithTeacher * 10) / 10;
+    }
+    
     return {
       ...m,
       percent: Math.round(percent * 10) / 10,
-      finalScoreWithTeacher: Math.round(finalScoreWithTeacher * 10) / 10
+      finalScoreWithTeacher: finalScoreWithTeacher
     };
   });
 
@@ -2938,6 +2948,56 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
 
   return (
     <div>
+      {/* ─── HƯỚNG DẪN CÔNG THỨC ────────────────────────────────────────────────── */}
+      <TheCard theme={theme} style={{ marginBottom: 20, borderColor: "#6366f144" }}>
+        <div style={{ fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
+          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
+          
+          <div>• <b style={{ color: "#6366f1" }}>Điểm cơ bản</b></div>
+          <div style={{ paddingLeft: 16, fontSize: 12 }}>
+            Thành viên = (Task × 50%) + (Đồng đội × 40%) + (Trưởng nhóm × 10%)
+          </div>
+          <div style={{ paddingLeft: 16, fontSize: 12 }}>
+            Trưởng nhóm = (Task × 50%) + (Đồng đội × 50%)
+          </div>
+          
+          <div style={{ marginTop: 6 }}>• <b style={{ color: "#f59e0b" }}>Điểm thưởng</b></div>
+          <div style={{ paddingLeft: 16, fontSize: 12 }}>
+            = (Góp ý hữu ích × 0.5) + (Cứu việc × 0.5)
+          </div>
+          <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
+            Tối đa +2 điểm cho mỗi loại
+          </div>
+          
+          <div style={{ marginTop: 6 }}>• <b style={{ color: "#22c55e" }}>Tổng điểm</b></div>
+          <div style={{ paddingLeft: 16, fontSize: 12 }}>
+            = Điểm cơ bản + Điểm thưởng
+          </div>
+          <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
+            Làm tròn 1 chữ số thập phân
+          </div>
+          
+          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${styles.border}` }}>
+            <div style={{ color: "#fcd34d", fontWeight: 700, marginBottom: 4 }}>📊 CHIA ĐIỂM GIẢNG VIÊN</div>
+            
+            <div>• <b style={{ color: "#fcd34d" }}>Điểm sau chia</b></div>
+            <div style={{ paddingLeft: 16, fontSize: 12 }}>
+              = Điểm giảng viên × (Phần trăm đóng góp / Phần trăm lớn nhất)
+            </div>
+            
+            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
+              → Người có % đóng góp cao nhất được giữ nguyên điểm giảng viên
+            </div>
+            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
+              → Các thành viên khác được nhân với tỷ lệ tương ứng
+            </div>
+            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
+              → Làm tròn 1 chữ số thập phân
+            </div>
+          </div>
+        </div>
+      </TheCard>
+
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 TIẾN ĐỘ DỰ ÁN</h3>
@@ -3069,7 +3129,9 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
                 <th style={{ padding: "12px 8px", textAlign: "center" }}>Tổng</th>
                 <th style={{ padding: "12px 8px", textAlign: "center" }}>% đóng góp</th>
                 {teacherScore > 0 && (
-                  <th style={{ padding: "12px 8px", textAlign: "center", color: "#fcd34d" }}>Điểm sau chia</th>
+                  <th style={{ padding: "12px 8px", textAlign: "center", color: "#fcd34d" }}>
+                    Điểm sau chia <span style={{ fontSize: 10, display: "block", color: styles.textMuted }}>(chấm theo GV)</span>
+                  </th>
                 )}
               </tr>
             </thead>
