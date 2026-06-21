@@ -306,6 +306,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>👥 Đánh giá</h4>
               <p style={{ margin: 0 }}>• Đánh giá dựa trên đóng góp thực tế</p>
               <p style={{ margin: 0 }}>• Công bằng, khách quan</p>
+              <p style={{ margin: 0 }}>• Sau khi đánh giá, KHÔNG thể xem lại hoặc sửa</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -2329,6 +2330,12 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   const [comment, setComment] = useState("");
   const [showTasks, setShowTasks] = useState(false);
   const [taskContributions, setTaskContributions] = useState<Record<string, number>>({});
+  
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ LOCALSTORAGE ──────────────────────────────
+  const [submittedReviews, setSubmittedReviews] = useState<Record<string, Record<string, boolean>>>(() => {
+    const saved = localStorage.getItem("submitted_reviews");
+    return saved ? JSON.parse(saved) : {};
+  });
 
   const otherMembers = members.filter((m: any) => m.id !== currentReviewer);
 
@@ -2348,11 +2355,44 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     setTaskContributions({ ...taskContributions, [taskId]: value });
   };
 
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA ──────────────────────────────────────────────
+  const daDanhGia = (reviewerId: string, targetId: string) => {
+    return submittedReviews[reviewerId]?.[targetId] === true;
+  };
+
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ HẾT CHƯA ──────────────────────────────────────────
+  const daDanhGiaHet = otherMembers.every((m: any) => 
+    daDanhGia(currentReviewer, m.id)
+  );
+
+  // ─── NẾU ĐÃ ĐÁNH GIÁ HẾT → ẨN TOÀN BỘ ──────────────────────────────────────
+  if (daDanhGiaHet && otherMembers.length > 0) {
+    return (
+      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+        <h3 style={{ color: "#22c55e", marginBottom: 12 }}>Bạn đã hoàn thành đánh giá!</h3>
+        <p style={{ color: styles.textMuted }}>
+          Cảm ơn bạn đã đánh giá tất cả các thành viên trong nhóm.
+        </p>
+        <p style={{ color: styles.textMuted, fontSize: 13, marginTop: 8 }}>
+          Đánh giá của bạn đã được lưu. Kết quả sẽ hiển thị sau khi tất cả thành viên hoàn thành.
+        </p>
+      </TheCard>
+    );
+  }
+
   const submitEvaluation = () => {
     if (!targetMember) {
       alert("Vui lòng chọn thành viên cần đánh giá!");
       return;
     }
+    
+    // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA ──────────────────────────────────────────
+    if (daDanhGia(currentReviewer, targetMember)) {
+      alert("Bạn đã đánh giá thành viên này rồi! Không thể đánh giá lại.");
+      return;
+    }
+    
     if (Object.keys(scores).length < TIEU_CHI_DANH_GIA.length) {
       alert("Vui lòng đánh giá tất cả các tiêu chí!");
       return;
@@ -2396,21 +2436,14 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
       }));
     }
 
-    const currentPeerScores = { ...peerScores };
-    const completed = otherMembers.every((m: any) => 
-      currentPeerScores[currentReviewer]?.[m.id]?.scores
-    );
-    if (completed) {
-      setPeerScores((prev: any) => ({
-        ...prev,
-        [currentReviewer]: {
-          ...(prev[currentReviewer] || {}),
-          completed: true
-        }
-      }));
-    }
+    // ─── LƯU VÀO LOCALSTORAGE ──────────────────────────────────────────────────
+    const updated = { ...submittedReviews };
+    if (!updated[currentReviewer]) updated[currentReviewer] = {};
+    updated[currentReviewer][targetMember] = true;
+    setSubmittedReviews(updated);
+    localStorage.setItem("submitted_reviews", JSON.stringify(updated));
 
-    alert("✅ Đã lưu đánh giá!");
+    alert("✅ Đã lưu đánh giá! Bạn không thể xem lại hoặc sửa.");
     resetForm();
   };
 
@@ -2433,13 +2466,9 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     );
   }
 
-  const hasCompleted = (memberId: string) => {
-    return peerScores[currentReviewer]?.[memberId]?.scores !== undefined;
-  };
-
-  const getCompletedCount = () => {
-    return otherMembers.filter((m: any) => hasCompleted(m.id)).length;
-  };
+  // ─── LỌC DANH SÁCH CHƯA ĐÁNH GIÁ ──────────────────────────────────────────
+  const chuaDanhGia = otherMembers.filter((m: any) => !daDanhGia(currentReviewer, m.id));
+  const soLuongDaDanhGia = otherMembers.length - chuaDanhGia.length;
 
   return (
     <div>
@@ -2448,10 +2477,13 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
           <div>
             <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>👥 ĐÁNH GIÁ ĐỒNG ĐỘI</h3>
             <div style={{ fontSize: 13, color: styles.textMuted, marginTop: 4 }}>
-              Tiến độ: {getCompletedCount()}/{otherMembers.length} thành viên đã đánh giá
+              Tiến độ: {soLuongDaDanhGia}/{otherMembers.length} thành viên đã đánh giá
+            </div>
+            <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 2 }}>
+              ⚠️ Sau khi đánh giá, bạn không thể xem lại hoặc sửa
             </div>
           </div>
-          <ThanhTienTrinh value={getCompletedCount()} max={otherMembers.length} />
+          <ThanhTienTrinh value={soLuongDaDanhGia} max={otherMembers.length} />
         </div>
       </TheCard>
 
@@ -2460,135 +2492,97 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
           <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Đánh giá thành viên</h4>
           
           <div style={{ marginBottom: 16 }}>
-            <label style={nhan}>Chọn thành viên đánh giá</label>
+            <label style={nhan}>Chọn thành viên cần đánh giá</label>
             <Chon value={targetMember} onChange={setTargetMember} theme={theme}>
               <option value="">Chọn thành viên...</option>
-              {otherMembers.map((m: any) => (
+              {chuaDanhGia.map((m: any) => (
                 <option key={m.id} value={m.id}>
-                  {m.name} {hasCompleted(m.id) ? "✅" : ""}
+                  {m.name}
                 </option>
               ))}
             </Chon>
+            {chuaDanhGia.length === 0 && (
+              <div style={{ fontSize: 13, color: "#22c55e", marginTop: 8 }}>
+                ✅ Bạn đã đánh giá tất cả thành viên!
+              </div>
+            )}
           </div>
 
-          {targetMember && (
+          {targetMember && !daDanhGia(currentReviewer, targetMember) && (
             <>
-              {hasCompleted(targetMember) ? (
-                <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
-                  <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
-                    ✅ Đã đánh giá thành viên này
+              <div style={{ marginBottom: 16 }}>
+                <label style={nhan}>Đánh giá theo tiêu chí</label>
+                {TIEU_CHI_DANH_GIA.map((criteria) => (
+                  <div key={criteria} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
+                    <ChonDiem 
+                      value={scores[criteria] || 0} 
+                      onChange={(v) => handleScoreChange(criteria, v)} 
+                      theme={theme}
+                    />
                   </div>
-                  <div style={{ fontSize: 13, color: styles.textMuted }}>
-                    Điểm trung bình: {peerScores[currentReviewer]?.[targetMember]?.avgScore?.toFixed(1) || "N/A"}
-                  </div>
-                  <button 
-                    onClick={() => {
-                      if (window.confirm("Bạn có muốn đánh giá lại thành viên này?")) {
-                        const newPeerScores = { ...peerScores };
-                        delete newPeerScores[currentReviewer]?.[targetMember];
-                        setPeerScores(newPeerScores);
-                        resetForm();
-                      }
-                    }}
-                    style={{ marginTop: 8, padding: "4px 12px", borderRadius: 4, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
-                  >
-                    Đánh giá lại
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={nhan}>Đánh giá theo tiêu chí</label>
-                    {TIEU_CHI_DANH_GIA.map((criteria) => (
-                      <div key={criteria} style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
+                ))}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <label style={nhan}>Nhận xét (tùy chọn)</label>
+                <OInput
+                  value={comment}
+                  onChange={setComment}
+                  placeholder="Nhận xét về thành viên này..."
+                  theme={theme}
+                  style={{ minHeight: 60 }}
+                />
+              </div>
+
+              <button 
+                onClick={() => setShowTasks(!showTasks)}
+                style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${styles.border}`, background: "transparent", color: styles.text, cursor: "pointer", fontSize: 13, marginBottom: 16, width: "100%" }}
+              >
+                {showTasks ? "🔽 Ẩn đánh giá task" : "📋 Hiển thị đánh giá task (tùy chọn)"}
+              </button>
+
+              {showTasks && (
+                <div style={{ marginBottom: 16 }}>
+                  <label style={nhan}>Đánh giá đóng góp cho từng task</label>
+                  {getTaskOptions().length === 0 ? (
+                    <div style={{ fontSize: 13, color: styles.textMuted, fontStyle: "italic" }}>
+                      Chưa có task nào hoàn thành của thành viên này.
+                    </div>
+                  ) : (
+                    getTaskOptions().map((task: any) => (
+                      <div key={task.id} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{task.name}</div>
                         <ChonDiem 
-                          value={scores[criteria] || 0} 
-                          onChange={(v) => handleScoreChange(criteria, v)} 
+                          value={taskContributions[task.id] || 0} 
+                          onChange={(v) => handleTaskContribution(task.id, v)} 
                           theme={theme}
                         />
                       </div>
-                    ))}
-                  </div>
-
-                  <div style={{ marginBottom: 16 }}>
-                    <label style={nhan}>Nhận xét (tùy chọn)</label>
-                    <OInput
-                      value={comment}
-                      onChange={setComment}
-                      placeholder="Nhận xét về thành viên này..."
-                      theme={theme}
-                      style={{ minHeight: 60 }}
-                    />
-                  </div>
-
-                  <button 
-                    onClick={() => setShowTasks(!showTasks)}
-                    style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${styles.border}`, background: "transparent", color: styles.text, cursor: "pointer", fontSize: 13, marginBottom: 16, width: "100%" }}
-                  >
-                    {showTasks ? "🔽 Ẩn đánh giá task" : "📋 Hiển thị đánh giá task (tùy chọn)"}
-                  </button>
-
-                  {showTasks && (
-                    <div style={{ marginBottom: 16 }}>
-                      <label style={nhan}>Đánh giá đóng góp cho từng task</label>
-                      {getTaskOptions().length === 0 ? (
-                        <div style={{ fontSize: 13, color: styles.textMuted, fontStyle: "italic" }}>
-                          Chưa có task nào hoàn thành của thành viên này.
-                        </div>
-                      ) : (
-                        getTaskOptions().map((task: any) => (
-                          <div key={task.id} style={{ marginBottom: 8 }}>
-                            <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{task.name}</div>
-                            <ChonDiem 
-                              value={taskContributions[task.id] || 0} 
-                              onChange={(v) => handleTaskContribution(task.id, v)} 
-                              theme={theme}
-                            />
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-
-                  <NutBam onClick={submitEvaluation} theme={theme} style={{ width: "100%" }}>
-                    ✅ Lưu đánh giá
-                  </NutBam>
-                </>
-              )}
-            </>
-          )}
-        </TheCard>
-
-        <TheCard theme={theme}>
-          <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📊 Kết quả đánh giá của bạn</h4>
-          
-          {otherMembers.filter((m: any) => hasCompleted(m.id)).length === 0 ? (
-            <div style={{ textAlign: "center", color: styles.textMuted, padding: 30 }}>
-              <div style={{ fontSize: 40, marginBottom: 8 }}>📋</div>
-              <div>Chưa có đánh giá nào</div>
-            </div>
-          ) : (
-            otherMembers.filter((m: any) => hasCompleted(m.id)).map((m: any) => {
-              const data = peerScores[currentReviewer]?.[m.id];
-              return (
-                <div key={m.id} style={{ padding: 12, background: styles.inputBg, borderRadius: 8, marginBottom: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ fontWeight: 600, color: styles.text }}>{m.name}</div>
-                    <div style={{ color: "#a5b4fc", fontWeight: 700 }}>
-                      {data?.avgScore?.toFixed(1) || "N/A"}
-                    </div>
-                  </div>
-                  {peerComments[currentReviewer]?.[m.id] && (
-                    <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
-                      {peerComments[currentReviewer]?.[m.id]}
-                    </div>
+                    ))
                   )}
                 </div>
-              );
-            })
+              )}
+
+              <NutBam onClick={submitEvaluation} theme={theme} style={{ width: "100%" }}>
+                ✅ Lưu đánh giá
+              </NutBam>
+            </>
+          )}
+          
+          {targetMember && daDanhGia(currentReviewer, targetMember) && (
+            <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
+              <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
+                ✅ Đã đánh giá thành viên này
+              </div>
+              <div style={{ fontSize: 13, color: styles.textMuted }}>
+                Bạn không thể xem lại hoặc chỉnh sửa đánh giá.
+              </div>
+            </div>
           )}
         </TheCard>
+
+        {/* ─── KHÔNG HIỂN THỊ PHẦN "KẾT QUẢ ĐÁNH GIÁ CỦA BẠN" ─────────────── */}
       </div>
     </div>
   );
@@ -2601,8 +2595,58 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
 
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ LOCALSTORAGE ──────────────────────────────
+  const [submittedLeaderReviews, setSubmittedLeaderReviews] = useState<Record<string, Record<string, boolean>>>(() => {
+    const saved = localStorage.getItem("submitted_leader_reviews");
+    return saved ? JSON.parse(saved) : {};
+  });
+
   const isLeader = currentReviewer === leader;
   const otherMembers = members.filter((m: any) => m.id !== leader);
+
+  const daDanhGiaLeader = (reviewerId: string, targetId: string) => {
+    return submittedLeaderReviews[reviewerId]?.[targetId] === true;
+  };
+
+  const daDanhGiaHetLeader = otherMembers.every((m: any) => 
+    daDanhGiaLeader(currentReviewer, m.id)
+  );
+
+  if (!isLeader) {
+    return (
+      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>👑</div>
+        <h3 style={{ color: "#a5b4fc", marginBottom: 12 }}>Chỉ trưởng nhóm mới có quyền đánh giá</h3>
+        <p style={{ color: styles.textMuted }}>
+          Vui lòng chọn tên trưởng nhóm trên thanh tiêu đề để thực hiện đánh giá thành viên.
+        </p>
+      </TheCard>
+    );
+  }
+
+  if (daDanhGiaHetLeader && otherMembers.length > 0) {
+    return (
+      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+        <h3 style={{ color: "#22c55e", marginBottom: 12 }}>Bạn đã hoàn thành đánh giá!</h3>
+        <p style={{ color: styles.textMuted }}>
+          Cảm ơn bạn đã đánh giá tất cả các thành viên trong nhóm.
+        </p>
+      </TheCard>
+    );
+  }
+
+  if (otherMembers.length === 0) {
+    return (
+      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>👥</div>
+        <h3 style={{ color: "#a5b4fc", marginBottom: 12 }}>Chưa có thành viên để đánh giá</h3>
+        <p style={{ color: styles.textMuted }}>
+          Cần ít nhất 1 thành viên khác để trưởng nhóm đánh giá.
+        </p>
+      </TheCard>
+    );
+  }
 
   const handleScoreChange = (criteria: string, value: number) => {
     setScores({ ...scores, [criteria]: value });
@@ -2613,6 +2657,12 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
       alert("Vui lòng chọn thành viên cần đánh giá!");
       return;
     }
+    
+    if (daDanhGiaLeader(currentReviewer, targetMember)) {
+      alert("Bạn đã đánh giá thành viên này rồi! Không thể đánh giá lại.");
+      return;
+    }
+    
     if (Object.keys(scores).length < TIEU_CHI_TRUONG_NHOM.length) {
       alert("Vui lòng đánh giá tất cả các tiêu chí!");
       return;
@@ -2634,43 +2684,21 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
       }
     }));
 
+    // ─── LƯU VÀO LOCALSTORAGE ──────────────────────────────────────────────────
+    const updated = { ...submittedLeaderReviews };
+    if (!updated[currentReviewer]) updated[currentReviewer] = {};
+    updated[currentReviewer][targetMember] = true;
+    setSubmittedLeaderReviews(updated);
+    localStorage.setItem("submitted_leader_reviews", JSON.stringify(updated));
+
     alert(`✅ Đã đánh giá thành viên ${members.find((m: any) => m.id === targetMember)?.name}!`);
     setScores({});
     setComment("");
     setTargetMember("");
   };
 
-  const hasLeaderScore = (memberId: string) => {
-    return leaderScores[memberId]?.scores !== undefined;
-  };
-
-  if (!isLeader) {
-    return (
-      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>👑</div>
-        <h3 style={{ color: "#a5b4fc", marginBottom: 12 }}>Chỉ trưởng nhóm mới có quyền đánh giá</h3>
-        <p style={{ color: styles.textMuted }}>
-          Vui lòng chọn tên trưởng nhóm trên thanh tiêu đề để thực hiện đánh giá thành viên.
-        </p>
-      </TheCard>
-    );
-  }
-
-  if (otherMembers.length === 0) {
-    return (
-      <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
-        <div style={{ fontSize: 48, marginBottom: 16 }}>👥</div>
-        <h3 style={{ color: "#a5b4fc", marginBottom: 12 }}>Chưa có thành viên để đánh giá</h3>
-        <p style={{ color: styles.textMuted }}>
-          Cần ít nhất 1 thành viên khác để trưởng nhóm đánh giá.
-        </p>
-      </TheCard>
-    );
-  }
-
-  const getCompletedCount = () => {
-    return otherMembers.filter((m: any) => hasLeaderScore(m.id)).length;
-  };
+  const chuaDanhGiaLeader = otherMembers.filter((m: any) => !daDanhGiaLeader(currentReviewer, m.id));
+  const soLuongDaDanhGiaLeader = otherMembers.length - chuaDanhGiaLeader.length;
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
@@ -2678,119 +2706,77 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
         <div style={{ marginBottom: 16 }}>
           <h4 style={{ margin: "0 0 4px", fontSize: 14, color: "#a5b4fc" }}>👑 Đánh giá thành viên</h4>
           <div style={{ fontSize: 13, color: styles.textMuted }}>
-            Tiến độ: {getCompletedCount()}/{otherMembers.length} thành viên đã đánh giá
+            Tiến độ: {soLuongDaDanhGiaLeader}/{otherMembers.length} thành viên đã đánh giá
           </div>
-          <ThanhTienTrinh value={getCompletedCount()} max={otherMembers.length} style={{ marginTop: 8 }} />
+          <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 2 }}>
+            ⚠️ Sau khi đánh giá, bạn không thể xem lại hoặc sửa
+          </div>
+          <ThanhTienTrinh value={soLuongDaDanhGiaLeader} max={otherMembers.length} style={{ marginTop: 8 }} />
         </div>
         
         <div style={{ marginBottom: 16 }}>
           <label style={nhan}>Chọn thành viên cần đánh giá</label>
           <Chon value={targetMember} onChange={setTargetMember} theme={theme}>
             <option value="">Chọn thành viên...</option>
-            {otherMembers.map((m: any) => (
+            {chuaDanhGiaLeader.map((m: any) => (
               <option key={m.id} value={m.id}>
-                {m.name} {hasLeaderScore(m.id) ? "✅" : ""}
+                {m.name}
               </option>
             ))}
           </Chon>
+          {chuaDanhGiaLeader.length === 0 && (
+            <div style={{ fontSize: 13, color: "#22c55e", marginTop: 8 }}>
+              ✅ Bạn đã đánh giá tất cả thành viên!
+            </div>
+          )}
         </div>
 
-        {targetMember && (
+        {targetMember && !daDanhGiaLeader(currentReviewer, targetMember) && (
           <>
-            {hasLeaderScore(targetMember) ? (
-              <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
-                <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
-                  ✅ Đã đánh giá thành viên này
-                </div>
-                <div style={{ fontSize: 13, color: styles.textMuted }}>
-                  Điểm trung bình: {leaderScores[targetMember]?.avgScore?.toFixed(1) || "N/A"}
-                </div>
-                {leaderScores[targetMember]?.comment && (
-                  <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
-                    Nhận xét: {leaderScores[targetMember]?.comment}
-                  </div>
-                )}
-                <button 
-                  onClick={() => {
-                    if (window.confirm("Bạn có muốn đánh giá lại thành viên này?")) {
-                      const newLeaderScores = { ...leaderScores };
-                      delete newLeaderScores[targetMember];
-                      setLeaderScores(newLeaderScores);
-                      setScores({});
-                      setComment("");
-                      setTargetMember("");
-                    }
-                  }}
-                  style={{ marginTop: 8, padding: "4px 12px", borderRadius: 4, border: "1px solid #ef4444", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 12 }}
-                >
-                  Đánh giá lại
-                </button>
-              </div>
-            ) : (
-              <>
-                <div style={{ marginBottom: 16 }}>
-                  <label style={nhan}>Đánh giá theo tiêu chí</label>
-                  {TIEU_CHI_TRUONG_NHOM.map((criteria) => (
-                    <div key={criteria} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
-                      <ChonDiem 
-                        value={scores[criteria] || 0} 
-                        onChange={(v) => handleScoreChange(criteria, v)} 
-                        theme={theme}
-                      />
-                    </div>
-                  ))}
-                </div>
-
-                <div style={{ marginBottom: 16 }}>
-                  <label style={nhan}>Nhận xét (tùy chọn)</label>
-                  <OInput
-                    value={comment}
-                    onChange={setComment}
-                    placeholder="Nhận xét về thành viên này..."
+            <div style={{ marginBottom: 16 }}>
+              <label style={nhan}>Đánh giá theo tiêu chí</label>
+              {TIEU_CHI_TRUONG_NHOM.map((criteria) => (
+                <div key={criteria} style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
+                  <ChonDiem 
+                    value={scores[criteria] || 0} 
+                    onChange={(v) => handleScoreChange(criteria, v)} 
                     theme={theme}
-                    style={{ minHeight: 60 }}
                   />
                 </div>
+              ))}
+            </div>
 
-                <NutBam onClick={submitLeaderEvaluation} theme={theme} style={{ width: "100%" }}>
-                  ✅ Lưu đánh giá
-                </NutBam>
-              </>
-            )}
+            <div style={{ marginBottom: 16 }}>
+              <label style={nhan}>Nhận xét (tùy chọn)</label>
+              <OInput
+                value={comment}
+                onChange={setComment}
+                placeholder="Nhận xét về thành viên này..."
+                theme={theme}
+                style={{ minHeight: 60 }}
+              />
+            </div>
+
+            <NutBam onClick={submitLeaderEvaluation} theme={theme} style={{ width: "100%" }}>
+              ✅ Lưu đánh giá
+            </NutBam>
           </>
         )}
-      </TheCard>
-
-      <TheCard theme={theme}>
-        <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📊 Kết quả đánh giá của bạn</h4>
         
-        {otherMembers.filter((m: any) => hasLeaderScore(m.id)).length === 0 ? (
-          <div style={{ textAlign: "center", color: styles.textMuted, padding: 30 }}>
-            <div style={{ fontSize: 40, marginBottom: 8 }}>📋</div>
-            <div>Chưa có đánh giá nào</div>
+        {targetMember && daDanhGiaLeader(currentReviewer, targetMember) && (
+          <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
+            <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
+              ✅ Đã đánh giá thành viên này
+            </div>
+            <div style={{ fontSize: 13, color: styles.textMuted }}>
+              Bạn không thể xem lại hoặc chỉnh sửa đánh giá.
+            </div>
           </div>
-        ) : (
-          otherMembers.filter((m: any) => hasLeaderScore(m.id)).map((m: any) => {
-            const data = leaderScores[m.id];
-            return (
-              <div key={m.id} style={{ padding: 12, background: styles.inputBg, borderRadius: 8, marginBottom: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontWeight: 600, color: styles.text }}>{m.name}</div>
-                  <div style={{ color: "#a5b4fc", fontWeight: 700 }}>
-                    {data?.avgScore?.toFixed(1) || "N/A"}
-                  </div>
-                </div>
-                {data?.comment && (
-                  <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
-                    {data.comment}
-                  </div>
-                )}
-              </div>
-            );
-          })
         )}
       </TheCard>
+
+      {/* ─── KHÔNG HIỂN THỊ "KẾT QUẢ ĐÁNH GIÁ CỦA BẠN" ─────────────────────── */}
     </div>
   );
 }
