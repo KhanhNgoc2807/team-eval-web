@@ -327,7 +327,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
                 🎁 Góp ý hữu ích +0.5đ | Nhận việc bỏ trống +0.5đ (tối đa +2đ mỗi loại)
               </p>
               <p style={{ margin: 0, fontSize: 12, color: "#fcd34d" }}>
-                📊 Chia điểm giảng viên = Điểm GV × (% đóng góp / % lớn nhất)
+                📊 Chia điểm giảng viên = (Điểm GV × Số thành viên) × (% đóng góp / 100)
               </p>
             </div>
           </div>
@@ -775,13 +775,16 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
           <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
             <div style={{ color: "#fcd34d", fontWeight: 700, marginBottom: 4 }}>📊 CHIA ĐIỂM GIẢNG VIÊN</div>
             <div style={{ paddingLeft: 16, fontSize: 12 }}>
-              Điểm sau chia = Điểm GV × (% đóng góp / % lớn nhất)
+              Tổng điểm cần chia = Điểm GV × Số thành viên
+            </div>
+            <div style={{ paddingLeft: 16, fontSize: 12 }}>
+              Điểm sau chia = Tổng điểm cần chia × (% đóng góp / 100)
             </div>
             <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-              → Người có % đóng góp cao nhất được giữ nguyên điểm giảng viên
+              → Tổng điểm sau chia luôn bằng Điểm GV × Số thành viên
             </div>
             <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-              → Các thành viên khác nhân với tỷ lệ tương ứng
+              → Làm tròn 1 chữ số thập phân
             </div>
           </div>
         </div>
@@ -2892,19 +2895,16 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
   const totalScore = memberAverages.reduce((sum, m) => sum + m.finalScore, 0);
   
   // ─── TÍNH % ĐÓNG GÓP VÀ ĐIỂM SAU CHIA ──────────────────────────────────────
-  const maxPercent = Math.max(...memberAverages.map(m => {
-    const percent = totalScore > 0 ? (m.finalScore / totalScore) * 100 : 0;
-    return percent;
-  }));
-
   const membersWithPercent = memberAverages.map((m) => {
     const percent = totalScore > 0 ? (m.finalScore / totalScore) * 100 : 0;
     
-    // ─── CÔNG THỨC CHIA ĐIỂM GIẢNG VIÊN ──────────────────────────────────────
-    // Điểm sau chia = Điểm giảng viên × (Phần trăm đóng góp / Phần trăm lớn nhất)
+    // ─── CÔNG THỨC CHIA ĐIỂM GIẢNG VIÊN (CHIA THEO TỔNG ĐIỂM) ──────────────
+    // Tổng điểm cần chia = Điểm giảng viên × Số thành viên
+    // Điểm sau chia = Tổng điểm cần chia × (Phần trăm đóng góp / 100)
     let finalScoreWithTeacher = m.finalScore;
-    if (teacherScore > 0 && maxPercent > 0) {
-      finalScoreWithTeacher = teacherScore * (percent / maxPercent);
+    if (teacherScore > 0 && members.length > 0) {
+      const totalPointsToDivide = teacherScore * members.length;
+      finalScoreWithTeacher = totalPointsToDivide * (percent / 100);
       finalScoreWithTeacher = Math.round(finalScoreWithTeacher * 10) / 10;
     }
     
@@ -2948,56 +2948,7 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
 
   return (
     <div>
-      {/* ─── HƯỚNG DẪN CÔNG THỨC ────────────────────────────────────────────────── */}
-      <TheCard theme={theme} style={{ marginBottom: 20, borderColor: "#6366f144" }}>
-        <div style={{ fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
-          <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
-          
-          <div>• <b style={{ color: "#6366f1" }}>Điểm cơ bản</b></div>
-          <div style={{ paddingLeft: 16, fontSize: 12 }}>
-            Thành viên = (Task × 50%) + (Đồng đội × 40%) + (Trưởng nhóm × 10%)
-          </div>
-          <div style={{ paddingLeft: 16, fontSize: 12 }}>
-            Trưởng nhóm = (Task × 50%) + (Đồng đội × 50%)
-          </div>
-          
-          <div style={{ marginTop: 6 }}>• <b style={{ color: "#f59e0b" }}>Điểm thưởng</b></div>
-          <div style={{ paddingLeft: 16, fontSize: 12 }}>
-            = (Góp ý hữu ích × 0.5) + (Cứu việc × 0.5)
-          </div>
-          <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-            Tối đa +2 điểm cho mỗi loại
-          </div>
-          
-          <div style={{ marginTop: 6 }}>• <b style={{ color: "#22c55e" }}>Tổng điểm</b></div>
-          <div style={{ paddingLeft: 16, fontSize: 12 }}>
-            = Điểm cơ bản + Điểm thưởng
-          </div>
-          <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-            Làm tròn 1 chữ số thập phân
-          </div>
-          
-          <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px solid ${styles.border}` }}>
-            <div style={{ color: "#fcd34d", fontWeight: 700, marginBottom: 4 }}>📊 CHIA ĐIỂM GIẢNG VIÊN</div>
-            
-            <div>• <b style={{ color: "#fcd34d" }}>Điểm sau chia</b></div>
-            <div style={{ paddingLeft: 16, fontSize: 12 }}>
-              = Điểm giảng viên × (Phần trăm đóng góp / Phần trăm lớn nhất)
-            </div>
-            
-            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted, marginTop: 4 }}>
-              → Người có % đóng góp cao nhất được giữ nguyên điểm giảng viên
-            </div>
-            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-              → Các thành viên khác được nhân với tỷ lệ tương ứng
-            </div>
-            <div style={{ paddingLeft: 16, fontSize: 12, color: styles.textMuted }}>
-              → Làm tròn 1 chữ số thập phân
-            </div>
-          </div>
-        </div>
-      </TheCard>
-
+      {/* ─── TIẾN ĐỘ DỰ ÁN ────────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 TIẾN ĐỘ DỰ ÁN</h3>
@@ -3112,6 +3063,7 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         )}
       </TheCard>
 
+      {/* ─── BẢNG XẾP HẠNG ────────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>🏆 Bảng xếp hạng thành viên</h4>
         
@@ -3205,6 +3157,7 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         </div>
       </TheCard>
 
+      {/* ─── NHẬN XÉT & GÓP Ý ────────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <TheCard theme={theme}>
           <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Nhận xét đồng đội</h4>
