@@ -308,6 +308,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <p style={{ margin: 0 }}>• Đánh giá dựa trên đóng góp thực tế</p>
               <p style={{ margin: 0 }}>• Công bằng, khách quan</p>
               <p style={{ margin: 0 }}>• Sau khi đánh giá, KHÔNG thể xem lại hoặc sửa</p>
+              <p style={{ margin: 0 }}>• Đã đánh giá sẽ bị khóa trên mọi trình duyệt</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -2775,11 +2776,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   const [showTasks, setShowTasks] = useState(false);
   const [taskContributions, setTaskContributions] = useState<Record<string, number>>({});
   
-  const [submittedReviews, setSubmittedReviews] = useState<Record<string, Record<string, boolean>>>(() => {
-    const saved = localStorage.getItem("submitted_reviews");
-    return saved ? JSON.parse(saved) : {};
-  });
-
   const otherMembers = members.filter((m: any) => m.id !== currentReviewer);
 
   const resetForm = () => {
@@ -2798,14 +2794,17 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     setTaskContributions({ ...taskContributions, [taskId]: value });
   };
 
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ FIREBASE ──────────────────────────────────────
   const daDanhGia = (reviewerId: string, targetId: string) => {
-    return submittedReviews[reviewerId]?.[targetId] === true;
+    return peerScores[reviewerId]?.[targetId]?.locked === true;
   };
 
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ HẾT CHƯA ──────────────────────────────────────────
   const daDanhGiaHet = otherMembers.every((m: any) => 
     daDanhGia(currentReviewer, m.id)
   );
 
+  // ─── NẾU ĐÃ ĐÁNH GIÁ HẾT → ẨN TOÀN BỘ ──────────────────────────────────────
   if (daDanhGiaHet && otherMembers.length > 0) {
     return (
       <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
@@ -2815,7 +2814,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
           Cảm ơn bạn đã đánh giá tất cả các thành viên trong nhóm.
         </p>
         <p style={{ color: styles.textMuted, fontSize: 13, marginTop: 8 }}>
-          Đánh giá của bạn đã được lưu. Kết quả sẽ hiển thị sau khi tất cả thành viên hoàn thành.
+          Đánh giá của bạn đã được lưu và không thể chỉnh sửa.
         </p>
       </TheCard>
     );
@@ -2827,6 +2826,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
       return;
     }
     
+    // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA ──────────────────────────────────────────
     if (daDanhGia(currentReviewer, targetMember)) {
       alert("Bạn đã đánh giá thành viên này rồi! Không thể đánh giá lại.");
       return;
@@ -2843,18 +2843,24 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
 
     const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
     
-    setPeerScores((prev: any) => ({
-      ...prev,
-      [currentReviewer]: {
-        ...(prev[currentReviewer] || {}),
-        [targetMember]: {
-          scores: scores,
-          avgScore: avgScore,
-          timestamp: new Date().toISOString(),
-          locked: true
+    // ─── LƯU VÀO FIREBASE VỚI LOCKED: TRUE ──────────────────────────────────
+    const newData = {
+      scores: scores,
+      avgScore: avgScore,
+      timestamp: new Date().toISOString(),
+      locked: true
+    };
+    
+    setPeerScores((prev: any) => {
+      const current = prev[currentReviewer] || {};
+      return {
+        ...prev,
+        [currentReviewer]: {
+          ...current,
+          [targetMember]: newData
         }
-      }
-    }));
+      };
+    });
 
     if (comment.trim()) {
       setPeerComments((prev: any) => ({
@@ -2875,12 +2881,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
         }
       }));
     }
-
-    const updated = { ...submittedReviews };
-    if (!updated[currentReviewer]) updated[currentReviewer] = {};
-    updated[currentReviewer][targetMember] = true;
-    setSubmittedReviews(updated);
-    localStorage.setItem("submitted_reviews", JSON.stringify(updated));
 
     alert("✅ Đã lưu đánh giá! Bạn không thể xem lại hoặc sửa.");
     resetForm();
@@ -2905,6 +2905,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     );
   }
 
+  // ─── LỌC DANH SÁCH CHƯA ĐÁNH GIÁ ──────────────────────────────────────────
   const chuaDanhGia = otherMembers.filter((m: any) => !daDanhGia(currentReviewer, m.id));
   const soLuongDaDanhGia = otherMembers.length - chuaDanhGia.length;
 
@@ -3031,16 +3032,11 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
 
-  const [submittedLeaderReviews, setSubmittedLeaderReviews] = useState<Record<string, Record<string, boolean>>>(() => {
-    const saved = localStorage.getItem("submitted_leader_reviews");
-    return saved ? JSON.parse(saved) : {};
-  });
-
   const isLeader = currentReviewer === leader && leaderPasswordVerified;
   const otherMembers = members.filter((m: any) => m.id !== leader);
 
   const daDanhGiaLeader = (reviewerId: string, targetId: string) => {
-    return submittedLeaderReviews[reviewerId]?.[targetId] === true;
+    return leaderScores[targetId]?.locked === true;
   };
 
   const daDanhGiaHetLeader = otherMembers.every((m: any) => 
@@ -3109,22 +3105,19 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
 
     const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
     
+    // ─── LƯU VÀO FIREBASE VỚI LOCKED: TRUE ──────────────────────────────────
+    const newData = {
+      scores: scores,
+      avgScore: avgScore,
+      comment: comment.trim(),
+      timestamp: new Date().toISOString(),
+      locked: true
+    };
+    
     setLeaderScores((prev: any) => ({
       ...prev,
-      [targetMember]: {
-        scores: scores,
-        avgScore: avgScore,
-        comment: comment.trim(),
-        timestamp: new Date().toISOString(),
-        locked: true
-      }
+      [targetMember]: newData
     }));
-
-    const updated = { ...submittedLeaderReviews };
-    if (!updated[currentReviewer]) updated[currentReviewer] = {};
-    updated[currentReviewer][targetMember] = true;
-    setSubmittedLeaderReviews(updated);
-    localStorage.setItem("submitted_leader_reviews", JSON.stringify(updated));
 
     alert(`✅ Đã đánh giá thành viên ${members.find((m: any) => m.id === targetMember)?.name}!`);
     setScores({});
@@ -3933,9 +3926,8 @@ export default function App() {
 
   const getMemberStatus = (memberId: string) => {
     const otherMembers = members.filter((m: any) => m.id !== memberId);
-    const reviewed = JSON.parse(localStorage.getItem("submitted_reviews") || "{}");
     const daDanhGiaHet = otherMembers.every((m: any) => 
-      reviewed[memberId]?.[m.id] === true
+      peerScores[memberId]?.[m.id]?.locked === true
     );
     return daDanhGiaHet;
   };
