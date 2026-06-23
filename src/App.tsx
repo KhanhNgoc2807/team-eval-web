@@ -206,7 +206,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
         style={{
           position: "fixed",
           bottom: 80,
-          right: 20,
+          left: 20,
           width: 44,
           height: 44,
           borderRadius: 22,
@@ -231,7 +231,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
           style={{
             position: "fixed",
             bottom: 132,
-            right: 20,
+            left: 20,
             width: 380,
             maxHeight: 500,
             background: styles.cardBg,
@@ -297,7 +297,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
             <div style={{ marginBottom: 16 }}>
               <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>💬 Thảo luận & Góp ý</h4>
               <p style={{ margin: 0 }}>• 💬 Thảo luận: Công khai, hiển thị tên</p>
-              <p style={{ margin: 0 }}>• 📝 Góp ý: Ẩn danh</p>
+              <p style={{ margin: 0 }}>• 📝 Góp ý: Hiển thị tên người gửi</p>
               <p style={{ margin: 0 }}>• Góp ý ≥ 10 từ mới được đánh giá hữu ích</p>
               <p style={{ margin: 0 }}>• Góp ý hữu ích = +0.5 điểm thưởng (tối đa +2 điểm)</p>
             </div>
@@ -310,10 +310,16 @@ function HelpDialog({ theme }: { theme: Theme }) {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>📅 Họp nhóm</h4>
-              <p style={{ margin: 0 }}>• Tạo khung giờ khảo sát</p>
-              <p style={{ margin: 0 }}>• Chọn lịch rảnh của bạn</p>
-              <p style={{ margin: 0 }}>• Xem thống kê</p>
+              <h4 style={{ color: "#a5b4fc", margin: "0 0 8px 0" }}>🔐 Quên mật khẩu trưởng nhóm</h4>
+              <p style={{ margin: 0, fontSize: 12, color: styles.textMuted }}>
+                • Khi nhập sai mật khẩu, hệ thống sẽ hỏi câu hỏi bí mật
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: styles.textMuted }}>
+                • Trả lời đúng → được đặt mật khẩu mới
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: styles.textMuted }}>
+                • Trưởng nhóm cài đặt câu hỏi bí mật trong tab Thiết lập
+              </p>
             </div>
 
             <div style={{ marginBottom: 8 }}>
@@ -342,8 +348,14 @@ const nhan = { fontSize: 11, color: "#475569", display: "block", marginBottom: 6
 const nutLoc = (theme: Theme) => ({ padding: "6px 14px", borderRadius: 20, border: `1px solid ${themeStyles[theme].border}`, background: "transparent", color: themeStyles[theme].textMuted, fontSize: 12, cursor: "pointer", fontFamily: "inherit", display: "inline-flex", alignItems: "center", gap: 6, transition: "all .15s" });
 const nutLocActive = { borderColor: "#6366f1", color: "#a5b4fc", background: "#1e1b4b" };
 
+// ─── HẰNG SỐ CÂU HỎI BÍ MẬT ──────────────────────────────────────────────────
+const CAU_HOI_Bi_MAT = [
+  "Trường tiểu học của bạn tên là gì?",
+  "Món ăn yêu thích nhất của bạn là gì?"
+];
+
 // ─── CHAT BOX ─────────────────────────────────────────────────────────────────
-function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewer }: any) {
+function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewer, roomId }: any) {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
@@ -362,8 +374,34 @@ function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewe
   }, [chatMessages]);
 
   useEffect(() => {
-    if (isOpen) setUnreadCount(0);
-  }, [isOpen]);
+    if (!isOpen && chatMessages.length > 0) {
+      const lastRead = localStorage.getItem(`chat_last_read_${roomId}`) || new Date(0).toISOString();
+      const newMessages = chatMessages.filter((msg: any) => 
+        msg.timestamp > lastRead && msg.authorId !== currentReviewer
+      );
+      setUnreadCount(newMessages.length);
+    }
+  }, [chatMessages, isOpen, roomId, currentReviewer]);
+
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      const lastMsg = chatMessages[chatMessages.length - 1];
+      if (lastMsg.authorId !== currentReviewer && !isOpen) {
+        if (Notification.permission === "granted" && !document.hasFocus()) {
+          new Notification("💬 Tin nhắn mới", {
+            body: `${lastMsg.authorName}: ${lastMsg.content.slice(0, 50)}...`,
+            icon: "💬"
+          });
+        }
+      }
+    }
+  }, [chatMessages, currentReviewer, isOpen]);
 
   const guiTinNhan = () => {
     if (!message.trim()) return;
@@ -382,12 +420,18 @@ function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewe
     setMessage("");
   };
 
+  const handleOpenChat = () => {
+    setIsOpen(true);
+    setUnreadCount(0);
+    localStorage.setItem(`chat_last_read_${roomId}`, new Date().toISOString());
+  };
+
   const tinNhanHienThi = (chatMessages || []).slice(-50);
 
   return (
     <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={handleOpenChat}
         style={{
           position: "fixed",
           bottom: 20,
@@ -424,7 +468,7 @@ function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewe
             alignItems: "center",
             justifyContent: "center"
           }}>
-            {unreadCount}
+            {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
       </button>
@@ -484,6 +528,17 @@ function ChatBox({ chatMessages, setChatMessages, members, theme, currentReviewe
                     <span style={{ fontSize: 10, color: styles.textMuted }}>
                       {new Date(msg.timestamp).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}
                     </span>
+                    {msg.timestamp > (localStorage.getItem(`chat_last_read_${roomId}`) || new Date(0).toISOString()) && msg.authorId !== currentReviewer && (
+                      <span style={{
+                        background: "#ef4444",
+                        color: "white",
+                        padding: "1px 8px",
+                        borderRadius: 10,
+                        fontSize: 10
+                      }}>
+                        Mới
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 13, color: styles.text, wordBreak: "break-word" }}>
                     {msg.content}
@@ -739,7 +794,7 @@ function HopNhom({ members, scheduleSlots, setScheduleSlots, scheduleSelections,
 }
 
 // ─── THIẾT LẬP ──────────────────────────────────────────────────────────────────
-function ThietLap({ members, setMembers, projectName, setProjectName, leader, setLeader, theme }: any) {
+function ThietLap({ members, setMembers, projectName, setProjectName, leader, setLeader, theme, leaderPassword, setLeaderPassword, secretQuestion, setSecretQuestion, secretAnswer, setSecretAnswer }: any) {
   const [name, setName] = useState("");
   const [mssv, setMssv] = useState("");
   const styles = themeStyles[theme];
@@ -752,6 +807,49 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div><label style={nhan}>Tên dự án / môn học</label><OInput value={projectName} onChange={setProjectName} placeholder="VD: Dự án Marketing - Học kỳ 2" theme={theme} /></div>
           <div><label style={nhan}>Trưởng nhóm</label><Chon value={leader} onChange={setLeader} theme={theme}><option value="">Chọn trưởng nhóm...</option>{members.map((m: any) => <option key={m.id} value={m.id}>{m.name}</option>)}</Chon></div>
+          <div>
+            <label style={nhan}>Mật khẩu trưởng nhóm</label>
+            <OInput 
+              type="password" 
+              value={leaderPassword} 
+              onChange={setLeaderPassword} 
+              placeholder="Đặt mật khẩu để bảo vệ quyền trưởng nhóm"
+              theme={theme} 
+            />
+          </div>
+          
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
+            <div style={{ color: "#fcd34d", fontWeight: 700, marginBottom: 4 }}>🔐 CÂU HỎI BÍ MẬT</div>
+            <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>
+              Dùng để đổi mật khẩu khi quên
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <label style={nhan}>Chọn câu hỏi bí mật</label>
+              <Chon 
+                value={secretQuestion} 
+                onChange={setSecretQuestion} 
+                theme={theme}
+              >
+                <option value="">-- Chọn câu hỏi --</option>
+                {CAU_HOI_Bi_MAT.map((q, idx) => (
+                  <option key={idx} value={q}>{q}</option>
+                ))}
+              </Chon>
+            </div>
+            <div>
+              <label style={nhan}>Câu trả lời</label>
+              <OInput 
+                type="password"
+                value={secretAnswer} 
+                onChange={setSecretAnswer} 
+                placeholder="Nhập câu trả lời"
+                theme={theme} 
+              />
+              <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 4 }}>
+                ⚠️ Lưu ý: Câu trả lời có phân biệt chữ hoa/thường
+              </div>
+            </div>
+          </div>
         </div>
         <div style={{ marginTop: 20, padding: 16, background: styles.inputBg, borderRadius: 12, fontSize: 13, color: styles.textMuted, lineHeight: 1.8 }}>
           <div style={{ color: "#a5b4fc", fontWeight: 700, marginBottom: 8 }}>📐 CÔNG THỨC TÍNH ĐIỂM</div>
@@ -812,6 +910,9 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
               <button onClick={() => setMembers((ms: any[]) => ms.filter((x: any) => x.id !== m.id))} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
             </div>
           ))}
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}`, fontSize: 13, color: styles.textMuted }}>
+            👥 Tổng số thành viên: <strong style={{ color: styles.text }}>{members.length}</strong>
+          </div>
         </div>
       </TheCard>
     </div>
@@ -819,7 +920,11 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
 }
 
 // ─── CÔNG VIỆC ──────────────────────────────────────────────────────────────────
-function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: any) {
+function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, announcements, setAnnouncements }: any) {
+  if (!tasks || !Array.isArray(tasks)) {
+    return <div style={{ padding: 20, color: "#64748b", textAlign: "center" }}>Đang tải dữ liệu công việc...</div>;
+  }
+  
   const [form, setForm] = useState({ 
     name: "", 
     description: "",
@@ -829,22 +934,25 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   });
   const [subtaskInput, setSubtaskInput] = useState("");
   const [filter, setFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editingTask, setEditingTask] = useState<any>(null);
   const [leaderRoleAssign, setLeaderRoleAssign] = useState<Record<string, string>>({});
   const [productContent, setProductContent] = useState<Record<string, string>>({});
+  const [announcementText, setAnnouncementText] = useState("");
   
   const styles = themeStyles[theme];
+  const safeMembers = members || [];
+  const safeTasks = tasks || [];
 
-  // ─── TỰ ĐỘNG CHỈ ĐỊNH SAU 24H ──────────────────────────────────────────────
   useEffect(() => {
-    if (tasks.length === 0 || members.length === 0) return;
+    if (safeTasks.length === 0 || safeMembers.length === 0) return;
 
     const now = new Date().getTime();
     let hasChanges = false;
-    let updatedTasks = [...tasks];
+    let updatedTasks = [...safeTasks];
 
-    tasks.forEach((task, taskIndex) => {
+    safeTasks.forEach((task, taskIndex) => {
       if (task.status === "done") return;
 
       const createdAt = new Date(task.createdAt).getTime();
@@ -890,22 +998,31 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         setTimeout(() => localStorage.removeItem("auto_assigned_notified"), 5000);
       }
     }
-  }, [tasks, members, setTasks]);
+  }, [safeTasks, safeMembers, setTasks]);
   
   const addTask = () => { 
     if (!form.name.trim() || form.assignees.length === 0) {
       alert("⚠️ Vui lòng nhập tên công việc và chọn thành viên tham gia!");
       return;
     }
+    
+    let subtasks = form.subtasks;
+    if (form.assignees.length > 1 && form.subtasks.length === 0) {
+      subtasks = form.assignees.map((id: string) => {
+        const member = safeMembers.find((m: any) => m.id === id);
+        return `Phần của ${member?.name || "thành viên"}`;
+      });
+    }
+    
     const newTask = { 
       id: uid(), 
       name: form.name,
       description: form.description || "",
-      subtasks: form.subtasks.map((name: string) => ({ 
+      subtasks: subtasks.map((name: string, index: number) => ({ 
         id: uid(),
         name: name,
-        assignee: null,
-        status: "pending" 
+        assignee: form.assignees[index] || null,
+        status: form.assignees.length > 1 && form.subtasks.length === 0 ? "accepted" : "pending" 
       })),
       deadline: form.deadline, 
       status: "todo",
@@ -919,7 +1036,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         role: "", 
         status: "pending" 
       })),
-      score: 0
+      score: 0,
+      checkStatus: ""
     };
     setTasks((t: any[]) => [...t, newTask]); 
     setForm({ name: "", description: "", subtasks: [], assignees: [], deadline: "" });
@@ -959,7 +1077,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     }
     setEditingTask({
       ...task,
-      subtaskNames: task.subtasks.map((s: any) => s.name)
+      subtaskNames: task.subtasks?.map((s: any) => s.name) || []
     });
   };
 
@@ -988,7 +1106,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
   };
 
   const layTen = (memberId: string) => {
-    const member = members.find((m: any) => m.id === memberId);
+    const member = safeMembers.find((m: any) => m.id === memberId);
     return member ? member.name : "Không xác định";
   };
 
@@ -997,7 +1115,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       alert("Vui lòng chọn tên của bạn trên thanh tiêu đề!");
       return;
     }
-    const task = tasks.find((t: any) => t.id === taskId);
+    const task = safeTasks.find((t: any) => t.id === taskId);
     if (!task) return;
     
     if (!task.assignees?.some((a: any) => a.memberId === currentReviewer)) {
@@ -1020,7 +1138,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       return;
     }
     
-    const task = tasks.find((t: any) => t.id === taskId);
+    const task = safeTasks.find((t: any) => t.id === taskId);
     const subtask = task?.subtasks?.find((s: any) => s.id === subtaskId);
     
     if (subtask && subtask.assignee && subtask.assignee !== currentReviewer && subtask.status !== "done") {
@@ -1095,6 +1213,38 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     alert("✅ Bạn đã từ chối đầu việc này!");
   };
 
+  const tachTask = (taskId: string) => {
+    const task = safeTasks.find((t: any) => t.id === taskId);
+    if (!task) return;
+    if (task.subtasks && task.subtasks.length > 0) {
+      alert("Task này đã có đầu việc nhỏ!");
+      return;
+    }
+    if (task.assignees.length < 2) {
+      alert("Task này chỉ có 1 người, không cần tách!");
+      return;
+    }
+    
+    const subtasks = task.assignees.map((a: any) => {
+      const member = safeMembers.find((m: any) => m.id === a.memberId);
+      return {
+        id: uid(),
+        name: `Phần của ${member?.name || "thành viên"}`,
+        assignee: a.memberId,
+        status: "accepted"
+      };
+    });
+    
+    setTasks((prev: any[]) => prev.map((t: any) => {
+      if (t.id === taskId) {
+        return { ...t, subtasks };
+      }
+      return t;
+    }));
+    
+    alert(`✅ Đã tách task thành ${subtasks.length} đầu việc nhỏ!`);
+  };
+
   const chiDinhCung = (taskId: string, subtaskId: string, memberId: string) => {
     if (leader !== currentReviewer) {
       alert("Chỉ trưởng nhóm mới có thể chỉ định!");
@@ -1118,7 +1268,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
       }
       return t;
     }));
-    const member = members.find((m: any) => m.id === memberId);
+    const member = safeMembers.find((m: any) => m.id === memberId);
     alert(`✅ Đã chỉ định đầu việc cho ${member?.name || "thành viên"}!`);
   };
 
@@ -1220,14 +1370,123 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
     })); 
   };
 
-  const filtered = filter === "all" 
-    ? tasks 
-    : tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === filter));
+  const chuyenCheckStatus = (taskId: string, newStatus: string) => {
+    if (leader !== currentReviewer) {
+      alert("⚠️ Chỉ trưởng nhóm mới có thể thay đổi trạng thái check!");
+      return;
+    }
+    setTasks((prev: any[]) => prev.map((t: any) => {
+      if (t.id === taskId) {
+        return { ...t, checkStatus: newStatus };
+      }
+      return t;
+    }));
+  };
+
+  const guiAnnouncement = () => {
+    if (!announcementText.trim()) {
+      alert("Vui lòng nhập nội dung thông báo!");
+      return;
+    }
+    const newAnn = {
+      id: uid(),
+      text: announcementText.trim(),
+      time: new Date().toISOString(),
+      author: layTen(currentReviewer)
+    };
+    setAnnouncements((prev: any[]) => [...(prev || []), newAnn]);
+    setAnnouncementText("");
+    alert("✅ Đã gửi thông báo quan trọng!");
+  };
+
+  const filtered = statusFilter === "all" 
+    ? safeTasks 
+    : safeTasks.filter((t: any) => {
+        if (statusFilter === "pending") return t.status !== "done";
+        if (statusFilter === "checking") return t.checkStatus === "checking";
+        if (statusFilter === "final") return t.checkStatus === "final";
+        return true;
+      });
+
+  const sortedTasks = [...filtered].sort((a, b) => {
+    const aIsMine = a.assignees?.some((ass: any) => ass.memberId === currentReviewer);
+    const bIsMine = b.assignees?.some((ass: any) => ass.memberId === currentReviewer);
+    if (aIsMine && !bIsMine) return -1;
+    if (!aIsMine && bIsMine) return 1;
+    return 0;
+  });
 
   const nutStyle = nutLoc(theme);
 
   return (
     <div>
+      {announcements && announcements.length > 0 && (
+        <div style={{ 
+          background: "linear-gradient(135deg, #7f1d1d, #450a0a)",
+          border: "2px solid #ef4444",
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 16,
+          position: "relative"
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: "#fca5a5", fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                📢 THÔNG BÁO QUAN TRỌNG
+              </div>
+              {announcements.map((ann: any) => (
+                <div key={ann.id} style={{ color: "#fff", fontSize: 14, padding: "4px 0" }}>
+                  • {ann.text}
+                  <span style={{ fontSize: 11, color: "#fca5a5", marginLeft: 8 }}>
+                    ({new Date(ann.time).toLocaleString("vi-VN")} - {ann.author})
+                  </span>
+                </div>
+              ))}
+            </div>
+            {leader === currentReviewer && (
+              <button
+                onClick={() => {
+                  if (window.confirm("Xóa tất cả thông báo?")) {
+                    setAnnouncements([]);
+                  }
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "#fca5a5",
+                  cursor: "pointer",
+                  fontSize: 18,
+                  padding: "0 4px"
+                }}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {leader === currentReviewer && (
+        <TheCard theme={theme} style={{ marginBottom: 16, borderColor: "#ef4444" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 20 }}>📢</span>
+            <span style={{ fontWeight: 700, color: "#ef4444" }}>THÔNG BÁO QUAN TRỌNG</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <OInput
+              value={announcementText}
+              onChange={setAnnouncementText}
+              placeholder="Nhập thông báo quan trọng cho cả nhóm..."
+              theme={theme}
+              style={{ flex: 1 }}
+            />
+            <NutBam onClick={guiAnnouncement} theme={theme} variant="danger">
+              📢 Gửi
+            </NutBam>
+          </div>
+        </TheCard>
+      )}
+
       <div style={{ 
         background: "#1e1b4b", 
         borderRadius: 12, 
@@ -1252,16 +1511,43 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         />
       </div>
 
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+        <button 
+          onClick={() => setStatusFilter("all")} 
+          style={{ ...nutStyle, ...(statusFilter === "all" ? nutLocActive : {}) }}
+        >
+          📋 Tất cả
+        </button>
+        <button 
+          onClick={() => setStatusFilter("pending")} 
+          style={{ ...nutStyle, ...(statusFilter === "pending" ? nutLocActive : {}) }}
+        >
+          📌 Đang làm
+        </button>
+        <button 
+          onClick={() => setStatusFilter("checking")} 
+          style={{ ...nutStyle, ...(statusFilter === "checking" ? { borderColor: "#f59e0b", color: "#f59e0b" } : {}) }}
+        >
+          🔍 Đang kiểm tra
+        </button>
+        <button 
+          onClick={() => setStatusFilter("final")} 
+          style={{ ...nutStyle, ...(statusFilter === "final" ? { borderColor: "#8b5cf6", color: "#8b5cf6" } : {}) }}
+        >
+          ✨ Hoàn thiện
+        </button>
+      </div>
+
       <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
         <div style={{ flex: 1, display: "flex", gap: 6, flexWrap: "wrap" }}>
           <button onClick={() => setFilter("all")} style={{ ...nutStyle, ...(filter === "all" ? nutLocActive : {}) }}>
-            Tất cả ({tasks.length})
+            Tất cả ({safeTasks.length})
           </button>
-          {members.map((m: any) => (
-            <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)} style={{ ...nutStyle, ...(filter === m.id ? { borderColor: MAU_THANH_VIEN[members.indexOf(m) % MAU_THANH_VIEN.length], color: MAU_THANH_VIEN[members.indexOf(m) % MAU_THANH_VIEN.length], background: MAU_THANH_VIEN[members.indexOf(m) % MAU_THANH_VIEN.length] + "18" } : {}) }}>
-              <span style={{ width: 8, height: 8, borderRadius: "50%", background: MAU_THANH_VIEN[members.indexOf(m) % MAU_THANH_VIEN.length], display: "inline-block" }} />
+          {safeMembers.map((m: any) => (
+            <button key={m.id} onClick={() => setFilter(filter === m.id ? "all" : m.id)} style={{ ...nutStyle, ...(filter === m.id ? { borderColor: MAU_THANH_VIEN[safeMembers.indexOf(m) % MAU_THANH_VIEN.length], color: MAU_THANH_VIEN[safeMembers.indexOf(m) % MAU_THANH_VIEN.length], background: MAU_THANH_VIEN[safeMembers.indexOf(m) % MAU_THANH_VIEN.length] + "18" } : {}) }}>
+              <span style={{ width: 8, height: 8, borderRadius: "50%", background: MAU_THANH_VIEN[safeMembers.indexOf(m) % MAU_THANH_VIEN.length], display: "inline-block" }} />
               <span className="hide-on-mobile">{m.name.split(" ").pop()}</span>
-              <span> ({tasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === m.id)).length})</span>
+              <span> ({safeTasks.filter((t: any) => t.assignees?.some((a: any) => a.memberId === m.id)).length})</span>
             </button>
           ))}
         </div>
@@ -1270,7 +1556,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         )}
       </div>
       
-      {/* Form tạo task */}
       {showForm && leader === currentReviewer && (
         <TheCard style={{ marginBottom: 20, borderColor: "#312e81" }} theme={theme}>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr auto", gap: 12, alignItems: "end" }}>
@@ -1281,8 +1566,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
             <div>
               <label style={nhan}>Giao cho * (chọn nhiều)</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, background: styles.inputBg, border: `1px solid ${styles.border}`, borderRadius: 10, padding: "10px", maxHeight: 200, overflowY: "auto" }}>
-                {members.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13, padding: 8 }}>Chưa có thành viên nào</span>}
-                {members.map((m: any) => (
+                {safeMembers.length === 0 && <span style={{ color: styles.textMuted, fontSize: 13, padding: 8 }}>Chưa có thành viên nào</span>}
+                {safeMembers.map((m: any) => (
                   <button
                     key={m.id}
                     type="button"
@@ -1310,6 +1595,25 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
               <OInput type="date" value={form.deadline} onChange={v => setForm((f: any) => ({ ...f, deadline: v }))} theme={theme} />
             </div>
           </div>
+          
+          {form.assignees.length > 1 && form.subtasks.length === 0 && (
+            <div style={{
+              background: "#7f1d1d",
+              border: "1px solid #ef4444",
+              borderRadius: 8,
+              padding: 10,
+              marginBottom: 12,
+              color: "#fca5a5",
+              fontSize: 13
+            }}>
+              ⚠️ Bạn đang giao task này cho {form.assignees.length} người nhưng chưa có đầu việc nhỏ!
+              <br />
+              <span style={{ fontSize: 12 }}>
+                → Hệ thống sẽ tự động tạo đầu việc nhỏ cho từng thành viên.
+              </span>
+            </div>
+          )}
+          
           <div style={{ marginTop: 12 }}>
             <label style={nhan}>Mô tả chi tiết</label>
             <OInput value={form.description} onChange={v => setForm((f: any) => ({ ...f, description: v }))} placeholder="Mô tả công việc chi tiết..." theme={theme} />
@@ -1348,30 +1652,18 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         </TheCard>
       )}
       
-      {/* Form chỉnh sửa task */}
       {editingTask && (
         <TheCard style={{ marginBottom: 20, borderColor: "#f59e0b" }} theme={theme}>
           <h4 style={{ margin: "0 0 16px", fontSize: 15, color: "#f59e0b" }}>✏️ Chỉnh sửa công việc</h4>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={nhan}>Tên công việc *</label>
-              <OInput 
-                value={editingTask.name} 
-                onChange={v => setEditingTask({ ...editingTask, name: v })} 
-                theme={theme} 
-              />
-            </div>
-            <div>
-              <label style={nhan}>Hạn chót</label>
-              <OInput 
-                type="date" 
-                value={editingTask.deadline || ""} 
-                onChange={v => setEditingTask({ ...editingTask, deadline: v })} 
-                theme={theme} 
-              />
-            </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={nhan}>Tên công việc *</label>
+            <OInput 
+              value={editingTask.name} 
+              onChange={v => setEditingTask({ ...editingTask, name: v })} 
+              theme={theme} 
+            />
           </div>
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginBottom: 12 }}>
             <label style={nhan}>Mô tả chi tiết</label>
             <OInput 
               value={editingTask.description || ""} 
@@ -1380,24 +1672,31 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
               theme={theme} 
             />
           </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={nhan}>Các đầu việc nhỏ</label>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {editingTask.subtaskNames.map((name: string, idx: number) => (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: styles.inputBg, borderRadius: 6 }}>
-                  <span style={{ fontSize: 13, color: styles.text }}>{idx + 1}. {name}</span>
-                  <button 
-                    onClick={() => {
-                      const newNames = editingTask.subtaskNames.filter((_: string, i: number) => i !== idx);
-                      setEditingTask({ ...editingTask, subtaskNames: newNames });
-                    }} 
-                    style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", marginLeft: "auto", fontSize: 16 }}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={nhan}>Hạn chót</label>
+            <OInput 
+              type="date" 
+              value={editingTask.deadline || ""} 
+              onChange={v => setEditingTask({ ...editingTask, deadline: v })} 
+              theme={theme} 
+            />
+          </div>
+          <div style={{ marginBottom: 12 }}>
+            <label style={nhan}>Các đầu việc nhỏ {editingTask.subtaskNames?.length > 0 && `(${editingTask.subtaskNames.length})`}</label>
+            {editingTask.subtaskNames?.map((name: string, idx: number) => (
+              <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: styles.inputBg, borderRadius: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 13, color: styles.text }}>{idx + 1}. {name}</span>
+                <button 
+                  onClick={() => {
+                    const newNames = editingTask.subtaskNames.filter((_: string, i: number) => i !== idx);
+                    setEditingTask({ ...editingTask, subtaskNames: newNames });
+                  }} 
+                  style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", marginLeft: "auto", fontSize: 16 }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <OInput 
                 value={editingTask.newSubtask || ""} 
@@ -1438,7 +1737,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         </TheCard>
       )}
       
-      {filtered.length === 0 ? (
+      {sortedTasks.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 0", color: styles.textMuted }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📋</div>
           <div style={{ fontSize: 16, fontWeight: 600 }}>Chưa có công việc nào</div>
@@ -1446,7 +1745,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(420px,1fr))", gap: 14 }}>
-          {filtered.map((t: any) => {
+          {sortedTasks.map((t: any) => {
             const subtaskList = t.subtasks || [];
             const hasSubtasks = subtaskList.length > 0;
             const pendingSubtasks = subtaskList.filter((s: any) => s.assignee === null || s.assignee === undefined || s.assignee === "");
@@ -1459,16 +1758,69 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    {t.status === "done" && <The color="#22c55e">✅ Hoàn thành</The>}
+                    {t.status === "done" && !t.checkStatus && (
+                      <span style={{
+                        background: "#22c55e",
+                        color: "white",
+                        padding: "4px 12px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700
+                      }}>
+                        ✅ HOÀN THÀNH
+                      </span>
+                    )}
+                    {t.checkStatus === "checking" && (
+                      <span style={{
+                        background: "#f59e0b",
+                        color: "white",
+                        padding: "4px 12px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700
+                      }}>
+                        🔍 ĐANG KIỂM TRA
+                      </span>
+                    )}
+                    {t.checkStatus === "final" && (
+                      <span style={{
+                        background: "#8b5cf6",
+                        color: "white",
+                        padding: "4px 12px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700
+                      }}>
+                        ✨ HOÀN THIỆN
+                      </span>
+                    )}
+                    {t.status !== "done" && !t.checkStatus && (
+                      <span style={{
+                        background: "#64748b",
+                        color: "white",
+                        padding: "4px 12px",
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 700
+                      }}>
+                        📌 ĐANG LÀM
+                      </span>
+                    )}
                   </div>
                   <div style={{ display: "flex", gap: 6 }}>
                     {leader === currentReviewer && (
-                      <>
-                        <button onClick={() => startEditing(t)} style={{ background: "none", border: "none", color: "#f59e0b", cursor: "pointer", fontSize: 14 }} title="Chỉnh sửa">
-                          ✏️
-                        </button>
-                        <button onClick={() => xoaTask(t.id)} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
-                      </>
+                      <button onClick={() => startEditing(t)} style={{ 
+                        background: "none", 
+                        border: "none", 
+                        color: "#f59e0b", 
+                        cursor: "pointer", 
+                        fontSize: 14 
+                      }} title="Chỉnh sửa">
+                        ✏️
+                      </button>
+                    )}
+                    {leader === currentReviewer && (
+                      <button onClick={() => xoaTask(t.id)} style={{ background: "none", border: "none", color: styles.textMuted, cursor: "pointer", fontSize: 18 }}>×</button>
                     )}
                   </div>
                 </div>
@@ -1494,7 +1846,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {(t.assignees || []).map((a: any) => {
-                      const member = members.find((m: any) => m.id === a.memberId);
+                      const member = safeMembers.find((m: any) => m.id === a.memberId);
                       const hasAccepted = t.subtasks?.some((s: any) => s.assignee === a.memberId && s.status !== "pending");
                       return (
                         <span key={a.memberId} style={{ 
@@ -1520,6 +1872,24 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                     </div>
                   )}
                 </div>
+                
+                {leader === currentReviewer && !hasSubtasks && t.assignees?.length > 1 && t.status !== "done" && (
+                  <button
+                    onClick={() => tachTask(t.id)}
+                    style={{
+                      padding: "4px 12px",
+                      borderRadius: 6,
+                      border: "1px solid #6366f1",
+                      background: "transparent",
+                      color: "#6366f1",
+                      cursor: "pointer",
+                      fontSize: 11,
+                      marginBottom: 8
+                    }}
+                  >
+                    🔀 Tách thành việc nhỏ
+                  </button>
+                )}
                 
                 {!hasSubtasks && t.assignees?.some((a: any) => a.memberId === currentReviewer) && t.status !== "done" && (
                   <NutBam 
@@ -1644,7 +2014,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                                 style={{ width: 120, padding: "4px 8px", fontSize: 12 }}
                               >
                                 <option value="">Chỉ định...</option>
-                                {members.map((m: any) => (
+                                {safeMembers.map((m: any) => (
                                   <option key={m.id} value={m.id}>{m.name}</option>
                                 ))}
                               </Chon>
@@ -1702,21 +2072,28 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                       <OInput
                         value={t.productLink || ""}
                         onChange={(v: string) => {
-                          setTasks((prev: any[]) => prev.map((task: any) =>
-                            task.id === t.id ? { ...task, productLink: v } : task
-                          ));
+                          const isAssigned = t.assignees?.some((a: any) => a.memberId === currentReviewer);
+                          if (isAssigned) {
+                            setTasks((prev: any[]) => prev.map((task: any) =>
+                              task.id === t.id ? { ...task, productLink: v } : task
+                            ));
+                          }
                         }}
                         placeholder="🔗 Link sản phẩm (Google Drive, Docs, GitHub...)"
                         theme={theme}
+                        disabled={!t.assignees?.some((a: any) => a.memberId === currentReviewer)}
                       />
                       <textarea
                         value={productContent[t.id] || t.productText || ""}
                         onChange={(e) => {
                           const val = e.target.value;
-                          setProductContent({ ...productContent, [t.id]: val });
-                          setTasks((prev: any[]) => prev.map((task: any) =>
-                            task.id === t.id ? { ...task, productText: val } : task
-                          ));
+                          const isAssigned = t.assignees?.some((a: any) => a.memberId === currentReviewer);
+                          if (isAssigned) {
+                            setProductContent({ ...productContent, [t.id]: val });
+                            setTasks((prev: any[]) => prev.map((task: any) =>
+                              task.id === t.id ? { ...task, productText: val } : task
+                            ));
+                          }
                         }}
                         placeholder="📝 Hoặc nhập nội dung sản phẩm tại đây..."
                         style={{
@@ -1731,14 +2108,21 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                           width: "100%",
                           boxSizing: "border-box",
                           minHeight: 80,
-                          resize: "vertical"
+                          resize: "vertical",
+                          opacity: t.assignees?.some((a: any) => a.memberId === currentReviewer) ? 1 : 0.5
                         }}
+                        disabled={!t.assignees?.some((a: any) => a.memberId === currentReviewer)}
                         onFocus={e => e.currentTarget.style.borderColor = "#6366f1"}
                         onBlur={e => e.currentTarget.style.borderColor = styles.border}
                       />
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
                         <NutBam
                           onClick={() => {
+                            const isAssigned = t.assignees?.some((a: any) => a.memberId === currentReviewer);
+                            if (!isAssigned) {
+                              alert("⚠️ Bạn không được giao task này! Không thể nộp sản phẩm.");
+                              return;
+                            }
                             if (!t.productLink?.trim() && !productContent[t.id]?.trim() && !t.productText?.trim()) {
                               alert("⚠️ Vui lòng nhập link hoặc nội dung sản phẩm!");
                               return;
@@ -1749,13 +2133,17 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                             alert("✅ Đã nộp sản phẩm!");
                           }}
                           theme={theme}
+                          disabled={!t.assignees?.some((a: any) => a.memberId === currentReviewer)}
                         >
                           📤 Gửi sản phẩm
                         </NutBam>
                       </div>
                       {t.submittedBy && (
-                        <div style={{ fontSize: 11, color: "#22c55e", marginTop: 4 }}>
-                          ✅ Đã nộp bởi {layTen(t.submittedBy)} vào {new Date(t.submittedAt).toLocaleString("vi-VN")}
+                        <div style={{ fontSize: 11, color: t.submittedBy === currentReviewer ? "#22c55e" : "#f59e0b", marginTop: 4 }}>
+                          {t.submittedBy === currentReviewer 
+                            ? "✅ Bạn đã nộp sản phẩm này" 
+                            : `📤 ${layTen(t.submittedBy)} đã nộp sản phẩm`
+                          }
                         </div>
                       )}
                       {t.productLink && (
@@ -1778,6 +2166,55 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer }: 
                         </div>
                       )}
                     </div>
+                  </div>
+                )}
+                
+                {leader === currentReviewer && t.status === "done" && (
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    <button
+                      onClick={() => chuyenCheckStatus(t.id, "checking")}
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 6,
+                        border: `1px solid ${t.checkStatus === "checking" ? "#f59e0b" : "#64748b"}`,
+                        background: t.checkStatus === "checking" ? "#f59e0b" : "transparent",
+                        color: t.checkStatus === "checking" ? "#fff" : styles.textMuted,
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 600
+                      }}
+                    >
+                      🔍 Đang kiểm tra
+                    </button>
+                    <button
+                      onClick={() => chuyenCheckStatus(t.id, "final")}
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 6,
+                        border: `1px solid ${t.checkStatus === "final" ? "#8b5cf6" : "#64748b"}`,
+                        background: t.checkStatus === "final" ? "#8b5cf6" : "transparent",
+                        color: t.checkStatus === "final" ? "#fff" : styles.textMuted,
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: 600
+                      }}
+                    >
+                      ✨ Hoàn thiện
+                    </button>
+                    <button
+                      onClick={() => chuyenCheckStatus(t.id, "")}
+                      style={{
+                        padding: "4px 12px",
+                        borderRadius: 6,
+                        border: `1px solid ${styles.border}`,
+                        background: "transparent",
+                        color: styles.textMuted,
+                        cursor: "pointer",
+                        fontSize: 11
+                      }}
+                    >
+                      🔄 Reset
+                    </button>
                   </div>
                 )}
                 
@@ -2072,7 +2509,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 
             <TheCard theme={theme}>
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm (ẩn danh)</h4>
+                <h4 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>💬 Góp ý sản phẩm</h4>
                 <HelpIcon 
                   title="📝 Quy tắc góp ý"
                   text="1️⃣ Góp ý ≥ 10 từ mới được đánh giá hữu ích\n2️⃣ Người nhận đánh giá 'Hữu ích' = Người gửi được +0.5 điểm thưởng\n3️⃣ Góp ý ngắn (< 10 từ) = Không được đánh giá"
@@ -2097,7 +2534,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                           <div>
                             <span style={{ fontSize: 11, color: styles.textMuted, fontStyle: "italic" }}>
-                              Góp ý cho {layTen(comment.targetMemberId)} (ẩn danh)
+                              💬 {layTen(comment.authorId)} góp ý cho {layTen(comment.targetMemberId)}
                             </span>
                             <span style={{ fontSize: 10, color: styles.textMuted, marginLeft: 8 }}>
                               {new Date(comment.timestamp).toLocaleDateString("vi-VN")}
@@ -2215,7 +2652,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                           <div key={reply.id} style={{ marginTop: 6, paddingLeft: 16, borderLeft: `2px solid ${styles.border}` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
                               <span style={{ fontWeight: 600, fontSize: 11, color: "#6366f1" }}>
-                                Phản hồi (ẩn danh)
+                                Phản hồi
                               </span>
                               <span style={{ fontSize: 10, color: styles.textMuted }}>
                                 {new Date(reply.timestamp).toLocaleDateString("vi-VN")}
@@ -2232,7 +2669,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                             <OInput
                               value={replyText[comment.id] || ""}
                               onChange={(v: string) => setReplyText({ ...replyText, [comment.id]: v })}
-                              placeholder="Phản hồi góp ý (ẩn danh)..."
+                              placeholder="Phản hồi góp ý..."
                               theme={theme}
                               style={{ flex: 1, fontSize: 12, padding: "4px 10px" }}
                               onKeyDown={(e: any) => {
@@ -2265,7 +2702,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                   <label style={{ ...nhan, marginBottom: 0 }}>Chọn người nhận</label>
                   <HelpIcon 
                     title="👤 Chọn người nhận"
-                    text="Chọn thành viên bạn muốn góp ý.\nGóp ý sẽ được ẩn danh."
+                    text="Chọn thành viên bạn muốn góp ý."
                   />
                 </div>
                 <Chon 
@@ -2311,7 +2748,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
                   style={{ alignSelf: "flex-end" }}
                   disabled={!commentTarget || !commentText.trim()}
                 >
-                  Gửi góp ý (ẩn danh)
+                  Gửi góp ý
                 </NutBam>
               </div>
             </TheCard>
@@ -2331,7 +2768,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
   const [showTasks, setShowTasks] = useState(false);
   const [taskContributions, setTaskContributions] = useState<Record<string, number>>({});
   
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ LOCALSTORAGE ──────────────────────────────
   const [submittedReviews, setSubmittedReviews] = useState<Record<string, Record<string, boolean>>>(() => {
     const saved = localStorage.getItem("submitted_reviews");
     return saved ? JSON.parse(saved) : {};
@@ -2355,17 +2791,14 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     setTaskContributions({ ...taskContributions, [taskId]: value });
   };
 
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA ──────────────────────────────────────────────
   const daDanhGia = (reviewerId: string, targetId: string) => {
     return submittedReviews[reviewerId]?.[targetId] === true;
   };
 
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ HẾT CHƯA ──────────────────────────────────────────
   const daDanhGiaHet = otherMembers.every((m: any) => 
     daDanhGia(currentReviewer, m.id)
   );
 
-  // ─── NẾU ĐÃ ĐÁNH GIÁ HẾT → ẨN TOÀN BỘ ──────────────────────────────────────
   if (daDanhGiaHet && otherMembers.length > 0) {
     return (
       <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
@@ -2387,7 +2820,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
       return;
     }
     
-    // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA ──────────────────────────────────────────
     if (daDanhGia(currentReviewer, targetMember)) {
       alert("Bạn đã đánh giá thành viên này rồi! Không thể đánh giá lại.");
       return;
@@ -2411,7 +2843,8 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
         [targetMember]: {
           scores: scores,
           avgScore: avgScore,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          locked: true
         }
       }
     }));
@@ -2436,7 +2869,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
       }));
     }
 
-    // ─── LƯU VÀO LOCALSTORAGE ──────────────────────────────────────────────────
     const updated = { ...submittedReviews };
     if (!updated[currentReviewer]) updated[currentReviewer] = {};
     updated[currentReviewer][targetMember] = true;
@@ -2466,7 +2898,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     );
   }
 
-  // ─── LỌC DANH SÁCH CHƯA ĐÁNH GIÁ ──────────────────────────────────────────
   const chuaDanhGia = otherMembers.filter((m: any) => !daDanhGia(currentReviewer, m.id));
   const soLuongDaDanhGia = otherMembers.length - chuaDanhGia.length;
 
@@ -2581,27 +3012,24 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
             </div>
           )}
         </TheCard>
-
-        {/* ─── KHÔNG HIỂN THỊ PHẦN "KẾT QUẢ ĐÁNH GIÁ CỦA BẠN" ─────────────── */}
       </div>
     </div>
   );
 }
 
 // ─── TRƯỞNG NHÓM ĐÁNH GIÁ THÀNH VIÊN ──────────────────────────────────────
-function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme, currentReviewer }: any) {
+function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme, currentReviewer, leaderPassword, leaderPasswordVerified, setLeaderPasswordVerified, secretQuestion, secretAnswer }: any) {
   const styles = themeStyles[theme];
   const [targetMember, setTargetMember] = useState("");
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
 
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ LOCALSTORAGE ──────────────────────────────
   const [submittedLeaderReviews, setSubmittedLeaderReviews] = useState<Record<string, Record<string, boolean>>>(() => {
     const saved = localStorage.getItem("submitted_leader_reviews");
     return saved ? JSON.parse(saved) : {};
   });
 
-  const isLeader = currentReviewer === leader;
+  const isLeader = currentReviewer === leader && leaderPasswordVerified;
   const otherMembers = members.filter((m: any) => m.id !== leader);
 
   const daDanhGiaLeader = (reviewerId: string, targetId: string) => {
@@ -2612,13 +3040,36 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
     daDanhGiaLeader(currentReviewer, m.id)
   );
 
+  const handleForgotPassword = () => {
+    if (!secretQuestion || !secretAnswer) {
+      alert("⚠️ Trưởng nhóm chưa thiết lập câu hỏi bí mật! Vui lòng liên hệ trưởng nhóm để cài đặt.");
+      return;
+    }
+    
+    const userAnswer = prompt(`🔐 Câu hỏi bảo mật:\n\n${secretQuestion}\n\n(Nhập câu trả lời của bạn)`);
+    
+    if (userAnswer === null) return;
+    
+    if (userAnswer.trim() === secretAnswer) {
+      const newPass = prompt("✅ Xác thực thành công!\n\nNhập mật khẩu mới:");
+      if (newPass && newPass.trim()) {
+        setLeaderPassword(newPass.trim());
+        setLeaderPasswordVerified(true);
+        localStorage.setItem("leader_verified", "true");
+        alert("✅ Đã đổi mật khẩu thành công!");
+      }
+    } else {
+      alert("❌ Câu trả lời sai! Bạn không thể đổi mật khẩu.");
+    }
+  };
+
   if (!isLeader) {
     return (
       <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>👑</div>
         <h3 style={{ color: "#a5b4fc", marginBottom: 12 }}>Chỉ trưởng nhóm mới có quyền đánh giá</h3>
         <p style={{ color: styles.textMuted }}>
-          Vui lòng chọn tên trưởng nhóm trên thanh tiêu đề để thực hiện đánh giá thành viên.
+          Vui lòng chọn tên trưởng nhóm trên thanh tiêu đề và nhập mật khẩu để thực hiện đánh giá thành viên.
         </p>
       </TheCard>
     );
@@ -2680,11 +3131,11 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
         scores: scores,
         avgScore: avgScore,
         comment: comment.trim(),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        locked: true
       }
     }));
 
-    // ─── LƯU VÀO LOCALSTORAGE ──────────────────────────────────────────────────
     const updated = { ...submittedLeaderReviews };
     if (!updated[currentReviewer]) updated[currentReviewer] = {};
     updated[currentReviewer][targetMember] = true;
@@ -2775,8 +3226,6 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
           </div>
         )}
       </TheCard>
-
-      {/* ─── KHÔNG HIỂN THỊ "KẾT QUẢ ĐÁNH GIÁ CỦA BẠN" ─────────────────────── */}
     </div>
   );
 }
@@ -2786,8 +3235,9 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
   const styles = themeStyles[theme];
   const [teacherScore, setTeacherScore] = useState<number>(0);
   const [isEditingScore, setIsEditingScore] = useState(false);
+  const [appealReason, setAppealReason] = useState<Record<string, string>>({});
+  const [showAppeal, setShowAppeal] = useState<Record<string, boolean>>({});
 
-  // ─── TÍNH ĐIỂM GÓP Ý HỮU ÍCH ──────────────────────────────────────────────
   const tinhDiemGopY = (memberId: string) => {
     let totalUseful = 0;
     Object.keys(taskComments).forEach((taskId) => {
@@ -2801,7 +3251,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     return totalUseful;
   };
 
-  // ─── TÍNH SỐ LẦN CỨU VIỆC ─────────────────────────────────────────────────
   const tinhRescueCount = (memberId: string) => {
     let count = 0;
     tasks.forEach((t: any) => {
@@ -2880,14 +3329,9 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
   const groupAvg = memberAverages.reduce((sum, m) => sum + m.finalScore, 0) / memberAverages.length;
   const totalScore = memberAverages.reduce((sum, m) => sum + m.finalScore, 0);
   
-  // ─── TÍNH % ĐÓNG GÓP VÀ ĐIỂM SAU CHIA ──────────────────────────────────────
   const membersWithPercent = memberAverages.map((m) => {
     const percent = totalScore > 0 ? (m.finalScore / totalScore) * 100 : 0;
     
-    // ─── CÔNG THỨC CHIA ĐIỂM GIẢNG VIÊN (CHIA THEO TỔNG ĐIỂM) ──────────────
-    // Tổng điểm cần chia = Điểm giảng viên × Số thành viên
-    // Điểm sau chia = Tổng điểm cần chia × (Phần trăm đóng góp / 100)
-    // Giới hạn tối đa 10 điểm
     let finalScoreWithTeacher = m.finalScore;
     if (teacherScore > 0 && members.length > 0) {
       const totalPointsToDivide = teacherScore * members.length;
@@ -2914,6 +3358,23 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     return comments;
   };
 
+  const guiAppeal = (memberId: string) => {
+    if (!appealReason[memberId]?.trim()) {
+      alert("Vui lòng nhập lý do phúc khảo!");
+      return;
+    }
+    const appeals = JSON.parse(localStorage.getItem("appeals") || "{}");
+    appeals[memberId] = {
+      reason: appealReason[memberId],
+      timestamp: new Date().toISOString(),
+      status: "pending"
+    };
+    localStorage.setItem("appeals", JSON.stringify(appeals));
+    alert("✅ Đã gửi yêu cầu phúc khảo! Leader sẽ xem xét.");
+    setAppealReason({ ...appealReason, [memberId]: "" });
+    setShowAppeal({ ...showAppeal, [memberId]: false });
+  };
+
   const total = tasks.length;
   const done = tasks.filter((t: any) => t.status === "done").length;
 
@@ -2935,7 +3396,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
 
   return (
     <div>
-      {/* ─── TIẾN ĐỘ DỰ ÁN ────────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, color: "#a5b4fc" }}>📊 TIẾN ĐỘ DỰ ÁN</h3>
@@ -2971,7 +3431,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         </div>
       </TheCard>
 
-      {/* ─── ĐIỂM GIẢNG VIÊN ────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20, borderColor: "#6366f144" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <h4 style={{ margin: 0, fontSize: 14, color: "#a5b4fc" }}>📝 ĐIỂM GIẢNG VIÊN & CHIA ĐIỂM</h4>
@@ -3050,7 +3509,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         )}
       </TheCard>
 
-      {/* ─── BẢNG XẾP HẠNG ────────────────────────────────────────────────────── */}
       <TheCard theme={theme} style={{ marginBottom: 20 }}>
         <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>🏆 Bảng xếp hạng thành viên</h4>
         
@@ -3088,6 +3546,39 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
                     <div style={{ fontSize: 10, color: styles.textMuted }}>
                       ({m.completedTasks}/{m.totalAssignedTasks} task)
                     </div>
+                    {!m.isLeader && (
+                      <button
+                        onClick={() => setShowAppeal({ ...showAppeal, [m.id]: !showAppeal[m.id] })}
+                        style={{
+                          fontSize: 10,
+                          color: "#6366f1",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          textDecoration: "underline"
+                        }}
+                      >
+                        {showAppeal[m.id] ? "Ẩn" : "📝 Phúc khảo"}
+                      </button>
+                    )}
+                    {showAppeal[m.id] && (
+                      <div style={{ marginTop: 4 }}>
+                        <OInput
+                          value={appealReason[m.id] || ""}
+                          onChange={(v) => setAppealReason({ ...appealReason, [m.id]: v })}
+                          placeholder="Nhập lý do phúc khảo..."
+                          theme={theme}
+                          style={{ fontSize: 12, padding: "4px 8px" }}
+                        />
+                        <NutBam 
+                          onClick={() => guiAppeal(m.id)} 
+                          theme={theme} 
+                          style={{ padding: "4px 8px", fontSize: 11, marginTop: 4 }}
+                        >
+                          Gửi yêu cầu
+                        </NutBam>
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.taskPoints?.toFixed(1) || 0}</td>
                   <td style={{ padding: "12px 8px", textAlign: "center" }}>{m.peerAvg?.toFixed(1) || 0}</td>
@@ -3144,7 +3635,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
         </div>
       </TheCard>
 
-      {/* ─── NHẬN XÉT & GÓP Ý ────────────────────────────────────────────────── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <TheCard theme={theme}>
           <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Nhận xét đồng đội</h4>
@@ -3222,6 +3712,13 @@ export default function App() {
   const [currentReviewer, setCurrentReviewer] = useState(() => {
     return localStorage.getItem("currentReviewer") || "";
   });
+  const [leaderPassword, setLeaderPassword] = useState("");
+  const [leaderPasswordVerified, setLeaderPasswordVerified] = useState(() => {
+    return localStorage.getItem("leader_verified") === "true";
+  });
+  const [secretQuestion, setSecretQuestion] = useState("");
+  const [secretAnswer, setSecretAnswer] = useState("");
+  const [announcements, setAnnouncements] = useState<any[]>([]);
   
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
   const [scheduleSelections, setScheduleSelections] = useState<any>({});
@@ -3258,6 +3755,10 @@ export default function App() {
         setTaskDiscussions(data.taskDiscussions || {});
         setTaskComments(data.taskComments || {});
         setTaskContributionScores(data.taskContributionScores || {});
+        setAnnouncements(data.announcements || []);
+        setLeaderPassword(data.leaderPassword || "");
+        setSecretQuestion(data.secretQuestion || "");
+        setSecretAnswer(data.secretAnswer || "");
         setHasGroup(true);
       } else {
         setHasGroup(true);
@@ -3274,10 +3775,78 @@ export default function App() {
       projectName, leader, members, tasks, 
       peerScores, peerComments, leaderScores, 
       teacherScore, scheduleSlots, scheduleSelections,
-      chatMessages, taskDiscussions, taskComments, taskContributionScores
+      chatMessages, taskDiscussions, taskComments, taskContributionScores,
+      announcements, leaderPassword, secretQuestion, secretAnswer
     });
   }, [projectName, leader, members, tasks, peerScores, peerComments, leaderScores, teacherScore, 
-      scheduleSlots, scheduleSelections, chatMessages, taskDiscussions, taskComments, taskContributionScores, roomId, isReady]);
+      scheduleSlots, scheduleSelections, chatMessages, taskDiscussions, taskComments, taskContributionScores,
+      announcements, leaderPassword, secretQuestion, secretAnswer, roomId, isReady]);
+
+  const handleSelectUser = (userId: string) => {
+    const selectedMember = members.find((m: any) => m.id === userId);
+    if (selectedMember && selectedMember.id === leader) {
+      if (!leaderPassword) {
+        const newPass = prompt("Chưa có mật khẩu trưởng nhóm! Vui lòng đặt mật khẩu:");
+        if (newPass && newPass.trim()) {
+          setLeaderPassword(newPass.trim());
+          setLeaderPasswordVerified(true);
+          localStorage.setItem("leader_verified", "true");
+          setCurrentReviewer(userId);
+          localStorage.setItem("currentReviewer", userId);
+          alert("✅ Đã đặt mật khẩu thành công!");
+        }
+        return;
+      }
+
+      if (leaderPasswordVerified && localStorage.getItem("leader_verified") === "true") {
+        setCurrentReviewer(userId);
+        localStorage.setItem("currentReviewer", userId);
+        return;
+      }
+
+      const pass = prompt("Nhập mật khẩu trưởng nhóm:");
+      
+      if (pass === leaderPassword) {
+        setLeaderPasswordVerified(true);
+        localStorage.setItem("leader_verified", "true");
+        setCurrentReviewer(userId);
+        localStorage.setItem("currentReviewer", userId);
+        alert("✅ Đăng nhập thành công!");
+      } else if (pass !== null) {
+        const forgot = confirm(
+          `❌ Mật khẩu sai!\n\nBạn có muốn sử dụng câu hỏi bí mật để đổi mật khẩu không?`
+        );
+        if (forgot) {
+          if (!secretQuestion || !secretAnswer) {
+            alert("⚠️ Trưởng nhóm chưa thiết lập câu hỏi bí mật! Vui lòng liên hệ trưởng nhóm để cài đặt.");
+            return;
+          }
+          const userAnswer = prompt(`🔐 Câu hỏi bảo mật:\n\n${secretQuestion}\n\n(Nhập câu trả lời của bạn)`);
+          if (userAnswer === null) return;
+          if (userAnswer.trim() === secretAnswer) {
+            const newPass = prompt("✅ Xác thực thành công!\n\nNhập mật khẩu mới:");
+            if (newPass && newPass.trim()) {
+              setLeaderPassword(newPass.trim());
+              setLeaderPasswordVerified(true);
+              localStorage.setItem("leader_verified", "true");
+              setCurrentReviewer(userId);
+              localStorage.setItem("currentReviewer", userId);
+              alert("✅ Đã đổi mật khẩu thành công!");
+            }
+          } else {
+            alert("❌ Câu trả lời sai! Bạn không thể đổi mật khẩu.");
+          }
+        } else {
+          setLeaderPasswordVerified(false);
+          localStorage.removeItem("leader_verified");
+          alert("❌ Bạn không thể đăng nhập với tư cách trưởng nhóm.");
+        }
+      }
+      return;
+    }
+    setCurrentReviewer(userId);
+    localStorage.setItem("currentReviewer", userId);
+  };
 
   useEffect(() => {
     if (!isReady) return;
@@ -3311,6 +3880,12 @@ export default function App() {
     setTaskDiscussions({});
     setTaskComments({});
     setTaskContributionScores({});
+    setAnnouncements([]);
+    setLeaderPassword("");
+    setSecretQuestion("");
+    setSecretAnswer("");
+    setLeaderPasswordVerified(false);
+    localStorage.removeItem("leader_verified");
     setHasGroup(true);
     window.history.replaceState(null, "", `?room=${newRoomId}`);
   };
@@ -3321,13 +3896,10 @@ export default function App() {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  const handleSelectUser = (userId: string) => {
-    setCurrentReviewer(userId);
-    localStorage.setItem("currentReviewer", userId);
-  };
-
   const styles = themeStyles[theme];
   const peerCompletedCount = members.length >= 2 ? members.filter((m: any) => peerScores[m.id]?.completed === true).length : null;
+
+  const isLeader = currentReviewer === leader && leaderPasswordVerified;
 
   const tabBadge = {
     tasks: tasks.length || null,
@@ -3339,6 +3911,13 @@ export default function App() {
     schedule: scheduleSlots.length > 0 ? scheduleSlots.length : null,
     result: null,
   };
+
+  const visibleTabs = CAC_TAB.filter((t) => {
+    if (t.id === "leader") {
+      return isLeader;
+    }
+    return true;
+  });
 
   if (!isReady) {
     return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: styles.bg, color: styles.text }}>Đang tải dữ liệu...</div>;
@@ -3361,6 +3940,15 @@ export default function App() {
       </div>
     );
   }
+
+  const getMemberStatus = (memberId: string) => {
+    const otherMembers = members.filter((m: any) => m.id !== memberId);
+    const reviewed = JSON.parse(localStorage.getItem("submitted_reviews") || "{}");
+    const daDanhGiaHet = otherMembers.every((m: any) => 
+      reviewed[memberId]?.[m.id] === true
+    );
+    return daDanhGiaHet;
+  };
 
   return (
     <div style={{ fontFamily: "'DM Sans',sans-serif", minHeight: "100vh", background: styles.bg, color: styles.text }}>
@@ -3401,14 +3989,22 @@ export default function App() {
               style={{ minWidth: 150, padding: "4px 10px", fontSize: 13 }}
             >
               <option value="">Chọn tên...</option>
-              {members.map((m: any) => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
+              {members.map((m: any) => {
+                const daDanhGiaHet = getMemberStatus(m.id);
+                return (
+                  <option key={m.id} value={m.id}>
+                    {m.name} {daDanhGiaHet ? "✅ (Đã đánh giá)" : ""}
+                  </option>
+                );
+              })}
             </Chon>
+            <span style={{ fontSize: 12, color: styles.textMuted, marginLeft: 4 }}>
+              👥 {members.length}
+            </span>
           </div>
           
           <nav className="app-nav" style={{ display: "flex", gap: 4, background: styles.inputBg, borderRadius: 14, padding: 5, overflowX: "auto", flex: "1 1 auto", justifyContent: "center" }}>
-            {CAC_TAB.map(t => (
+            {visibleTabs.map(t => (
               <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, transition: "all .2s", background: tab === t.id ? "linear-gradient(135deg,#6366f1,#8b5cf6)" : "transparent", color: tab === t.id ? "#fff" : styles.textMuted, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                 <span>{t.icon}</span>
                 <span>{t.label}</span>
@@ -3423,7 +4019,21 @@ export default function App() {
         </div>
       </div>
       <div className="app-content" style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
-        {tab === "setup" && <ThietLap members={members} setMembers={setMembers} projectName={projectName} setProjectName={setProjectName} leader={leader} setLeader={setLeader} theme={theme} />}
+        {tab === "setup" && <ThietLap 
+          members={members} 
+          setMembers={setMembers} 
+          projectName={projectName} 
+          setProjectName={setProjectName} 
+          leader={leader} 
+          setLeader={setLeader} 
+          theme={theme}
+          leaderPassword={leaderPassword}
+          setLeaderPassword={setLeaderPassword}
+          secretQuestion={secretQuestion}
+          setSecretQuestion={setSecretQuestion}
+          secretAnswer={secretAnswer}
+          setSecretAnswer={setSecretAnswer}
+        />}
         {tab === "tasks" && <CongViec 
           members={members} 
           tasks={tasks} 
@@ -3431,6 +4041,8 @@ export default function App() {
           theme={theme}
           leader={leader}
           currentReviewer={currentReviewer}
+          announcements={announcements}
+          setAnnouncements={setAnnouncements}
         />}
         {tab === "discussion" && <ThaoLuan 
           members={members} 
@@ -3461,6 +4073,11 @@ export default function App() {
           setLeaderScores={setLeaderScores} 
           theme={theme}
           currentReviewer={currentReviewer}
+          leaderPassword={leaderPassword}
+          leaderPasswordVerified={leaderPasswordVerified}
+          setLeaderPasswordVerified={setLeaderPasswordVerified}
+          secretQuestion={secretQuestion}
+          secretAnswer={secretAnswer}
         />}
         {tab === "schedule" && <HopNhom 
           members={members} 
@@ -3483,7 +4100,14 @@ export default function App() {
           theme={theme}
         />}
       </div>
-      <ChatBox chatMessages={chatMessages} setChatMessages={setChatMessages} members={members} theme={theme} currentReviewer={currentReviewer} />
+      <ChatBox 
+        chatMessages={chatMessages} 
+        setChatMessages={setChatMessages} 
+        members={members} 
+        theme={theme} 
+        currentReviewer={currentReviewer}
+        roomId={roomId}
+      />
       <HelpDialog theme={theme} />
     </div>
   );
