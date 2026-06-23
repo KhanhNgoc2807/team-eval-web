@@ -71,7 +71,7 @@ function NutBam({ children, onClick, variant = "primary", style = {}, disabled =
     primary: { background: "linear-gradient(135deg,#6366f1,#8b5cf6)", color: "#fff" }, 
     ghost: { background: "transparent", border: `1px solid ${themeStyles[theme].border}`, color: themeStyles[theme].textMuted }, 
     danger: { background: "#450a0a", color: "#fca5a5", border: "1px solid #7f1d1d" }, 
-    success: { background: "#052e16", color: "#86efac", border: "1px solid #166534" } 
+    success: { background: "linear-gradient(135deg,#22c55e,#16a34a)", color: "#fff", border: "none" } 
   };
   return <button onClick={disabled ? undefined : onClick} style={{ ...base, ...vars[variant], ...style }}>{children}</button>;
 }
@@ -1248,6 +1248,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
     alert(`✅ Đã tách task thành ${subtasks.length} đầu việc nhỏ!`);
   };
 
+  // 🔥 SỬA HÀM CHI ĐỊNH - THÊM NGƯỜI ĐƯỢC CHỈ ĐỊNH VÀO ASSIGNEES
   const chiDinhCung = (taskId: string, subtaskId: string, memberId: string) => {
     if (leader !== currentReviewer) {
       alert("⚠️ Chỉ trưởng nhóm mới có thể chỉ định!");
@@ -1266,13 +1267,30 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
           }
           return s;
         });
-        const updatedAssignees = (t.assignees || []).map((a: any) => {
-          if (a.memberId === memberId) {
-            return { ...a, status: "accepted" };
-          }
-          return a;
-        });
-        return { ...t, subtasks: updatedSubtasks, assignees: updatedAssignees };
+        
+        // 🔥 THÊM memberId VÀO assignees NẾU CHƯA CÓ
+        const existingAssignee = (t.assignees || []).find((a: any) => a.memberId === memberId);
+        let updatedAssignees = t.assignees || [];
+        if (!existingAssignee) {
+          updatedAssignees = [...updatedAssignees, { 
+            memberId: memberId, 
+            role: "", 
+            status: "accepted" 
+          }];
+        } else {
+          updatedAssignees = updatedAssignees.map((a: any) => {
+            if (a.memberId === memberId) {
+              return { ...a, status: "accepted" };
+            }
+            return a;
+          });
+        }
+        
+        return { 
+          ...t, 
+          subtasks: updatedSubtasks, 
+          assignees: updatedAssignees 
+        };
       }
       return t;
     }));
@@ -1509,7 +1527,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         color: "#a5b4fc"
       }}>
         <span>📌 Hướng dẫn nhanh:</span>
-        <span style={{ color: "#e2e8f0" }}>⬜ Chưa có ai nhận → Nhấn "📥 Nhận"</span>
+        <span style={{ color: "#e2e8f0" }}>⬜ Chưa có ai nhận → Nhấn "📥 NHẬN"</span>
         <span style={{ color: "#e2e8f0" }}>🔄 Đã nhận - đang làm</span>
         <span style={{ color: "#e2e8f0" }}>✅ Đã hoàn thành</span>
         <span style={{ color: "#e2e8f0" }}>⏰ Quá 24h → Tự chỉ định</span>
@@ -1879,7 +1897,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                       );
                     })}
                   </div>
-                  {/* 🔥 THÊM CẢNH BÁO NẾU KHÔNG ĐƯỢC GIAO */}
                   {!t.assignees?.some((a: any) => a.memberId === currentReviewer) && (
                     <div style={{ 
                       marginTop: 6, 
@@ -1941,25 +1958,34 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                       📌 Các đầu việc nhỏ:
                     </div>
                     {subtaskList.map((s: any) => {
-                      // 🔥 SỬA LỖI Ở ĐÂY
+                      // 🔥 SỬA: isPending - kiểm tra kỹ hơn
                       const isPending = s.assignee === null 
                         || s.assignee === undefined 
                         || s.assignee === "" 
-                        || s.assignee === "null";
+                        || s.assignee === "null"
+                        || s.status === "pending";
                       
+                      // 🔥 isMine - người được chỉ định cũng là isMine
                       const isMine = s.assignee === currentReviewer;
+                      
+                      // 🔥 SỬA QUAN TRỌNG: isAssignedToMe - kiểm tra CẢ assignees và subtasks
+                      const isAssignedToMe = (t.assignees || []).some((a: any) => a.memberId === currentReviewer)
+                        || (t.subtasks || []).some((sub: any) => sub.assignee === currentReviewer);
+                      
+                      // 🔥 THÊM: isAssignedByLeader - người được chỉ định bởi leader
+                      const isAssignedByLeader = s.assignedBy !== undefined && s.assignedBy !== null && s.assignedBy !== "";
+                      
                       const canAssign = leader === currentReviewer && isPending;
                       
-                      // 🔥 SỬA LỖI QUAN TRỌNG NÀY - THÊM FALLBACK []
-                      const isAssignedToMe = (t.assignees || []).some((a: any) => a.memberId === currentReviewer);
-                      
-                      // 🔥 THÊM LOG ĐỂ DEBUG
-                      console.log(`🔍 Subtask "${s.name}" (task: "${t.name}"):`, {
+                      // 🔥 LOG DEBUG CHI TIẾT
+                      console.log("🔍 SUBTASK DEBUG:", {
+                        taskName: t.name,
+                        subtaskName: s.name,
                         currentReviewer,
-                        assignee: s.assignee,
-                        isPending,
-                        isMine,
                         isAssignedToMe,
+                        isPending,
+                        assignee: s.assignee,
+                        shouldShowButton: isPending && isAssignedToMe && currentReviewer,
                         allAssignees: t.assignees
                       });
                       
@@ -1977,10 +2003,28 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                           <span style={{ fontSize: 13, flex: 1 }}>
                             {isPending ? "⬜" : s.status === "done" ? "✅" : "🔄"} {s.name}
                             
-                            {/* THÔNG BÁO RÕ RÀNG */}
+                            {/* THÔNG BÁO CHO NGƯỜI ĐƯỢC CHỈ ĐỊNH */}
+                            {isMine && s.status === "accepted" && isAssignedByLeader && (
+                              <span style={{ fontSize: 11, color: "#8b5cf6", marginLeft: 8 }}>
+                                👑 Bạn được trưởng nhóm chỉ định - đang làm
+                              </span>
+                            )}
+                            
+                            {isMine && s.status === "accepted" && !isAssignedByLeader && (
+                              <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>
+                                📌 Bạn đã nhận - đang làm
+                              </span>
+                            )}
+                            
+                            {isMine && s.status === "done" && (
+                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>
+                                ✅ Bạn đã hoàn thành
+                              </span>
+                            )}
+                            
                             {isPending && isAssignedToMe && (
                               <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>
-                                ✅ Bạn được giao - Nhấn "📥 NHẬN"
+                                ⬅️ Bạn được giao, nhấn "📥 NHẬN"
                               </span>
                             )}
                             
@@ -1990,38 +2034,28 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                               </span>
                             )}
                             
-                            {!isPending && s.assignee && (
+                            {!isPending && s.assignee && !isMine && (
                               <span style={{ fontSize: 11, color: "#6366f1", marginLeft: 8 }}>
                                 👤 {layTen(s.assignee)} đang làm
                               </span>
                             )}
-                            
-                            {isMine && s.status === "accepted" && (
-                              <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>📌 (Bạn đã nhận - đang làm)</span>
-                            )}
-                            {isMine && s.status === "done" && (
-                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã hoàn thành)</span>
-                            )}
-                            {s.incomplete && (
-                              <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 8 }}>⚠️ Chưa hoàn thành</span>
-                            )}
-                            {s.rescueBonus === 1 && (
-                              <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>🎁 +0.5đ cứu việc</span>
-                            )}
-                            {s.assignedBy && (
-                              <span style={{ fontSize: 10, color: "#8b5cf6", marginLeft: 8 }}>
-                                👑 do {layTen(s.assignedBy)} chỉ định
-                              </span>
-                            )}
                           </span>
                           
-                          {/* 🔥 NÚT NHẬN - ĐÃ SỬA LỖI */}
+                          {/* 🔥 NÚT NHẬN - SỬA LỖI: HIỂN THỊ KHI ĐƯỢC GIAO VÀ CHƯA CÓ NGƯỜI NHẬN */}
                           {isPending && isAssignedToMe && currentReviewer && (
                             <NutBam 
-                              onClick={() => nhanTaskCon(t.id, s.id)} 
+                              onClick={() => {
+                                console.log("🔥 Click NHẬN:", { taskId: t.id, subtaskId: s.id });
+                                nhanTaskCon(t.id, s.id);
+                              }} 
                               variant="success" 
                               theme={theme} 
-                              style={{ padding: "8px 20px", fontSize: 14, fontWeight: 700 }}
+                              style={{ 
+                                padding: "8px 20px", 
+                                fontSize: 14, 
+                                fontWeight: 700,
+                                minWidth: 100
+                              }}
                             >
                               📥 NHẬN
                             </NutBam>
@@ -2042,34 +2076,38 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             </span>
                           )}
                           
+                          {/* NÚT HOÀN THÀNH - CHO NGƯỜI ĐÃ NHẬN HOẶC ĐƯỢC CHỈ ĐỊNH */}
                           {isMine && s.status === "accepted" && (
                             <NutBam 
                               onClick={() => hoanThanhSubtask(t.id, s.id)} 
                               variant="success" 
                               theme={theme} 
-                              style={{ padding: "4px 12px", fontSize: 11 }}
+                              style={{ padding: "6px 16px", fontSize: 13, fontWeight: 700 }}
                             >
                               ✅ Hoàn thành
                             </NutBam>
                           )}
                           
+                          {/* NÚT TỪ CHỐI - CHO NGƯỜI ĐÃ NHẬN HOẶC ĐƯỢC CHỈ ĐỊNH */}
                           {isMine && s.status === "accepted" && (
                             <button
                               onClick={() => tuChoiSubtask(t.id, s.id)}
                               style={{
-                                padding: "2px 8px",
+                                padding: "4px 12px",
                                 borderRadius: 4,
                                 border: "1px solid #ef4444",
                                 background: "transparent",
                                 color: "#ef4444",
                                 cursor: "pointer",
-                                fontSize: 10
+                                fontSize: 12,
+                                fontWeight: 600
                               }}
                             >
                               🚫 Từ chối
                             </button>
                           )}
                           
+                          {/* PHẦN CHỈ ĐỊNH CỦA LEADER */}
                           {canAssign && (
                             <>
                               <Chon 
@@ -2833,8 +2871,7 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   
-  // ─── STATE MỚI: Lưu điểm cho TẤT CẢ thành viên ────────────────────
-  const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
+  // ─── STATE MỚI: Lưu điểm cho TẤT CẢ thành viên ────────────────────  const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
   const [allComments, setAllComments] = useState<Record<string, string>>({});
   const [allTaskContributions, setAllTaskContributions] = useState<Record<string, Record<string, number>>>({});
   const [showTasks, setShowTasks] = useState<Record<string, boolean>>({});
