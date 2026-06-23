@@ -947,6 +947,26 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
   const safeMembers = members || [];
   const safeTasks = tasks || [];
 
+  // 🔥 TỰ ĐỘNG CHUYỂN TASK SANG DONE KHI TẤT CẢ SUBTASK DONE
+  useEffect(() => {
+    let hasChanges = false;
+    const updatedTasks = safeTasks.map((t: any) => {
+      if (t.subtasks && t.subtasks.length > 0) {
+        const allDone = t.subtasks.every((s: any) => s.status === "done");
+        if (allDone && t.status !== "done") {
+          hasChanges = true;
+          console.log("✅ Tự động chuyển task sang done:", t.name);
+          return { ...t, status: "done", score: 10 };
+        }
+      }
+      return t;
+    });
+    
+    if (hasChanges) {
+      setTasks(updatedTasks);
+    }
+  }, [safeTasks, setTasks]);
+
   useEffect(() => {
     if (safeTasks.length === 0 || safeMembers.length === 0) return;
 
@@ -1128,6 +1148,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
     
     setTasks((prev: any[]) => prev.map((t: any) => {
       if (t.id === taskId && t.status !== "done") {
+        console.log("✅ Hoàn thành task đơn:", t.name);
         return { ...t, status: "done", score: 10 };
       }
       return t;
@@ -1327,6 +1348,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         const allDone = updatedSubtasks.every((s: any) => s.status === "done");
         
         if (allDone && t.status !== "done") {
+          console.log("✅ Tất cả subtask đã done, chuyển task sang done:", t.name);
           return { 
             ...t, 
             subtasks: updatedSubtasks,
@@ -3416,8 +3438,9 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
       t.assignees?.some((a: any) => a.memberId === m.id)
     ).length;
 
+    // 🔥 SỬA: Tính task hoàn thành dựa trên status === "done"
     const completedTasks = tasks.filter((t: any) => 
-      t.status === "done" && t.subtasks?.some((s: any) => s.assignee === m.id && s.status === "done")
+      t.status === "done" && t.assignees?.some((a: any) => a.memberId === m.id)
     ).length;
 
     const taskPoints = totalAssignedTasks > 0 
