@@ -1159,7 +1159,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
               assignee: currentReviewer, 
               status: "accepted",
               incomplete: false,
-              rescueBonus: bonus
+              rescueBonus: bonus,
+              assignedBy: leader === currentReviewer ? currentReviewer : s.assignedBy
             };
           }
           return s;
@@ -1249,14 +1250,19 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
 
   const chiDinhCung = (taskId: string, subtaskId: string, memberId: string) => {
     if (leader !== currentReviewer) {
-      alert("Chỉ trưởng nhóm mới có thể chỉ định!");
+      alert("⚠️ Chỉ trưởng nhóm mới có thể chỉ định!");
       return;
     }
     setTasks((prev: any[]) => prev.map((t: any) => {
       if (t.id === taskId) {
         const updatedSubtasks = t.subtasks.map((s: any) => {
           if (s.id === subtaskId) {
-            return { ...s, assignee: memberId, status: "accepted" };
+            return { 
+              ...s, 
+              assignee: memberId, 
+              status: "accepted",
+              assignedBy: currentReviewer
+            };
           }
           return s;
         });
@@ -1503,11 +1509,12 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         color: "#a5b4fc"
       }}>
         <span>📌 Hướng dẫn nhanh:</span>
-        <span style={{ color: "#e2e8f0" }}>⬜ Chưa có ai nhận → Nhấn "Nhận"</span>
+        <span style={{ color: "#e2e8f0" }}>⬜ Chưa có ai nhận → Nhấn "📥 Nhận"</span>
         <span style={{ color: "#e2e8f0" }}>🔄 Đã nhận - đang làm</span>
         <span style={{ color: "#e2e8f0" }}>✅ Đã hoàn thành</span>
         <span style={{ color: "#e2e8f0" }}>⏰ Quá 24h → Tự chỉ định</span>
         <span style={{ color: "#22c55e" }}>⭐ Hoàn thành = 10 điểm</span>
+        <span style={{ color: "#f59e0b" }}>🔒 Không được giao = không thể nhận</span>
         <HelpIcon 
           title="⏰ Quy trình 24h"
           text="Sau 24h, hệ thống sẽ tự chỉ định các đầu việc chưa có người nhận.\nHãy chủ động nhận việc sớm để chọn đúng thế mạnh!"
@@ -1895,14 +1902,19 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                 )}
                 
                 {!hasSubtasks && t.assignees?.some((a: any) => a.memberId === currentReviewer) && t.status !== "done" && t.status !== "checking" && (
-                  <NutBam 
-                    onClick={() => hoanThanhTaskDon(t.id)} 
-                    variant="success" 
-                    theme={theme} 
-                    style={{ marginBottom: 12, width: "100%" }}
-                  >
-                    ✅ Hoàn thành task (10 điểm)
-                  </NutBam>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 6 }}>
+                      📌 Task không có đầu việc nhỏ, bạn có thể hoàn thành trực tiếp:
+                    </div>
+                    <NutBam 
+                      onClick={() => hoanThanhTaskDon(t.id)} 
+                      variant="success" 
+                      theme={theme} 
+                      style={{ width: "100%" }}
+                    >
+                      ✅ Hoàn thành task (10 điểm)
+                    </NutBam>
+                  </div>
                 )}
                 
                 {hasSubtasks && (
@@ -1944,7 +1956,29 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             {s.rescueBonus === 1 && (
                               <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>🎁 +0.5đ cứu việc</span>
                             )}
+                            {s.assignedBy && (
+                              <span style={{ fontSize: 10, color: "#8b5cf6", marginLeft: 8 }}>
+                                👑 do {layTen(s.assignedBy)} chỉ định
+                              </span>
+                            )}
                           </span>
+                          
+                          {isPending && isAssignedToMe && currentReviewer && (
+                            <NutBam 
+                              onClick={() => nhanTaskCon(t.id, s.id)} 
+                              variant="success" 
+                              theme={theme} 
+                              style={{ padding: "4px 12px", fontSize: 11 }}
+                            >
+                              📥 Nhận
+                            </NutBam>
+                          )}
+                          
+                          {isPending && !isAssignedToMe && currentReviewer && (
+                            <span style={{ fontSize: 10, color: styles.textMuted, fontStyle: "italic" }}>
+                              🔒 Không được giao
+                            </span>
+                          )}
                           
                           {isMine && s.status === "accepted" && (
                             <NutBam 
@@ -1974,49 +2008,15 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             </button>
                           )}
                           
-                          {isPending && isAssignedToMe && currentReviewer && (
-                            <NutBam 
-                              onClick={() => nhanTaskCon(t.id, s.id)} 
-                              variant="success" 
-                              theme={theme} 
-                              style={{ padding: "4px 12px", fontSize: 11 }}
-                            >
-                              📥 Nhận
-                            </NutBam>
-                          )}
-                          
-                          {isPending && !isAssignedToMe && currentReviewer && (
-                            <span style={{ fontSize: 10, color: styles.textMuted, fontStyle: "italic" }}>
-                              🔒 Không được giao
-                            </span>
-                          )}
-                          
-                          {!isPending && s.assignee && !isMine && s.status === "accepted" && leader === currentReviewer && !s.incomplete && (
-                            <button
-                              onClick={() => baoCaoKhongHoanThanh(t.id, s.id, s.assignee)}
-                              style={{
-                                padding: "2px 8px",
-                                borderRadius: 4,
-                                border: "1px solid #ef4444",
-                                background: "transparent",
-                                color: "#ef4444",
-                                cursor: "pointer",
-                                fontSize: 10
-                              }}
-                            >
-                              ⚠️ Báo cáo
-                            </button>
-                          )}
-                          
                           {canAssign && (
                             <>
                               <Chon 
                                 value={leaderRoleAssign[`${t.id}-${s.id}`] || ""}
                                 onChange={(v: string) => setLeaderRoleAssign({ ...leaderRoleAssign, [`${t.id}-${s.id}`]: v })}
                                 theme={theme}
-                                style={{ width: 120, padding: "4px 8px", fontSize: 12 }}
+                                style={{ width: 140, padding: "4px 8px", fontSize: 12 }}
                               >
-                                <option value="">Chỉ định...</option>
+                                <option value="">👑 Chỉ định...</option>
                                 {safeMembers.map((m: any) => (
                                   <option key={m.id} value={m.id}>{m.name}</option>
                                 ))}
@@ -2031,7 +2031,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                                   theme={theme} 
                                   style={{ padding: "4px 12px", fontSize: 11 }}
                                 >
-                                  👑 Chỉ định
+                                  ✅ Xác nhận
                                 </NutBam>
                               )}
                             </>
@@ -2770,41 +2770,26 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 // ─── ĐÁNH GIÁ & NHẬN XÉT ──────────────────────────────────────────────────────
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
-  const [targetMember, setTargetMember] = useState("");
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [comment, setComment] = useState("");
-  const [showTasks, setShowTasks] = useState(false);
-  const [taskContributions, setTaskContributions] = useState<Record<string, number>>({});
+  
+  // ─── STATE MỚI: Lưu điểm cho TẤT CẢ thành viên ────────────────────
+  const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
+  const [allComments, setAllComments] = useState<Record<string, string>>({});
+  const [allTaskContributions, setAllTaskContributions] = useState<Record<string, Record<string, number>>>({});
+  const [showTasks, setShowTasks] = useState<Record<string, boolean>>({});
   
   const otherMembers = members.filter((m: any) => m.id !== currentReviewer);
 
-  const resetForm = () => {
-    setTargetMember("");
-    setScores({});
-    setComment("");
-    setTaskContributions({});
-    setShowTasks(false);
-  };
-
-  const handleScoreChange = (criteria: string, value: number) => {
-    setScores({ ...scores, [criteria]: value });
-  };
-
-  const handleTaskContribution = (taskId: string, value: number) => {
-    setTaskContributions({ ...taskContributions, [taskId]: value });
-  };
-
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ FIREBASE ──────────────────────────────────────
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ FIREBASE ─────────────────────────────
   const daDanhGia = (reviewerId: string, targetId: string) => {
     return peerScores[reviewerId]?.[targetId]?.locked === true;
   };
 
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ HẾT CHƯA ──────────────────────────────────────────
+  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ HẾT CHƯA ──────────────────────────────────
   const daDanhGiaHet = otherMembers.every((m: any) => 
     daDanhGia(currentReviewer, m.id)
   );
 
-  // ─── NẾU ĐÃ ĐÁNH GIÁ HẾT → ẨN TOÀN BỘ ──────────────────────────────────────
+  // ─── NẾU ĐÃ ĐÁNH GIÁ HẾT → ẨN TOÀN BỘ ─────────────────────────────
   if (daDanhGiaHet && otherMembers.length > 0) {
     return (
       <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
@@ -2820,79 +2805,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     );
   }
 
-  const submitEvaluation = () => {
-    if (!targetMember) {
-      alert("Vui lòng chọn thành viên cần đánh giá!");
-      return;
-    }
-    
-    // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA ──────────────────────────────────────────
-    if (daDanhGia(currentReviewer, targetMember)) {
-      alert("Bạn đã đánh giá thành viên này rồi! Không thể đánh giá lại.");
-      return;
-    }
-    
-    if (Object.keys(scores).length < TIEU_CHI_DANH_GIA.length) {
-      alert("Vui lòng đánh giá tất cả các tiêu chí!");
-      return;
-    }
-    if (Object.values(scores).some(v => v === 0)) {
-      alert("Vui lòng chọn điểm cho tất cả các tiêu chí!");
-      return;
-    }
-
-    const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
-    
-    // ─── LƯU VÀO FIREBASE VỚI LOCKED: TRUE ──────────────────────────────────
-    const newData = {
-      scores: scores,
-      avgScore: avgScore,
-      timestamp: new Date().toISOString(),
-      locked: true
-    };
-    
-    setPeerScores((prev: any) => {
-      const current = prev[currentReviewer] || {};
-      return {
-        ...prev,
-        [currentReviewer]: {
-          ...current,
-          [targetMember]: newData
-        }
-      };
-    });
-
-    if (comment.trim()) {
-      setPeerComments((prev: any) => ({
-        ...prev,
-        [currentReviewer]: {
-          ...(prev[currentReviewer] || {}),
-          [targetMember]: comment.trim()
-        }
-      }));
-    }
-
-    if (Object.keys(taskContributions).length > 0) {
-      setTaskContributionScores((prev: any) => ({
-        ...prev,
-        [currentReviewer]: {
-          ...(prev[currentReviewer] || {}),
-          [targetMember]: taskContributions
-        }
-      }));
-    }
-
-    alert("✅ Đã lưu đánh giá! Bạn không thể xem lại hoặc sửa.");
-    resetForm();
-  };
-
-  const getTaskOptions = () => {
-    return tasks.filter((t: any) => {
-      const allMembers = t.assignees?.map((a: any) => a.memberId) || [];
-      return allMembers.includes(targetMember) && t.status === "done";
-    });
-  };
-
   if (otherMembers.length === 0) {
     return (
       <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
@@ -2905,9 +2817,127 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     );
   }
 
-  // ─── LỌC DANH SÁCH CHƯA ĐÁNH GIÁ ──────────────────────────────────────────
+  // ─── LỌC DANH SÁCH CHƯA ĐÁNH GIÁ ──────────────────────────────────
   const chuaDanhGia = otherMembers.filter((m: any) => !daDanhGia(currentReviewer, m.id));
   const soLuongDaDanhGia = otherMembers.length - chuaDanhGia.length;
+
+  // ─── XỬ LÝ THAY ĐỔI ĐIỂM ────────────────────────────────────────────
+  const handleScoreChange = (memberId: string, criteria: string, value: number) => {
+    setAllScores(prev => ({
+      ...prev,
+      [memberId]: {
+        ...(prev[memberId] || {}),
+        [criteria]: value
+      }
+    }));
+  };
+
+  // ─── XỬ LÝ THAY ĐỔI NHẬN XÉT ──────────────────────────────────────
+  const handleCommentChange = (memberId: string, value: string) => {
+    setAllComments(prev => ({
+      ...prev,
+      [memberId]: value
+    }));
+  };
+
+  // ─── XỬ LÝ THAY ĐỔI ĐÓNG GÓP TASK ──────────────────────────────────
+  const handleTaskContribution = (memberId: string, taskId: string, value: number) => {
+    setAllTaskContributions(prev => ({
+      ...prev,
+      [memberId]: {
+        ...(prev[memberId] || {}),
+        [taskId]: value
+      }
+    }));
+  };
+
+  // ─── SUBMIT TẤT CẢ ĐÁNH GIÁ CÙNG LÚC ──────────────────────────────
+  const submitAllEvaluations = () => {
+    // Kiểm tra từng thành viên
+    const errors: string[] = [];
+    
+    chuaDanhGia.forEach((member: any) => {
+      const scores = allScores[member.id] || {};
+      const missingCriteria = TIEU_CHI_DANH_GIA.filter(c => !scores[c] || scores[c] === 0);
+      
+      if (missingCriteria.length > 0) {
+        errors.push(`❌ ${member.name}: Thiếu đánh giá cho tiêu chí: ${missingCriteria.join(', ')}`);
+      }
+    });
+
+    if (errors.length > 0) {
+      alert(`⚠️ Vui lòng hoàn thành đánh giá cho tất cả thành viên:\n\n${errors.join('\n')}`);
+      return;
+    }
+
+    // Xác nhận trước khi lưu
+    if (!window.confirm(`Bạn có chắc chắn muốn lưu đánh giá cho ${chuaDanhGia.length} thành viên?\n\nSau khi lưu, bạn KHÔNG THỂ xem lại hoặc sửa!`)) {
+      return;
+    }
+
+    // Lưu từng đánh giá
+    chuaDanhGia.forEach((member: any) => {
+      const scores = allScores[member.id] || {};
+      const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
+      
+      // Lưu peer scores
+      const newData = {
+        scores: scores,
+        avgScore: avgScore,
+        timestamp: new Date().toISOString(),
+        locked: true
+      };
+      
+      setPeerScores((prev: any) => {
+        const current = prev[currentReviewer] || {};
+        return {
+          ...prev,
+          [currentReviewer]: {
+            ...current,
+            [member.id]: newData
+          }
+        };
+      });
+
+      // Lưu nhận xét
+      if (allComments[member.id]?.trim()) {
+        setPeerComments((prev: any) => ({
+          ...prev,
+          [currentReviewer]: {
+            ...(prev[currentReviewer] || {}),
+            [member.id]: allComments[member.id].trim()
+          }
+        }));
+      }
+
+      // Lưu đóng góp task
+      const taskContribs = allTaskContributions[member.id] || {};
+      if (Object.keys(taskContribs).length > 0) {
+        setTaskContributionScores((prev: any) => ({
+          ...prev,
+          [currentReviewer]: {
+            ...(prev[currentReviewer] || {}),
+            [member.id]: taskContribs
+          }
+        }));
+      }
+    });
+
+    alert(`✅ Đã lưu đánh giá cho ${chuaDanhGia.length} thành viên!`);
+    
+    // Reset form
+    setAllScores({});
+    setAllComments({});
+    setAllTaskContributions({});
+  };
+
+  // ─── LẤY DANH SÁCH TASK CHO THÀNH VIÊN ────────────────────────────
+  const getTaskOptions = (memberId: string) => {
+    return tasks.filter((t: any) => {
+      const allMembers = t.assignees?.map((a: any) => a.memberId) || [];
+      return allMembers.includes(memberId) && t.status === "done";
+    });
+  };
 
   return (
     <div>
@@ -2921,106 +2951,162 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
             <div style={{ fontSize: 12, color: styles.textMuted, marginTop: 2 }}>
               ⚠️ Sau khi đánh giá, bạn không thể xem lại hoặc sửa
             </div>
+            <div style={{ fontSize: 12, color: "#f59e0b", marginTop: 2 }}>
+              📌 Đánh giá TẤT CẢ thành viên cùng lúc
+            </div>
           </div>
           <ThanhTienTrinh value={soLuongDaDanhGia} max={otherMembers.length} />
         </div>
       </TheCard>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <TheCard theme={theme}>
-          <h4 style={{ margin: "0 0 16px", fontSize: 14, color: "#a5b4fc" }}>📝 Đánh giá thành viên</h4>
+      {/* ─── HIỂN THỊ TẤT CẢ THÀNH VIÊN CÙNG LÚC ─────────────────────── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {chuaDanhGia.map((member: any) => {
+          const memberTasks = getTaskOptions(member.id);
+          const isTaskVisible = showTasks[member.id] || false;
           
-          <div style={{ marginBottom: 16 }}>
-            <label style={nhan}>Chọn thành viên cần đánh giá</label>
-            <Chon value={targetMember} onChange={setTargetMember} theme={theme}>
-              <option value="">Chọn thành viên...</option>
-              {chuaDanhGia.map((m: any) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </Chon>
-            {chuaDanhGia.length === 0 && (
-              <div style={{ fontSize: 13, color: "#22c55e", marginTop: 8 }}>
-                ✅ Bạn đã đánh giá tất cả thành viên!
+          return (
+            <TheCard key={member.id} theme={theme} style={{ borderColor: "#6366f144" }}>
+              <div style={{ 
+                display: "flex", 
+                justifyContent: "space-between", 
+                alignItems: "center", 
+                marginBottom: 16,
+                flexWrap: "wrap",
+                gap: 8
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: "50%",
+                    background: MAU_THANH_VIEN[members.indexOf(member) % MAU_THANH_VIEN.length],
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "white",
+                    fontWeight: 700,
+                    fontSize: 16
+                  }}>
+                    {member.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: styles.text }}>
+                      {member.name}
+                    </div>
+                    {member.mssv && (
+                      <div style={{ fontSize: 12, color: styles.textMuted }}>
+                        MSSV: {member.mssv}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: styles.textMuted }}>
+                  {memberTasks.length} task hoàn thành
+                </div>
               </div>
-            )}
-          </div>
 
-          {targetMember && !daDanhGia(currentReviewer, targetMember) && (
-            <>
+              {/* ─── BẢNG ĐÁNH GIÁ CHO TỪNG THÀNH VIÊN ────────────────── */}
               <div style={{ marginBottom: 16 }}>
-                <label style={nhan}>Đánh giá theo tiêu chí</label>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
+                  📝 Đánh giá theo tiêu chí
+                </div>
                 {TIEU_CHI_DANH_GIA.map((criteria) => (
                   <div key={criteria} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{criteria}</div>
+                    <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>
+                      {criteria}
+                    </div>
                     <ChonDiem 
-                      value={scores[criteria] || 0} 
-                      onChange={(v) => handleScoreChange(criteria, v)} 
+                      value={allScores[member.id]?.[criteria] || 0} 
+                      onChange={(v) => handleScoreChange(member.id, criteria, v)} 
                       theme={theme}
                     />
                   </div>
                 ))}
               </div>
 
+              {/* ─── NHẬN XÉT ────────────────────────────────────────────── */}
               <div style={{ marginBottom: 16 }}>
-                <label style={nhan}>Nhận xét (tùy chọn)</label>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
+                  💬 Nhận xét (tùy chọn)
+                </div>
                 <OInput
-                  value={comment}
-                  onChange={setComment}
-                  placeholder="Nhận xét về thành viên này..."
+                  value={allComments[member.id] || ""}
+                  onChange={(v) => handleCommentChange(member.id, v)}
+                  placeholder={`Nhận xét về ${member.name}...`}
                   theme={theme}
                   style={{ minHeight: 60 }}
                 />
               </div>
 
-              <button 
-                onClick={() => setShowTasks(!showTasks)}
-                style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${styles.border}`, background: "transparent", color: styles.text, cursor: "pointer", fontSize: 13, marginBottom: 16, width: "100%" }}
-              >
-                {showTasks ? "🔽 Ẩn đánh giá task" : "📋 Hiển thị đánh giá task (tùy chọn)"}
-              </button>
+              {/* ─── ĐÁNH GIÁ TASK ────────────────────────────────────────── */}
+              {memberTasks.length > 0 && (
+                <>
+                  <button 
+                    onClick={() => setShowTasks(prev => ({ ...prev, [member.id]: !prev[member.id] }))}
+                    style={{ 
+                      padding: "8px 16px", 
+                      borderRadius: 8, 
+                      border: `1px solid ${styles.border}`, 
+                      background: "transparent", 
+                      color: styles.text, 
+                      cursor: "pointer", 
+                      fontSize: 13,
+                      marginBottom: isTaskVisible ? 16 : 0,
+                      width: "100%"
+                    }}
+                  >
+                    {isTaskVisible ? "🔽 Ẩn đánh giá task" : "📋 Hiển thị đánh giá task (tùy chọn)"}
+                  </button>
 
-              {showTasks && (
-                <div style={{ marginBottom: 16 }}>
-                  <label style={nhan}>Đánh giá đóng góp cho từng task</label>
-                  {getTaskOptions().length === 0 ? (
-                    <div style={{ fontSize: 13, color: styles.textMuted, fontStyle: "italic" }}>
-                      Chưa có task nào hoàn thành của thành viên này.
-                    </div>
-                  ) : (
-                    getTaskOptions().map((task: any) => (
-                      <div key={task.id} style={{ marginBottom: 8 }}>
-                        <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>{task.name}</div>
-                        <ChonDiem 
-                          value={taskContributions[task.id] || 0} 
-                          onChange={(v) => handleTaskContribution(task.id, v)} 
-                          theme={theme}
-                        />
+                  {isTaskVisible && (
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
+                        📊 Đánh giá đóng góp cho từng task
                       </div>
-                    ))
+                      {memberTasks.map((task: any) => (
+                        <div key={task.id} style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 13, color: styles.text, marginBottom: 4 }}>
+                            {task.name}
+                          </div>
+                          <ChonDiem 
+                            value={allTaskContributions[member.id]?.[task.id] || 0} 
+                            onChange={(v) => handleTaskContribution(member.id, task.id, v)} 
+                            theme={theme}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   )}
-                </div>
+                </>
               )}
-
-              <NutBam onClick={submitEvaluation} theme={theme} style={{ width: "100%" }}>
-                ✅ Lưu đánh giá
-              </NutBam>
-            </>
-          )}
-          
-          {targetMember && daDanhGia(currentReviewer, targetMember) && (
-            <div style={{ padding: 16, background: styles.inputBg, borderRadius: 8, marginBottom: 16 }}>
-              <div style={{ color: "#22c55e", fontWeight: 600, marginBottom: 8 }}>
-                ✅ Đã đánh giá thành viên này
-              </div>
-              <div style={{ fontSize: 13, color: styles.textMuted }}>
-                Bạn không thể xem lại hoặc chỉnh sửa đánh giá.
-              </div>
-            </div>
-          )}
-        </TheCard>
+            </TheCard>
+          );
+        })}
       </div>
+
+      {/* ─── NÚT LƯU TẤT CẢ ────────────────────────────────────────────── */}
+      {chuaDanhGia.length > 0 && (
+        <div style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
+          <NutBam 
+            onClick={submitAllEvaluations} 
+            variant="primary" 
+            theme={theme} 
+            style={{ padding: "14px 40px", fontSize: 16, fontWeight: 700 }}
+          >
+            ✅ Lưu đánh giá cho {chuaDanhGia.length} thành viên
+          </NutBam>
+        </div>
+      )}
+
+      {chuaDanhGia.length === 0 && (
+        <div style={{ textAlign: "center", padding: 40 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
+          <div style={{ fontSize: 18, color: "#22c55e", fontWeight: 700 }}>
+            Bạn đã đánh giá tất cả thành viên!
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3105,7 +3191,6 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
 
     const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
     
-    // ─── LƯU VÀO FIREBASE VỚI LOCKED: TRUE ──────────────────────────────────
     const newData = {
       scores: scores,
       avgScore: avgScore,
