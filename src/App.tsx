@@ -1459,7 +1459,13 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         return true;
       });
 
-  const sortedTasks = [...filtered].sort((a, b) => {
+  // 🔥 SỬA: Lọc theo thành viên được chọn
+  const filteredByMember = filtered.filter((t: any) => {
+    if (filter === "all") return true;
+    return t.assignees?.some((a: any) => a.memberId === filter);
+  });
+
+  const sortedTasks = [...filteredByMember].sort((a, b) => {
     const aIsMine = a.assignees?.some((ass: any) => ass.memberId === currentReviewer);
     const bIsMine = b.assignees?.some((ass: any) => ass.memberId === currentReviewer);
     if (aIsMine && !bIsMine) return -1;
@@ -3438,7 +3444,6 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
       t.assignees?.some((a: any) => a.memberId === m.id)
     ).length;
 
-    // 🔥 SỬA: Tính task hoàn thành dựa trên status === "done"
     const completedTasks = tasks.filter((t: any) => 
       t.status === "done" && t.assignees?.some((a: any) => a.memberId === m.id)
     ).length;
