@@ -1926,7 +1926,19 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                       const isPending = s.assignee === null || s.assignee === undefined || s.assignee === "";
                       const isMine = s.assignee === currentReviewer;
                       const canAssign = leader === currentReviewer && isPending;
-                      const isAssignedToMe = t.assignees?.some((a: any) => a.memberId === currentReviewer);
+                      // 🔥 SỬA LỖI Ở ĐÂY - THÊM FALLBACK []
+                      const isAssignedToMe = (t.assignees || []).some((a: any) => a.memberId === currentReviewer);
+                      
+                      // 🔥 THÊM LOG ĐỂ DEBUG
+                      console.log("🔍 DEBUG SUBTASK:", {
+                        taskName: t.name,
+                        subtaskName: s.name,
+                        currentReviewer,
+                        assignees: t.assignees,
+                        isAssignedToMe,
+                        isPending,
+                        assignee: s.assignee
+                      });
                       
                       return (
                         <div key={s.id} style={{ 
@@ -1950,6 +1962,14 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                               <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ {layTen(s.assignee)} đã hoàn thành</span>
                             )}
                             {isPending && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>⏳ Chưa có ai nhận</span>}
+                            
+                            {/* 🔥 THÊM THÔNG BÁO RÕ RÀNG */}
+                            {isPending && isAssignedToMe && (
+                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>
+                                ⬅️ Bạn được giao, nhấn "📥 Nhận"
+                              </span>
+                            )}
+                            
                             {s.incomplete && (
                               <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 8 }}>⚠️ Chưa hoàn thành</span>
                             )}
@@ -1963,19 +1983,29 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             )}
                           </span>
                           
+                          {/* 🔥 NÚT NHẬN - ĐÃ SỬA */}
                           {isPending && isAssignedToMe && currentReviewer && (
                             <NutBam 
                               onClick={() => nhanTaskCon(t.id, s.id)} 
                               variant="success" 
                               theme={theme} 
-                              style={{ padding: "4px 12px", fontSize: 11 }}
+                              style={{ padding: "6px 16px", fontSize: 13, fontWeight: 700 }}
                             >
-                              📥 Nhận
+                              📥 NHẬN
                             </NutBam>
                           )}
                           
+                          {/* 🔥 THÔNG BÁO KHÔNG ĐƯỢC GIAO */}
                           {isPending && !isAssignedToMe && currentReviewer && (
-                            <span style={{ fontSize: 10, color: styles.textMuted, fontStyle: "italic" }}>
+                            <span style={{ 
+                              fontSize: 12, 
+                              color: styles.textMuted, 
+                              fontStyle: "italic",
+                              padding: "4px 12px",
+                              background: "#ef444422",
+                              borderRadius: 4,
+                              border: "1px solid #ef4444"
+                            }}>
                               🔒 Không được giao
                             </span>
                           )}
