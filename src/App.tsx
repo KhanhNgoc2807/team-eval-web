@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { database, ref, set, onValue, push, get, child, update, remove } from "./firebase";
 
 // ─── HẰNG SỐ ──────────────────────────────────────────────────────────────────
-const TRANG_THAI = { todo: { label: "Chưa làm", pct: 0, color: "#64748b" }, doing: { label: "Đang làm", pct: 0.5, color: "#f59e0b" }, done: { label: "Hoàn thành", pct: 1, color: "#22c55e" } };
+const TRANG_THAI = { todo: { label: "Chưa làm", pct: 0, color: "#64748b" }, doing: { label: "Đang làm", pct: 0.5, color: "#f59e0b" }, done: { label: "Hoàn thành", pct: 1, color: "#22c55e" }, checking: { label: "Đang kiểm tra", pct: 0.8, color: "#f59e0b" } };
 const TIEU_CHI_DANH_GIA = ["Chất lượng công việc", "Chủ động & Đúng tiến độ", "Tinh thần hợp tác"];
 const TIEU_CHI_TRUONG_NHOM = ["Chủ động & Trách nhiệm", "Chất lượng Output", "Phối hợp Nhóm"];
 const LUA_CHON_DIEM = [
@@ -292,6 +292,7 @@ function HelpDialog({ theme }: { theme: Theme }) {
               <p style={{ margin: 0 }}>• Nhận việc bỏ trống → +0.5 điểm thưởng</p>
               <p style={{ margin: 0 }}>• Có thể từ chối hoặc nhường việc cho người khác</p>
               <p style={{ margin: 0 }}>• Điểm task = (Số task hoàn thành / Tổng task được giao) × 10</p>
+              <p style={{ margin: 0 }}>• Chỉ người được giao mới được nộp sản phẩm</p>
             </div>
 
             <div style={{ marginBottom: 16 }}>
@@ -794,7 +795,7 @@ function HopNhom({ members, scheduleSlots, setScheduleSlots, scheduleSelections,
 }
 
 // ─── THIẾT LẬP ──────────────────────────────────────────────────────────────────
-function ThietLap({ members, setMembers, projectName, setProjectName, leader, setLeader, theme, leaderPassword, setLeaderPassword, secretQuestion, setSecretQuestion, secretAnswer, setSecretAnswer }: any) {
+function ThietLap({ members, setMembers, projectName, setProjectName, leader, setLeader, theme, leaderPassword, setLeaderPassword, secretAnswer1, setSecretAnswer1, secretAnswer2, setSecretAnswer2 }: any) {
   const [name, setName] = useState("");
   const [mssv, setMssv] = useState("");
   const styles = themeStyles[theme];
@@ -821,33 +822,33 @@ function ThietLap({ members, setMembers, projectName, setProjectName, leader, se
           <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${styles.border}` }}>
             <div style={{ color: "#fcd34d", fontWeight: 700, marginBottom: 4 }}>🔐 CÂU HỎI BÍ MẬT</div>
             <div style={{ fontSize: 12, color: styles.textMuted, marginBottom: 8 }}>
-              Dùng để đổi mật khẩu khi quên
+              Trả lời cả 2 câu để phòng quên mật khẩu
             </div>
+            
             <div style={{ marginBottom: 8 }}>
-              <label style={nhan}>Chọn câu hỏi bí mật</label>
-              <Chon 
-                value={secretQuestion} 
-                onChange={setSecretQuestion} 
-                theme={theme}
-              >
-                <option value="">-- Chọn câu hỏi --</option>
-                {CAU_HOI_Bi_MAT.map((q, idx) => (
-                  <option key={idx} value={q}>{q}</option>
-                ))}
-              </Chon>
-            </div>
-            <div>
-              <label style={nhan}>Câu trả lời</label>
+              <label style={nhan}>Câu 1: Trường tiểu học của bạn tên là gì?</label>
               <OInput 
                 type="password"
-                value={secretAnswer} 
-                onChange={setSecretAnswer} 
+                value={secretAnswer1} 
+                onChange={setSecretAnswer1} 
                 placeholder="Nhập câu trả lời"
                 theme={theme} 
               />
-              <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 4 }}>
-                ⚠️ Lưu ý: Câu trả lời có phân biệt chữ hoa/thường
-              </div>
+            </div>
+            
+            <div>
+              <label style={nhan}>Câu 2: Món ăn yêu thích nhất của bạn là gì?</label>
+              <OInput 
+                type="password"
+                value={secretAnswer2} 
+                onChange={setSecretAnswer2} 
+                placeholder="Nhập câu trả lời"
+                theme={theme} 
+              />
+            </div>
+            
+            <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 4 }}>
+              ⚠️ Lưu ý: Câu trả lời có phân biệt chữ hoa/thường
             </div>
           </div>
         </div>
@@ -1342,7 +1343,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
   };
 
   const doiTrangThai = (id: string) => { 
-    const order = ["todo", "doing", "done"]; 
+    const order = ["todo", "doing", "done", "checking"]; 
     setTasks((ts: any[]) => ts.map((t: any) => {
       if (t.id !== id) return t;
       const subtaskList = t.subtasks || [];
@@ -1355,7 +1356,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         return t;
       }
       
-      const newStatus = order[(order.indexOf(t.status) + 1) % 3];
+      const currentIdx = order.indexOf(t.status);
+      const newStatus = order[(currentIdx + 1) % order.length];
       
       if (newStatus === "done") {
         const allDone = subtaskList.every((s: any) => s.status === "done");
@@ -1402,8 +1404,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
   const filtered = statusFilter === "all" 
     ? safeTasks 
     : safeTasks.filter((t: any) => {
-        if (statusFilter === "pending") return t.status !== "done";
-        if (statusFilter === "checking") return t.checkStatus === "checking";
+        if (statusFilter === "pending") return t.status !== "done" && t.status !== "checking";
+        if (statusFilter === "checking") return t.status === "checking";
         if (statusFilter === "final") return t.checkStatus === "final";
         return true;
       });
@@ -1752,7 +1754,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
             const allAssigned = !hasSubtasks || pendingSubtasks.length === 0;
             
             const sc = TRANG_THAI[t.status as keyof typeof TRANG_THAI];
-            const od = t.deadline && t.status !== "done" && new Date(t.deadline) < new Date();
+            const od = t.deadline && t.status !== "done" && t.status !== "checking" && new Date(t.deadline) < new Date();
             
             return (
               <div key={t.id} style={{ background: styles.cardBg, border: `1px solid ${t.status === "done" ? "#166534" : od ? "#7f1d1d" : styles.border}`, borderRadius: 14, padding: 18 }}>
@@ -1770,7 +1772,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                         ✅ HOÀN THÀNH
                       </span>
                     )}
-                    {t.checkStatus === "checking" && (
+                    {t.status === "checking" && (
                       <span style={{
                         background: "#f59e0b",
                         color: "white",
@@ -1794,7 +1796,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                         ✨ HOÀN THIỆN
                       </span>
                     )}
-                    {t.status !== "done" && !t.checkStatus && (
+                    {t.status !== "done" && t.status !== "checking" && !t.checkStatus && (
                       <span style={{
                         background: "#64748b",
                         color: "white",
@@ -1873,7 +1875,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                   )}
                 </div>
                 
-                {leader === currentReviewer && !hasSubtasks && t.assignees?.length > 1 && t.status !== "done" && (
+                {leader === currentReviewer && !hasSubtasks && t.assignees?.length > 1 && t.status !== "done" && t.status !== "checking" && (
                   <button
                     onClick={() => tachTask(t.id)}
                     style={{
@@ -1891,7 +1893,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                   </button>
                 )}
                 
-                {!hasSubtasks && t.assignees?.some((a: any) => a.memberId === currentReviewer) && t.status !== "done" && (
+                {!hasSubtasks && t.assignees?.some((a: any) => a.memberId === currentReviewer) && t.status !== "done" && t.status !== "checking" && (
                   <NutBam 
                     onClick={() => hoanThanhTaskDon(t.id)} 
                     variant="success" 
@@ -2050,7 +2052,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                         ⏳ Còn {subtaskList.filter((s: any) => s.status === "accepted" && s.assignee !== null).length} đầu việc đang làm, chưa hoàn thành.
                       </div>
                     )}
-                    {subtaskList.every((s: any) => s.status === "done") && t.status !== "done" && (
+                    {subtaskList.every((s: any) => s.status === "done") && t.status !== "done" && t.status !== "checking" && (
                       <div style={{ fontSize: 11, color: "#22c55e", marginTop: 6 }}>
                         ✅ Tất cả đầu việc đã hoàn thành! Task sẽ tự động chuyển sang trạng thái Hoàn thành.
                       </div>
@@ -2058,6 +2060,11 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                     {t.status === "done" && (
                       <div style={{ fontSize: 11, color: "#22c55e", marginTop: 6 }}>
                         ✅ Task đã hoàn thành! ⭐ 10 điểm
+                      </div>
+                    )}
+                    {t.status === "checking" && (
+                      <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 6 }}>
+                        🔍 Task đang được kiểm tra
                       </div>
                     )}
                   </div>
@@ -3018,7 +3025,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
 }
 
 // ─── TRƯỞNG NHÓM ĐÁNH GIÁ THÀNH VIÊN ──────────────────────────────────────
-function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme, currentReviewer, leaderPassword, leaderPasswordVerified, setLeaderPasswordVerified, secretQuestion, secretAnswer }: any) {
+function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, theme, currentReviewer, leaderPassword, leaderPasswordVerified, setLeaderPasswordVerified, secretAnswer1, secretAnswer2 }: any) {
   const styles = themeStyles[theme];
   const [targetMember, setTargetMember] = useState("");
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -3039,29 +3046,6 @@ function DanhGiaTruongNhom({ members, leader, leaderScores, setLeaderScores, the
   const daDanhGiaHetLeader = otherMembers.every((m: any) => 
     daDanhGiaLeader(currentReviewer, m.id)
   );
-
-  const handleForgotPassword = () => {
-    if (!secretQuestion || !secretAnswer) {
-      alert("⚠️ Trưởng nhóm chưa thiết lập câu hỏi bí mật! Vui lòng liên hệ trưởng nhóm để cài đặt.");
-      return;
-    }
-    
-    const userAnswer = prompt(`🔐 Câu hỏi bảo mật:\n\n${secretQuestion}\n\n(Nhập câu trả lời của bạn)`);
-    
-    if (userAnswer === null) return;
-    
-    if (userAnswer.trim() === secretAnswer) {
-      const newPass = prompt("✅ Xác thực thành công!\n\nNhập mật khẩu mới:");
-      if (newPass && newPass.trim()) {
-        setLeaderPassword(newPass.trim());
-        setLeaderPasswordVerified(true);
-        localStorage.setItem("leader_verified", "true");
-        alert("✅ Đã đổi mật khẩu thành công!");
-      }
-    } else {
-      alert("❌ Câu trả lời sai! Bạn không thể đổi mật khẩu.");
-    }
-  };
 
   if (!isLeader) {
     return (
@@ -3288,7 +3272,7 @@ function KetQuaPhanTich({ members, tasks, peerScores, leaderScores, leader, peer
     ).length;
 
     const completedTasks = tasks.filter((t: any) => 
-      t.status === "done" && t.assignees?.some((a: any) => a.memberId === m.id)
+      t.status === "done" && t.subtasks?.some((s: any) => s.assignee === m.id && s.status === "done")
     ).length;
 
     const taskPoints = totalAssignedTasks > 0 
@@ -3716,8 +3700,8 @@ export default function App() {
   const [leaderPasswordVerified, setLeaderPasswordVerified] = useState(() => {
     return localStorage.getItem("leader_verified") === "true";
   });
-  const [secretQuestion, setSecretQuestion] = useState("");
-  const [secretAnswer, setSecretAnswer] = useState("");
+  const [secretAnswer1, setSecretAnswer1] = useState("");
+  const [secretAnswer2, setSecretAnswer2] = useState("");
   const [announcements, setAnnouncements] = useState<any[]>([]);
   
   const [scheduleSlots, setScheduleSlots] = useState<any[]>([]);
@@ -3757,8 +3741,8 @@ export default function App() {
         setTaskContributionScores(data.taskContributionScores || {});
         setAnnouncements(data.announcements || []);
         setLeaderPassword(data.leaderPassword || "");
-        setSecretQuestion(data.secretQuestion || "");
-        setSecretAnswer(data.secretAnswer || "");
+        setSecretAnswer1(data.secretAnswer1 || "");
+        setSecretAnswer2(data.secretAnswer2 || "");
         setHasGroup(true);
       } else {
         setHasGroup(true);
@@ -3776,11 +3760,11 @@ export default function App() {
       peerScores, peerComments, leaderScores, 
       teacherScore, scheduleSlots, scheduleSelections,
       chatMessages, taskDiscussions, taskComments, taskContributionScores,
-      announcements, leaderPassword, secretQuestion, secretAnswer
+      announcements, leaderPassword, secretAnswer1, secretAnswer2
     });
   }, [projectName, leader, members, tasks, peerScores, peerComments, leaderScores, teacherScore, 
       scheduleSlots, scheduleSelections, chatMessages, taskDiscussions, taskComments, taskContributionScores,
-      announcements, leaderPassword, secretQuestion, secretAnswer, roomId, isReady]);
+      announcements, leaderPassword, secretAnswer1, secretAnswer2, roomId, isReady]);
 
   const handleSelectUser = (userId: string) => {
     const selectedMember = members.find((m: any) => m.id === userId);
@@ -3817,13 +3801,19 @@ export default function App() {
           `❌ Mật khẩu sai!\n\nBạn có muốn sử dụng câu hỏi bí mật để đổi mật khẩu không?`
         );
         if (forgot) {
-          if (!secretQuestion || !secretAnswer) {
+          const questions = [
+            { q: "Trường tiểu học của bạn tên là gì?", a: secretAnswer1 },
+            { q: "Món ăn yêu thích nhất của bạn là gì?", a: secretAnswer2 }
+          ];
+          const available = questions.filter(q => q.a);
+          if (available.length === 0) {
             alert("⚠️ Trưởng nhóm chưa thiết lập câu hỏi bí mật! Vui lòng liên hệ trưởng nhóm để cài đặt.");
             return;
           }
-          const userAnswer = prompt(`🔐 Câu hỏi bảo mật:\n\n${secretQuestion}\n\n(Nhập câu trả lời của bạn)`);
+          const random = available[Math.floor(Math.random() * available.length)];
+          const userAnswer = prompt(`🔐 Câu hỏi bảo mật:\n\n${random.q}\n\n(Nhập câu trả lời của bạn)`);
           if (userAnswer === null) return;
-          if (userAnswer.trim() === secretAnswer) {
+          if (userAnswer.trim() === random.a) {
             const newPass = prompt("✅ Xác thực thành công!\n\nNhập mật khẩu mới:");
             if (newPass && newPass.trim()) {
               setLeaderPassword(newPass.trim());
@@ -3882,8 +3872,8 @@ export default function App() {
     setTaskContributionScores({});
     setAnnouncements([]);
     setLeaderPassword("");
-    setSecretQuestion("");
-    setSecretAnswer("");
+    setSecretAnswer1("");
+    setSecretAnswer2("");
     setLeaderPasswordVerified(false);
     localStorage.removeItem("leader_verified");
     setHasGroup(true);
@@ -4029,10 +4019,10 @@ export default function App() {
           theme={theme}
           leaderPassword={leaderPassword}
           setLeaderPassword={setLeaderPassword}
-          secretQuestion={secretQuestion}
-          setSecretQuestion={setSecretQuestion}
-          secretAnswer={secretAnswer}
-          setSecretAnswer={setSecretAnswer}
+          secretAnswer1={secretAnswer1}
+          setSecretAnswer1={setSecretAnswer1}
+          secretAnswer2={secretAnswer2}
+          setSecretAnswer2={setSecretAnswer2}
         />}
         {tab === "tasks" && <CongViec 
           members={members} 
@@ -4076,8 +4066,8 @@ export default function App() {
           leaderPassword={leaderPassword}
           leaderPasswordVerified={leaderPasswordVerified}
           setLeaderPasswordVerified={setLeaderPasswordVerified}
-          secretQuestion={secretQuestion}
-          secretAnswer={secretAnswer}
+          secretAnswer1={secretAnswer1}
+          secretAnswer2={secretAnswer2}
         />}
         {tab === "schedule" && <HopNhom 
           members={members} 
