@@ -972,7 +972,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
             if (s.assignee === null || s.assignee === undefined || s.assignee === "") {
               const assignedMember = shuffledMembers[memberIndex % shuffledMembers.length];
               memberIndex++;
-              return { ...s, assignee: assignedMember, status: "accepted" };
+              return { ...s, assignee: assignedMember, status: "accepted", assignedBy: null };
             }
             return s;
           });
@@ -1024,7 +1024,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         id: uid(),
         name: name,
         assignee: form.assignees[index] || null,
-        status: form.assignees.length > 1 && form.subtasks.length === 0 ? "accepted" : "pending" 
+        status: form.assignees.length > 1 && form.subtasks.length === 0 ? "accepted" : "pending",
+        assignedBy: null
       })),
       deadline: form.deadline, 
       status: "todo",
@@ -1096,7 +1097,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
           description: editingTask.description || "",
           subtasks: editingTask.subtaskNames.map((name: string) => {
             const existing = t.subtasks.find((s: any) => s.name === name);
-            return existing || { id: uid(), name, assignee: null, status: "pending" };
+            return existing || { id: uid(), name, assignee: null, status: "pending", assignedBy: null };
           }),
           deadline: editingTask.deadline,
         };
@@ -1160,7 +1161,7 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
               status: "accepted",
               incomplete: false,
               rescueBonus: bonus,
-              assignedBy: leader === currentReviewer ? currentReviewer : s.assignedBy
+              assignedBy: leader === currentReviewer ? currentReviewer : (s.assignedBy || null)
             };
           }
           return s;
@@ -1203,7 +1204,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
               ...s, 
               assignee: null, 
               status: "pending",
-              incomplete: false
+              incomplete: false,
+              assignedBy: null
             };
           }
           return s;
@@ -1234,7 +1236,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
         id: uid(),
         name: `Phần của ${member?.name || "thành viên"}`,
         assignee: a.memberId,
-        status: "accepted"
+        status: "accepted",
+        assignedBy: null
       };
     });
     
@@ -1248,7 +1251,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
     alert(`✅ Đã tách task thành ${subtasks.length} đầu việc nhỏ!`);
   };
 
-  // 🔥 SỬA HÀM CHI ĐỊNH - THÊM NGƯỜI ĐƯỢC CHỈ ĐỊNH VÀO ASSIGNEES
   const chiDinhCung = (taskId: string, subtaskId: string, memberId: string) => {
     if (leader !== currentReviewer) {
       alert("⚠️ Chỉ trưởng nhóm mới có thể chỉ định!");
@@ -1262,13 +1264,12 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
               ...s, 
               assignee: memberId, 
               status: "accepted",
-              assignedBy: currentReviewer
+              assignedBy: currentReviewer || null
             };
           }
           return s;
         });
         
-        // 🔥 THÊM memberId VÀO assignees NẾU CHƯA CÓ
         const existingAssignee = (t.assignees || []).find((a: any) => a.memberId === memberId);
         let updatedAssignees = t.assignees || [];
         if (!existingAssignee) {
@@ -1355,7 +1356,8 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
               status: "pending",
               reportedBy: currentReviewer,
               reportedAt: new Date().toISOString(),
-              incomplete: true
+              incomplete: true,
+              assignedBy: null
             };
           }
           return s;
@@ -1958,26 +1960,19 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                       📌 Các đầu việc nhỏ:
                     </div>
                     {subtaskList.map((s: any) => {
-                      // 🔥 SỬA: isPending - kiểm tra kỹ hơn
                       const isPending = s.assignee === null 
                         || s.assignee === undefined 
                         || s.assignee === "" 
                         || s.assignee === "null"
                         || s.status === "pending";
                       
-                      // 🔥 isMine - người được chỉ định cũng là isMine
                       const isMine = s.assignee === currentReviewer;
-                      
-                      // 🔥 SỬA QUAN TRỌNG: isAssignedToMe - kiểm tra CẢ assignees và subtasks
                       const isAssignedToMe = (t.assignees || []).some((a: any) => a.memberId === currentReviewer)
                         || (t.subtasks || []).some((sub: any) => sub.assignee === currentReviewer);
                       
-                      // 🔥 THÊM: isAssignedByLeader - người được chỉ định bởi leader
                       const isAssignedByLeader = s.assignedBy !== undefined && s.assignedBy !== null && s.assignedBy !== "";
-                      
                       const canAssign = leader === currentReviewer && isPending;
                       
-                      // 🔥 LOG DEBUG CHI TIẾT
                       console.log("🔍 SUBTASK DEBUG:", {
                         taskName: t.name,
                         subtaskName: s.name,
@@ -2003,7 +1998,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                           <span style={{ fontSize: 13, flex: 1 }}>
                             {isPending ? "⬜" : s.status === "done" ? "✅" : "🔄"} {s.name}
                             
-                            {/* THÔNG BÁO CHO NGƯỜI ĐƯỢC CHỈ ĐỊNH */}
                             {isMine && s.status === "accepted" && isAssignedByLeader && (
                               <span style={{ fontSize: 11, color: "#8b5cf6", marginLeft: 8 }}>
                                 👑 Bạn được trưởng nhóm chỉ định - đang làm
@@ -2041,7 +2035,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             )}
                           </span>
                           
-                          {/* 🔥 NÚT NHẬN - SỬA LỖI: HIỂN THỊ KHI ĐƯỢC GIAO VÀ CHƯA CÓ NGƯỜI NHẬN */}
                           {isPending && isAssignedToMe && currentReviewer && (
                             <NutBam 
                               onClick={() => {
@@ -2061,7 +2054,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             </NutBam>
                           )}
                           
-                          {/* THÔNG BÁO KHÔNG ĐƯỢC GIAO */}
                           {isPending && !isAssignedToMe && currentReviewer && (
                             <span style={{ 
                               fontSize: 13, 
@@ -2076,7 +2068,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             </span>
                           )}
                           
-                          {/* NÚT HOÀN THÀNH - CHO NGƯỜI ĐÃ NHẬN HOẶC ĐƯỢC CHỈ ĐỊNH */}
                           {isMine && s.status === "accepted" && (
                             <NutBam 
                               onClick={() => hoanThanhSubtask(t.id, s.id)} 
@@ -2088,7 +2079,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             </NutBam>
                           )}
                           
-                          {/* NÚT TỪ CHỐI - CHO NGƯỜI ĐÃ NHẬN HOẶC ĐƯỢC CHỈ ĐỊNH */}
                           {isMine && s.status === "accepted" && (
                             <button
                               onClick={() => tuChoiSubtask(t.id, s.id)}
@@ -2107,7 +2097,6 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             </button>
                           )}
                           
-                          {/* PHẦN CHỈ ĐỊNH CỦA LEADER */}
                           {canAssign && (
                             <>
                               <Chon 
@@ -2871,24 +2860,21 @@ function ThaoLuan({ members, tasks, taskDiscussions, setTaskDiscussions, taskCom
 function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComments, setPeerComments, taskContributionScores, setTaskContributionScores, theme, currentReviewer }: any) {
   const styles = themeStyles[theme];
   
-  // ─── STATE MỚI: Lưu điểm cho TẤT CẢ thành viên ────────────────────  const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
+  const [allScores, setAllScores] = useState<Record<string, Record<string, number>>>({});
   const [allComments, setAllComments] = useState<Record<string, string>>({});
   const [allTaskContributions, setAllTaskContributions] = useState<Record<string, Record<string, number>>>({});
   const [showTasks, setShowTasks] = useState<Record<string, boolean>>({});
   
   const otherMembers = members.filter((m: any) => m.id !== currentReviewer);
 
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ TỪ FIREBASE ─────────────────────────────
   const daDanhGia = (reviewerId: string, targetId: string) => {
     return peerScores[reviewerId]?.[targetId]?.locked === true;
   };
 
-  // ─── KIỂM TRA ĐÃ ĐÁNH GIÁ HẾT CHƯA ──────────────────────────────────
   const daDanhGiaHet = otherMembers.every((m: any) => 
     daDanhGia(currentReviewer, m.id)
   );
 
-  // ─── NẾU ĐÃ ĐÁNH GIÁ HẾT → ẨN TOÀN BỘ ─────────────────────────────
   if (daDanhGiaHet && otherMembers.length > 0) {
     return (
       <TheCard theme={theme} style={{ textAlign: "center", padding: 60 }}>
@@ -2916,11 +2902,9 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     );
   }
 
-  // ─── LỌC DANH SÁCH CHƯA ĐÁNH GIÁ ──────────────────────────────────
   const chuaDanhGia = otherMembers.filter((m: any) => !daDanhGia(currentReviewer, m.id));
   const soLuongDaDanhGia = otherMembers.length - chuaDanhGia.length;
 
-  // ─── XỬ LÝ THAY ĐỔI ĐIỂM ────────────────────────────────────────────
   const handleScoreChange = (memberId: string, criteria: string, value: number) => {
     setAllScores(prev => ({
       ...prev,
@@ -2931,7 +2915,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     }));
   };
 
-  // ─── XỬ LÝ THAY ĐỔI NHẬN XÉT ──────────────────────────────────────
   const handleCommentChange = (memberId: string, value: string) => {
     setAllComments(prev => ({
       ...prev,
@@ -2939,7 +2922,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     }));
   };
 
-  // ─── XỬ LÝ THAY ĐỔI ĐÓNG GÓP TASK ──────────────────────────────────
   const handleTaskContribution = (memberId: string, taskId: string, value: number) => {
     setAllTaskContributions(prev => ({
       ...prev,
@@ -2950,9 +2932,7 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
     }));
   };
 
-  // ─── SUBMIT TẤT CẢ ĐÁNH GIÁ CÙNG LÚC ──────────────────────────────
   const submitAllEvaluations = () => {
-    // Kiểm tra từng thành viên
     const errors: string[] = [];
     
     chuaDanhGia.forEach((member: any) => {
@@ -2969,17 +2949,14 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
       return;
     }
 
-    // Xác nhận trước khi lưu
     if (!window.confirm(`Bạn có chắc chắn muốn lưu đánh giá cho ${chuaDanhGia.length} thành viên?\n\nSau khi lưu, bạn KHÔNG THỂ xem lại hoặc sửa!`)) {
       return;
     }
 
-    // Lưu từng đánh giá
     chuaDanhGia.forEach((member: any) => {
       const scores = allScores[member.id] || {};
       const avgScore = Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
       
-      // Lưu peer scores
       const newData = {
         scores: scores,
         avgScore: avgScore,
@@ -2998,7 +2975,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
         };
       });
 
-      // Lưu nhận xét
       if (allComments[member.id]?.trim()) {
         setPeerComments((prev: any) => ({
           ...prev,
@@ -3009,7 +2985,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
         }));
       }
 
-      // Lưu đóng góp task
       const taskContribs = allTaskContributions[member.id] || {};
       if (Object.keys(taskContribs).length > 0) {
         setTaskContributionScores((prev: any) => ({
@@ -3024,13 +2999,11 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
 
     alert(`✅ Đã lưu đánh giá cho ${chuaDanhGia.length} thành viên!`);
     
-    // Reset form
     setAllScores({});
     setAllComments({});
     setAllTaskContributions({});
   };
 
-  // ─── LẤY DANH SÁCH TASK CHO THÀNH VIÊN ────────────────────────────
   const getTaskOptions = (memberId: string) => {
     return tasks.filter((t: any) => {
       const allMembers = t.assignees?.map((a: any) => a.memberId) || [];
@@ -3058,7 +3031,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
         </div>
       </TheCard>
 
-      {/* ─── HIỂN THỊ TẤT CẢ THÀNH VIÊN CÙNG LÚC ─────────────────────── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
         {chuaDanhGia.map((member: any) => {
           const memberTasks = getTaskOptions(member.id);
@@ -3105,7 +3077,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
                 </div>
               </div>
 
-              {/* ─── BẢNG ĐÁNH GIÁ CHO TỪNG THÀNH VIÊN ────────────────── */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
                   📝 Đánh giá theo tiêu chí
@@ -3124,7 +3095,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
                 ))}
               </div>
 
-              {/* ─── NHẬN XÉT ────────────────────────────────────────────── */}
               <div style={{ marginBottom: 16 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#a5b4fc", marginBottom: 8 }}>
                   💬 Nhận xét (tùy chọn)
@@ -3138,7 +3108,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
                 />
               </div>
 
-              {/* ─── ĐÁNH GIÁ TASK ────────────────────────────────────────── */}
               {memberTasks.length > 0 && (
                 <>
                   <button 
@@ -3184,7 +3153,6 @@ function DanhGiaNhanXet({ members, tasks, peerScores, setPeerScores, peerComment
         })}
       </div>
 
-      {/* ─── NÚT LƯU TẤT CẢ ────────────────────────────────────────────── */}
       {chuaDanhGia.length > 0 && (
         <div style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
           <NutBam 
