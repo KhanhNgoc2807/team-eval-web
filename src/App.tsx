@@ -1857,25 +1857,43 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {(t.assignees || []).map((a: any) => {
                       const member = safeMembers.find((m: any) => m.id === a.memberId);
+                      const isMe = a.memberId === currentReviewer;
                       const hasAccepted = t.subtasks?.some((s: any) => s.assignee === a.memberId && s.status !== "pending");
                       return (
                         <span key={a.memberId} style={{ 
-                          padding: "2px 10px", 
+                          padding: "4px 12px", 
                           borderRadius: 12, 
-                          background: hasAccepted ? "#22c55e22" : "#f59e0b22",
-                          border: `1px solid ${hasAccepted ? "#22c55e" : "#f59e0b"}`,
-                          color: hasAccepted ? "#22c55e" : "#f59e0b",
-                          fontSize: 12,
+                          background: isMe ? "#22c55e22" : hasAccepted ? "#22c55e22" : "#f59e0b22",
+                          border: `2px solid ${isMe ? "#22c55e" : hasAccepted ? "#22c55e" : "#f59e0b"}`,
+                          color: isMe ? "#22c55e" : hasAccepted ? "#22c55e" : "#f59e0b",
+                          fontSize: 13,
+                          fontWeight: isMe ? 700 : 400,
                           display: "inline-flex",
                           alignItems: "center",
                           gap: 4
                         }}>
                           {member?.name || "Không xác định"}
-                          {hasAccepted ? " ✅" : " ⏳"}
+                          {isMe && " ⭐ BẠN"}
+                          {!isMe && hasAccepted && " ✅"}
                         </span>
                       );
                     })}
                   </div>
+                  {/* 🔥 THÊM CẢNH BÁO NẾU KHÔNG ĐƯỢC GIAO */}
+                  {!t.assignees?.some((a: any) => a.memberId === currentReviewer) && (
+                    <div style={{ 
+                      marginTop: 6, 
+                      padding: "6px 12px", 
+                      background: "#ef444422", 
+                      borderRadius: 6,
+                      border: "1px solid #ef4444",
+                      color: "#ef4444",
+                      fontSize: 12,
+                      fontWeight: 600
+                    }}>
+                      ⚠️ Bạn KHÔNG được giao task này! Chỉ những người trong danh sách trên mới có thể nhận việc.
+                    </div>
+                  )}
                   {hasSubtasks && (
                     <div style={{ fontSize: 11, color: styles.textMuted, marginTop: 4 }}>
                       📌 {t.subtasks.length} đầu việc nhỏ
@@ -1923,21 +1941,26 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                       📌 Các đầu việc nhỏ:
                     </div>
                     {subtaskList.map((s: any) => {
-                      const isPending = s.assignee === null || s.assignee === undefined || s.assignee === "";
+                      // 🔥 SỬA LỖI Ở ĐÂY
+                      const isPending = s.assignee === null 
+                        || s.assignee === undefined 
+                        || s.assignee === "" 
+                        || s.assignee === "null";
+                      
                       const isMine = s.assignee === currentReviewer;
                       const canAssign = leader === currentReviewer && isPending;
-                      // 🔥 SỬA LỖI Ở ĐÂY - THÊM FALLBACK []
+                      
+                      // 🔥 SỬA LỖI QUAN TRỌNG NÀY - THÊM FALLBACK []
                       const isAssignedToMe = (t.assignees || []).some((a: any) => a.memberId === currentReviewer);
                       
                       // 🔥 THÊM LOG ĐỂ DEBUG
-                      console.log("🔍 DEBUG SUBTASK:", {
-                        taskName: t.name,
-                        subtaskName: s.name,
+                      console.log(`🔍 Subtask "${s.name}" (task: "${t.name}"):`, {
                         currentReviewer,
-                        assignees: t.assignees,
-                        isAssignedToMe,
+                        assignee: s.assignee,
                         isPending,
-                        assignee: s.assignee
+                        isMine,
+                        isAssignedToMe,
+                        allAssignees: t.assignees
                       });
                       
                       return (
@@ -1953,23 +1976,32 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                         }}>
                           <span style={{ fontSize: 13, flex: 1 }}>
                             {isPending ? "⬜" : s.status === "done" ? "✅" : "🔄"} {s.name}
-                            {isMine && s.status === "accepted" && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>📌 (Bạn đã nhận - đang làm)</span>}
-                            {isMine && s.status === "done" && <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã hoàn thành)</span>}
-                            {!isPending && s.assignee && !isMine && s.status === "accepted" && (
-                              <span style={{ fontSize: 11, color: "#6366f1", marginLeft: 8 }}>👤 {layTen(s.assignee)} đang làm</span>
-                            )}
-                            {!isPending && s.assignee && !isMine && s.status === "done" && (
-                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ {layTen(s.assignee)} đã hoàn thành</span>
-                            )}
-                            {isPending && <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>⏳ Chưa có ai nhận</span>}
                             
-                            {/* 🔥 THÊM THÔNG BÁO RÕ RÀNG */}
+                            {/* THÔNG BÁO RÕ RÀNG */}
                             {isPending && isAssignedToMe && (
                               <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>
-                                ⬅️ Bạn được giao, nhấn "📥 Nhận"
+                                ✅ Bạn được giao - Nhấn "📥 NHẬN"
                               </span>
                             )}
                             
+                            {isPending && !isAssignedToMe && currentReviewer && (
+                              <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 8 }}>
+                                ❌ Bạn KHÔNG được giao task này
+                              </span>
+                            )}
+                            
+                            {!isPending && s.assignee && (
+                              <span style={{ fontSize: 11, color: "#6366f1", marginLeft: 8 }}>
+                                👤 {layTen(s.assignee)} đang làm
+                              </span>
+                            )}
+                            
+                            {isMine && s.status === "accepted" && (
+                              <span style={{ fontSize: 11, color: "#f59e0b", marginLeft: 8 }}>📌 (Bạn đã nhận - đang làm)</span>
+                            )}
+                            {isMine && s.status === "done" && (
+                              <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>✅ (Bạn đã hoàn thành)</span>
+                            )}
                             {s.incomplete && (
                               <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 8 }}>⚠️ Chưa hoàn thành</span>
                             )}
@@ -1983,30 +2015,30 @@ function CongViec({ members, tasks, setTasks, theme, leader, currentReviewer, an
                             )}
                           </span>
                           
-                          {/* 🔥 NÚT NHẬN - ĐÃ SỬA */}
+                          {/* 🔥 NÚT NHẬN - ĐÃ SỬA LỖI */}
                           {isPending && isAssignedToMe && currentReviewer && (
                             <NutBam 
                               onClick={() => nhanTaskCon(t.id, s.id)} 
                               variant="success" 
                               theme={theme} 
-                              style={{ padding: "6px 16px", fontSize: 13, fontWeight: 700 }}
+                              style={{ padding: "8px 20px", fontSize: 14, fontWeight: 700 }}
                             >
                               📥 NHẬN
                             </NutBam>
                           )}
                           
-                          {/* 🔥 THÔNG BÁO KHÔNG ĐƯỢC GIAO */}
+                          {/* THÔNG BÁO KHÔNG ĐƯỢC GIAO */}
                           {isPending && !isAssignedToMe && currentReviewer && (
                             <span style={{ 
-                              fontSize: 12, 
-                              color: styles.textMuted, 
-                              fontStyle: "italic",
+                              fontSize: 13, 
+                              color: "#ef4444", 
+                              fontWeight: 700,
                               padding: "4px 12px",
                               background: "#ef444422",
                               borderRadius: 4,
-                              border: "1px solid #ef4444"
+                              border: "2px solid #ef4444"
                             }}>
-                              🔒 Không được giao
+                              🔒 KHÔNG ĐƯỢC GIAO
                             </span>
                           )}
                           
